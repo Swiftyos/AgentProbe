@@ -24,6 +24,10 @@ endpoints:
   create_session:
     method: POST
     url: "{{ base_url }}/api/chat/sessions"
+    body_template: |
+      {
+        "dry_run": true
+      }
 
   send_message:
     method: POST

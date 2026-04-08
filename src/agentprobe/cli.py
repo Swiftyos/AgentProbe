@@ -24,6 +24,8 @@ from .runner import (
     run_suite,
 )
 
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+
 
 def test_data_processing(data_path: str | Path = "data") -> list[str]:
     processed = process_yaml_files(data_path)
@@ -50,6 +52,19 @@ def _db_url_from_path(db_path: Path | None) -> str | None:
     if db_path is None:
         return None
     return f"sqlite:///{db_path.expanduser().resolve()}"
+
+
+def _openai_client_kwargs() -> dict[str, str]:
+    openrouter_api_key = os.getenv("OPEN_ROUTER_API_KEY", "").strip()
+    if not openrouter_api_key:
+        raise AgentProbeConfigError(
+            "OPEN_ROUTER_API_KEY is required for `agentprobe run`."
+        )
+
+    return {
+        "api_key": openrouter_api_key,
+        "base_url": OPENROUTER_BASE_URL,
+    }
 
 
 def _print_run_summary(result: RunResult) -> None:
@@ -204,7 +219,7 @@ def run(
     )
 
     async def execute(recorder: SqliteRunRecorder) -> RunResult:
-        async with openai.AsyncClient() as oai_client:
+        async with openai.AsyncClient(**_openai_client_kwargs()) as oai_client:
             return await run_suite(
                 endpoint=endpoint_path,
                 scenarios=scenarios_path,

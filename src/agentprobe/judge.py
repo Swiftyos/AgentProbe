@@ -194,8 +194,7 @@ async def judge(
         raise openai.AuthenticationError(
             message=(
                 f"Judge authentication failed for model '{judge_config.model}'. "
-                "Set OPENAI_API_KEY (and OPENAI_BASE_URL for OpenRouter or other providers) "
-                "environment variables before running agentprobe."
+                "Set a valid OPEN_ROUTER_API_KEY before running agentprobe."
             ),
             response=exc.response,
             body=exc.body,

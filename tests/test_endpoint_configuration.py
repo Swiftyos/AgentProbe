@@ -129,6 +129,8 @@ def test_autogpt_configuration_shape():
     assert configured.session.type == "managed"
     assert configured.session.create is not None
     assert configured.session.create.endpoint == "create_session"
+    assert configured.endpoints["create_session"].body_template is not None
+    assert '"dry_run": false' in configured.endpoints["create_session"].body_template
     assert configured.request is not None
     assert configured.request.endpoint == "send_message"
     assert configured.response is not None
