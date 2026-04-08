@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 
 from agentprobe.cli import cli
@@ -10,6 +11,13 @@ from agentprobe.runner import RunProgressEvent, RunResult, ScenarioRunResult
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
+
+
+@pytest.fixture(autouse=True)
+def _configure_openrouter_env(monkeypatch):
+    monkeypatch.setenv("OPEN_ROUTER_API_KEY", "openrouter-test-key")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
 
 
 def create_dummy_paths(tmp_path: Path) -> dict[str, Path]:
@@ -72,6 +80,128 @@ def test_run_command_returns_pass_exit_code(monkeypatch, tmp_path: Path):
 
     assert result.exit_code == 0
     assert "PASS smoke-scenario score=0.80" in result.output
+
+
+def test_run_command_uses_openrouter_env_fallback(monkeypatch, tmp_path: Path):
+    captured: dict[str, object] = {}
+
+    class FakeAsyncClient:
+        def __init__(self, **kwargs: object) -> None:
+            captured["kwargs"] = kwargs
+
+        async def __aenter__(self) -> object:
+            return object()
+
+        async def __aexit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    async def fake_run_suite(**kwargs: object) -> RunResult:
+        return RunResult(passed=True, exit_code=0, results=[])
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.setenv("OPEN_ROUTER_API_KEY", "openrouter-test-key")
+    monkeypatch.setattr("agentprobe.cli.openai.AsyncClient", FakeAsyncClient)
+    monkeypatch.setattr("agentprobe.cli.run_suite", fake_run_suite)
+    paths = create_dummy_paths(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "run",
+            "--endpoint",
+            str(paths["endpoint"]),
+            "--scenarios",
+            str(paths["scenarios"]),
+            "--personas",
+            str(paths["personas"]),
+            "--rubric",
+            str(paths["rubric"]),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["kwargs"] == {
+        "api_key": "openrouter-test-key",
+        "base_url": "https://openrouter.ai/api/v1",
+    }
+
+
+def test_run_command_ignores_openai_env_and_uses_openrouter_only(
+    monkeypatch, tmp_path: Path
+):
+    captured: dict[str, object] = {}
+
+    class FakeAsyncClient:
+        def __init__(self, **kwargs: object) -> None:
+            captured["kwargs"] = kwargs
+
+        async def __aenter__(self) -> object:
+            return object()
+
+        async def __aexit__(self, exc_type, exc, tb) -> None:
+            return None
+
+    async def fake_run_suite(**kwargs: object) -> RunResult:
+        return RunResult(passed=True, exit_code=0, results=[])
+
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-test-key")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.example/v1")
+    monkeypatch.setenv("OPEN_ROUTER_API_KEY", "openrouter-test-key")
+    monkeypatch.setattr("agentprobe.cli.openai.AsyncClient", FakeAsyncClient)
+    monkeypatch.setattr("agentprobe.cli.run_suite", fake_run_suite)
+    paths = create_dummy_paths(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "run",
+            "--endpoint",
+            str(paths["endpoint"]),
+            "--scenarios",
+            str(paths["scenarios"]),
+            "--personas",
+            str(paths["personas"]),
+            "--rubric",
+            str(paths["rubric"]),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["kwargs"] == {
+        "api_key": "openrouter-test-key",
+        "base_url": "https://openrouter.ai/api/v1",
+    }
+
+
+def test_run_command_requires_openrouter_key_even_if_openai_env_exists(
+    monkeypatch, tmp_path: Path
+):
+    monkeypatch.delenv("OPEN_ROUTER_API_KEY", raising=False)
+    monkeypatch.setenv("OPENAI_API_KEY", "openai-test-key")
+    monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.example/v1")
+    paths = create_dummy_paths(tmp_path)
+    runner = CliRunner()
+
+    result = runner.invoke(
+        cli,
+        [
+            "run",
+            "--endpoint",
+            str(paths["endpoint"]),
+            "--scenarios",
+            str(paths["scenarios"]),
+            "--personas",
+            str(paths["personas"]),
+            "--rubric",
+            str(paths["rubric"]),
+        ],
+    )
+
+    assert result.exit_code == 2
+    assert "Configuration error: OPEN_ROUTER_API_KEY is required" in result.output
 
 
 def test_run_command_returns_fail_exit_code(monkeypatch, tmp_path: Path):

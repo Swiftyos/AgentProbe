@@ -14,7 +14,7 @@ Current capabilities in this workspace include:
 
 - Python 3.11+
 - [`uv`](https://docs.astral.sh/uv/) for the simplest install and tool workflow
-- `OPENAI_API_KEY` for `agentprobe run`
+- `OPEN_ROUTER_API_KEY` for `agentprobe run`
 
 You can use `agentprobe validate` without an OpenAI key. The `openclaw` helper commands also do not require OpenAI.
 
@@ -42,11 +42,10 @@ uv run agentprobe run \
   --rubric data/rubric.yaml
 ```
 
-The bundled persona and rubric defaults use OpenRouter-style model IDs. Point the OpenAI-compatible client at OpenRouter before running the sample suite:
+The bundled persona and rubric defaults use OpenRouter-style model IDs. `agentprobe run` now pins the OpenAI-compatible client to OpenRouter, so set:
 
 ```bash
-export OPENAI_BASE_URL="https://openrouter.ai/api/v1"
-export OPENAI_API_KEY="<your-openrouter-api-key>"
+export OPEN_ROUTER_API_KEY="<your-openrouter-api-key>"
 ```
 
 The sample endpoint above targets an OpenClaw gateway. If you are not running OpenClaw, swap in your own endpoint YAML or one of the other templates under `data/`.
@@ -204,8 +203,9 @@ agentprobe report --run-id <run-id> --output ./agentprobe-report.html
 
 Common environment variables used by the sample configs:
 
-- `OPENAI_API_KEY`: required for persona simulation and rubric judging during `agentprobe run`; use your OpenRouter key when `OPENAI_BASE_URL` points at OpenRouter
-- `OPENAI_BASE_URL`: optional OpenAI-compatible base URL override; set to `https://openrouter.ai/api/v1` for the bundled defaults
+- `OPEN_ROUTER_API_KEY`: required for persona simulation and rubric judging during `agentprobe run`
+- `OPENAI_API_KEY`: ignored by `agentprobe run`
+- `OPENAI_BASE_URL`: ignored by `agentprobe run`; the client always uses `https://openrouter.ai/api/v1`
 - `AGENTPROBE_PERSONA_MODEL`: optional override for persona generation, defaults to `moonshotai/kimi-k2.5`
 - `OPENCLAW_GATEWAY_URL`: defaults to `ws://127.0.0.1:18789`
 - `OPENCLAW_GATEWAY_TOKEN`: optional gateway auth token

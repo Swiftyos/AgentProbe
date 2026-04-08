@@ -53,7 +53,7 @@ def default_email() -> str:
 
 
 def default_user_id() -> str:
-    return f"agentprobe-{uuid.uuid4().hex[:12]}"
+    return str(uuid.uuid4())
 
 
 def signup_via_supabase(

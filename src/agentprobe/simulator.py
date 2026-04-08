@@ -530,8 +530,7 @@ async def generate_persona_step(
         raise openai.AuthenticationError(
             message=(
                 f"Persona simulator authentication failed for model '{model}'. "
-                "Set OPENAI_API_KEY (and OPENAI_BASE_URL for OpenRouter or other providers) "
-                "environment variables before running agentprobe."
+                "Set a valid OPEN_ROUTER_API_KEY before running agentprobe."
             ),
             response=exc.response,
             body=exc.body,
