@@ -814,8 +814,9 @@ scenarios:
         recorder: object | None = None,
         scenario_ordinal: int | None = None,
         dry_run: bool = False,
+        adapter_factory: object | None = None,
     ) -> ScenarioRunResult:
-        del adapter, persona, rubric, oai_client, recorder, scenario_ordinal, dry_run
+        del adapter, persona, rubric, oai_client, recorder, scenario_ordinal, dry_run, adapter_factory
         observed_defaults.append(
             (scenario.id, defaults.max_turns if defaults is not None else None)
         )
@@ -1093,8 +1094,9 @@ scenarios:
         recorder: object | None = None,
         scenario_ordinal: int | None = None,
         dry_run: bool = False,
+        adapter_factory: object | None = None,
     ) -> ScenarioRunResult:
-        del adapter, persona, rubric, defaults, oai_client, recorder, dry_run
+        del adapter, persona, rubric, defaults, oai_client, recorder, dry_run, adapter_factory
         if scenario.id == "smoke-scenario":
             await asyncio.sleep(0.05)
             return ScenarioRunResult(
