@@ -35,7 +35,10 @@ describe("endpoint adapters", () => {
       body: unknown;
     }> = [];
 
-    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+    const fetchImpl = (async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
       const request =
         input instanceof Request
           ? input
@@ -123,7 +126,10 @@ describe("endpoint adapters", () => {
       };
     };
 
-    const fetchImpl = (async (input: string | URL | Request, init?: RequestInit) => {
+    const fetchImpl = (async (
+      input: string | URL | Request,
+      init?: RequestInit,
+    ) => {
       const request =
         input instanceof Request
           ? input

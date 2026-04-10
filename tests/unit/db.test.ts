@@ -1,27 +1,30 @@
-import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { describe, expect, test } from "bun:test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { runSuite } from "../../src/domains/evaluation/run-suite.ts";
 import {
   DEFAULT_DB_FILENAME,
-  SqliteRunRecorder,
   getRun,
   initDb,
   latestRunForSuite,
   listRuns,
+  SqliteRunRecorder,
 } from "../../src/providers/persistence/sqlite-run-history.ts";
-import { AgentProbeConfigError, AgentProbeRuntimeError } from "../../src/shared/utils/errors.ts";
 import type { Endpoints } from "../../src/shared/types/contracts.ts";
+import {
+  AgentProbeConfigError,
+  AgentProbeRuntimeError,
+} from "../../src/shared/utils/errors.ts";
 import {
   adapterReply,
   asResponsesClient,
   buildPersonaStep,
   buildScore,
+  FailingAdapter,
   FakeAdapter,
   FakeResponsesClient,
-  FailingAdapter,
   makeTempDir,
   toolCall,
 } from "./support.ts";
@@ -217,9 +220,7 @@ describe("sqlite recorder", () => {
         expect(tableNames.has(name)).toBe(true);
       }
       expect(
-        database
-          .query("select schema_version from meta where id = 1")
-          .get(),
+        database.query("select schema_version from meta where id = 1").get(),
       ).toEqual({ schema_version: 1 });
     } finally {
       database.close();
@@ -240,7 +241,8 @@ describe("sqlite recorder", () => {
       ...paths,
       client: asResponsesClient(client) as never,
       recorder,
-      adapterFactory: (_endpoint: Endpoints) => new FakeAdapter([redactedReply()]),
+      adapterFactory: (_endpoint: Endpoints) =>
+        new FakeAdapter([redactedReply()]),
     });
 
     const persisted = getRun(result.runId ?? "", { dbUrl: dbUrlFor(root) });
@@ -256,7 +258,11 @@ describe("sqlite recorder", () => {
       scenarioErroredCount: 0,
     });
 
-    const scenario = persisted?.scenarios[0]!;
+    const scenario = persisted?.scenarios[0];
+    expect(scenario).toBeDefined();
+    if (!scenario) {
+      throw new Error("Expected a persisted scenario.");
+    }
     expect(scenario.status).toBe("completed");
     expect(scenario.passed).toBe(true);
     expect(scenario.counts).toEqual({
@@ -272,9 +278,9 @@ describe("sqlite recorder", () => {
     expect(scenario.checkpoints).toHaveLength(1);
     expect(scenario.judgeDimensionScores).toHaveLength(1);
 
-    expect(listRuns({ dbUrl: dbUrlFor(root) }).map((item) => item.runId)).toEqual(
-      [result.runId ?? ""],
-    );
+    expect(
+      listRuns({ dbUrl: dbUrlFor(root) }).map((item) => item.runId),
+    ).toEqual([result.runId ?? ""]);
 
     const latest = latestRunForSuite(persisted?.suiteFingerprint ?? "", {
       dbUrl: dbUrlFor(root),
@@ -286,10 +292,17 @@ describe("sqlite recorder", () => {
       token: "[REDACTED]",
       command: [],
     });
-    const rawExchange = scenario.targetEvents[0]?.raw_exchange as Record<string, unknown>;
+    const rawExchange = scenario.targetEvents[0]?.raw_exchange as Record<
+      string,
+      unknown
+    >;
     expect(
-      ((rawExchange.request as Record<string, unknown>).headers as Record<string, string>)
-        .Authorization,
+      (
+        (rawExchange.request as Record<string, unknown>).headers as Record<
+          string,
+          string
+        >
+      ).Authorization,
     ).toBe("[REDACTED]");
     expect(
       (
@@ -385,12 +398,18 @@ describe("sqlite recorder", () => {
       runSuite({
         ...configPaths,
         scenarioId: "missing-scenario",
-        client: asResponsesClient(new FakeResponsesClient([buildScore()])) as never,
+        client: asResponsesClient(
+          new FakeResponsesClient([buildScore()]),
+        ) as never,
         recorder: configRecorder,
       }),
     ).rejects.toThrow(AgentProbeConfigError);
 
-    const configRun = listRuns({ dbUrl: dbUrlFor(configRoot) })[0]!;
+    const configRun = listRuns({ dbUrl: dbUrlFor(configRoot) })[0];
+    expect(configRun).toBeDefined();
+    if (!configRun) {
+      throw new Error("Expected a persisted config-error run.");
+    }
     expect(configRun.status).toBe("config_error");
     expect(configRun.exitCode).toBe(2);
     expect(configRun.finalError).toEqual({
@@ -404,13 +423,20 @@ describe("sqlite recorder", () => {
     await expect(
       runSuite({
         ...runtimePaths,
-        client: asResponsesClient(new FakeResponsesClient([buildScore()])) as never,
+        client: asResponsesClient(
+          new FakeResponsesClient([buildScore()]),
+        ) as never,
         recorder: runtimeRecorder,
-        adapterFactory: (_endpoint: Endpoints) => new FailingAdapter("endpoint down"),
+        adapterFactory: (_endpoint: Endpoints) =>
+          new FailingAdapter("endpoint down"),
       }),
     ).rejects.toThrow(AgentProbeRuntimeError);
 
-    const runtimeRun = listRuns({ dbUrl: dbUrlFor(runtimeRoot) })[0]!;
+    const runtimeRun = listRuns({ dbUrl: dbUrlFor(runtimeRoot) })[0];
+    expect(runtimeRun).toBeDefined();
+    if (!runtimeRun) {
+      throw new Error("Expected a persisted runtime-error run.");
+    }
     expect(runtimeRun.status).toBe("runtime_error");
     expect(runtimeRun.exitCode).toBe(3);
     expect(runtimeRun.aggregateCounts).toEqual({
@@ -420,7 +446,9 @@ describe("sqlite recorder", () => {
       scenarioErroredCount: 1,
     });
 
-    const persistedRuntime = getRun(runtimeRun.runId, { dbUrl: dbUrlFor(runtimeRoot) });
+    const persistedRuntime = getRun(runtimeRun.runId, {
+      dbUrl: dbUrlFor(runtimeRoot),
+    });
     expect(persistedRuntime?.scenarios[0]?.status).toBe("runtime_error");
     expect(persistedRuntime?.scenarios[0]?.error).toEqual({
       type: "AgentProbeRuntimeError",

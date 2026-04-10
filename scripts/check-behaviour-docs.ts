@@ -4,8 +4,8 @@
  * scenarios defined in docs/product-specs/platform.md.
  */
 
-import { existsSync, readFileSync } from "fs";
-import { join, dirname } from "path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 const REPO_ROOT = join(dirname(new URL(import.meta.url).pathname), "..");
 const PRODUCT_SPECS = join(REPO_ROOT, "docs", "product-specs");
@@ -15,8 +15,11 @@ function extractScenarios(filePath: string): string[] {
   const content = readFileSync(filePath, "utf8");
   const re = /^###\s+(.+)$/gm;
   const scenarios: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(content)) !== null) {
+  while (true) {
+    const match = re.exec(content);
+    if (!match) {
+      break;
+    }
     scenarios.push(match[1].trim());
   }
   return scenarios;
@@ -29,9 +32,7 @@ function readText(filePath: string): string {
 const platformScenarios = extractScenarios(join(PRODUCT_SPECS, "platform.md"));
 
 if (platformScenarios.length === 0) {
-  console.log(
-    "No scenarios found in platform.md — skipping behaviour check."
-  );
+  console.log("No scenarios found in platform.md — skipping behaviour check.");
   process.exit(0);
 }
 

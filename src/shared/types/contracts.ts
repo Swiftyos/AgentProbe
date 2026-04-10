@@ -1,8 +1,5 @@
 export type JsonScalar = string | number | boolean | null;
-export type JsonValue =
-  | JsonScalar
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+export type JsonValue = JsonScalar | JsonValue[] | { [key: string]: JsonValue };
 
 export type TransportType = "http" | "cli" | "websocket";
 export type HarnessType = "codex" | "claude-code" | "opencode" | "custom";
@@ -30,7 +27,12 @@ export type ExpectedOutcome =
 export type ResetPolicy = "none" | "new" | "fresh_agent";
 export type TechLiteracy = "low" | "medium" | "high" | "expert";
 export type DomainExpertise = "none" | "basic" | "intermediate" | "expert";
-export type LanguageStyle = "formal" | "casual" | "terse" | "verbose" | "varies";
+export type LanguageStyle =
+  | "formal"
+  | "casual"
+  | "terse"
+  | "verbose"
+  | "varies";
 export type TopicDrift = "none" | "low" | "medium" | "high";
 export type ClarificationCompliance = "low" | "medium" | "high";
 export type JudgeProvider = "anthropic" | "openai" | "custom";

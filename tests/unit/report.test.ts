@@ -1,7 +1,7 @@
+import { Database } from "bun:sqlite";
 import { describe, expect, test } from "bun:test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { Database } from "bun:sqlite";
 
 import {
   renderRunReport,
@@ -13,7 +13,6 @@ import {
   initDb,
 } from "../../src/providers/persistence/sqlite-run-history.ts";
 import type { RunRecord } from "../../src/shared/types/contracts.ts";
-import { AgentProbeRuntimeError } from "../../src/shared/utils/errors.ts";
 import { makeTempDir } from "./support.ts";
 
 function buildRun(): RunRecord {
@@ -85,8 +84,7 @@ function buildRun(): RunRecord {
             turn_index: 0,
             role: "user",
             source: "scenario",
-            content:
-              "I bought a laptop 3 weeks ago and it is already broken.",
+            content: "I bought a laptop 3 weeks ago and it is already broken.",
             created_at: "2026-03-24T15:00:01+00:00",
             usage: null,
           },
@@ -141,8 +139,7 @@ function buildRun(): RunRecord {
             scale_points: 5,
             raw_score: 4,
             normalized_score: 0.8,
-            reasoning:
-              "The assistant addressed the refund request directly.",
+            reasoning: "The assistant addressed the refund request directly.",
             evidence: ["Explained the 30-day refund window."],
           },
         ],
@@ -174,7 +171,9 @@ describe("reporting", () => {
     expect(html).toContain("&quot;transport&quot;: &quot;http&quot;");
     expect(html).toContain('data-open-tab="rubric"');
     expect(html).toContain("Task Completion");
-    expect(html).toContain("The assistant addressed the refund request directly.");
+    expect(html).toContain(
+      "The assistant addressed the refund request directly.",
+    );
   });
 
   test("writeRunReport raises when no runs exist", () => {

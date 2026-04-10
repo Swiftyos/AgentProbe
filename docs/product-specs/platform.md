@@ -31,6 +31,13 @@ humans can use to inspect pass/fail outcomes
 backend, extracts tool-call evidence from the backend SSE stream, and does not
 depend on a Supabase signup flow
 
+### Fast feedback enforces the repo quality gates
+
+**Given** the repository's standard pre-PR workflow
+**When** the user runs the fast-feedback command
+**Then** the CLI runs repo validation, Biome linting, strict `tsc --noEmit`,
+and Bun tests, failing fast when any quality gate is broken
+
 ### HTML report renders from recorded run history
 
 **Given** at least one completed run in the local run-history database

@@ -7,34 +7,33 @@ import type {
   CheckpointAssertion,
   CheckpointTurn,
   CliHarness,
-  CostControls,
-  Endpoints,
   EndpointAuth,
   EndpointLogging,
   EndpointRequest,
   EndpointResponse,
   EndpointSession,
+  Endpoints,
   FailureMode,
   HealthCheck,
   HttpConnection,
   InjectTurn,
   JudgeConfig,
   NamedEndpoint,
-  Personas,
   Persona,
   PersonaBehavior,
   PersonaDemographics,
   PersonaPersonality,
+  Personas,
   ProcessedYamlFile,
   Rubric,
   RubricDimension,
-  Rubrics,
   RubricScale,
-  Scenarios,
+  Rubrics,
   Scenario,
   ScenarioContext,
   ScenarioDefaults,
   ScenarioExpectations,
+  Scenarios,
   ScoreThreshold,
   ScoringOverrides,
   Session,
@@ -206,9 +205,7 @@ export function iterYamlFiles(dataPath: string): string[] {
   return files.sort((left, right) => left.localeCompare(right));
 }
 
-export function detectSchema(
-  data: YamlObject,
-): ProcessedYamlFile["schema"] {
+export function detectSchema(data: YamlObject): ProcessedYamlFile["schema"] {
   if ("personas" in data) {
     return "personas";
   }
@@ -233,7 +230,10 @@ function parseCliHarness(value: unknown): CliHarness | undefined {
   }
   const raw = ensureObject(value, "harness must be an object.");
   return {
-    type: ensureString(raw.type, "harness.type is required.") as CliHarness["type"],
+    type: ensureString(
+      raw.type,
+      "harness.type is required.",
+    ) as CliHarness["type"],
     command: stringArray(raw.command),
     sessionMode: optionalString(raw.session_mode) as CliHarness["sessionMode"],
   };
@@ -263,9 +263,7 @@ function parseTlsConfig(value: unknown): HttpConnection["tls"] {
   };
 }
 
-function parseConnection(
-  value: unknown,
-): Endpoints["connection"] {
+function parseConnection(value: unknown): Endpoints["connection"] {
   if (!value) {
     return undefined;
   }
@@ -311,7 +309,10 @@ function parseEndpointAuth(value: unknown): EndpointAuth | undefined {
   }
   const raw = ensureObject(value, "auth must be an object.");
   return {
-    type: ensureString(raw.type, "auth.type is required.") as EndpointAuth["type"],
+    type: ensureString(
+      raw.type,
+      "auth.type is required.",
+    ) as EndpointAuth["type"],
     token: optionalString(raw.token),
     headerName: optionalString(raw.header_name),
     headerValue: optionalString(raw.header_value),
@@ -347,7 +348,10 @@ function parseEndpointSession(value: unknown): EndpointSession | undefined {
   }
   const raw = ensureObject(value, "session must be an object.");
   return {
-    type: ensureString(raw.type, "session.type is required.") as EndpointSession["type"],
+    type: ensureString(
+      raw.type,
+      "session.type is required.",
+    ) as EndpointSession["type"],
     create: parseSessionLifecycleRequest(raw.create),
     close: parseSessionLifecycleRequest(raw.close),
   };
@@ -372,7 +376,10 @@ function parseEndpointResponse(value: unknown): EndpointResponse | undefined {
   }
   const raw = ensureObject(value, "response must be an object.");
   return {
-    format: ensureString(raw.format, "response.format is required.") as EndpointResponse["format"],
+    format: ensureString(
+      raw.format,
+      "response.format is required.",
+    ) as EndpointResponse["format"],
     contentPath: ensureString(
       raw.content_path,
       "response.content_path is required.",
@@ -380,9 +387,13 @@ function parseEndpointResponse(value: unknown): EndpointResponse | undefined {
     asyncPolling:
       raw.async_polling && typeof raw.async_polling === "object"
         ? {
-            endpoint: optionalString((raw.async_polling as YamlObject).endpoint),
+            endpoint: optionalString(
+              (raw.async_polling as YamlObject).endpoint,
+            ),
             url: optionalString((raw.async_polling as YamlObject).url),
-            method: optionalString((raw.async_polling as YamlObject).method) as never,
+            method: optionalString(
+              (raw.async_polling as YamlObject).method,
+            ) as never,
             intervalSeconds: optionalNumber(
               (raw.async_polling as YamlObject).interval_seconds,
             ),
@@ -416,7 +427,9 @@ function parseWebSocketConnect(value: unknown): WebSocketConnect | undefined {
   };
 }
 
-function parseWebSocketTransport(value: unknown): WebSocketTransport | undefined {
+function parseWebSocketTransport(
+  value: unknown,
+): WebSocketTransport | undefined {
   if (!value) {
     return undefined;
   }
@@ -433,9 +446,13 @@ function parseToolExtraction(value: unknown): ToolExtraction | undefined {
   const raw = ensureObject(value, "tool_extraction must be an object.");
   return {
     format: optionalString(raw.format) as ToolExtraction["format"],
-    toolHandling: optionalString(raw.tool_handling) as ToolExtraction["toolHandling"],
+    toolHandling: optionalString(
+      raw.tool_handling,
+    ) as ToolExtraction["toolHandling"],
     mockTools:
-      raw.mock_tools && typeof raw.mock_tools === "object" && !Array.isArray(raw.mock_tools)
+      raw.mock_tools &&
+      typeof raw.mock_tools === "object" &&
+      !Array.isArray(raw.mock_tools)
         ? (raw.mock_tools as Record<string, never>)
         : {},
   };
@@ -467,7 +484,9 @@ export function parseEndpointsYaml(path: string): Endpoints {
   const resolvedPath = resolvePath(path);
 
   const endpointsPayload =
-    raw.endpoints && typeof raw.endpoints === "object" && !Array.isArray(raw.endpoints)
+    raw.endpoints &&
+    typeof raw.endpoints === "object" &&
+    !Array.isArray(raw.endpoints)
       ? Object.fromEntries(
           Object.entries(raw.endpoints).map(([key, value]) => [
             key,
@@ -556,7 +575,10 @@ function parsePersona(value: unknown): Persona {
     demographics: parsePersonaDemographics(raw.demographics),
     personality: parsePersonaPersonality(raw.personality),
     behavior: parsePersonaBehavior(raw.behavior),
-    systemPrompt: ensureString(raw.system_prompt, "persona.system_prompt is required."),
+    systemPrompt: ensureString(
+      raw.system_prompt,
+      "persona.system_prompt is required.",
+    ),
     model: optionalString(raw.model),
   };
 }
@@ -590,7 +612,10 @@ function normalizeLabels(value: unknown): Record<string, string> {
 function parseRubricScale(value: unknown): RubricScale {
   const raw = ensureObject(value, "rubric.scale is required.");
   return {
-    type: ensureString(raw.type, "rubric.scale.type is required.") as RubricScale["type"],
+    type: ensureString(
+      raw.type,
+      "rubric.scale.type is required.",
+    ) as RubricScale["type"],
     points: optionalNumber(raw.points),
     labels: normalizeLabels(raw.labels),
   };
@@ -616,12 +641,17 @@ function parseJudgeConfig(value: unknown): JudgeConfig | undefined {
   }
   const raw = ensureObject(value, "judge must be an object.");
   return {
-    provider: ensureString(raw.provider, "judge.provider is required.") as JudgeConfig["provider"],
+    provider: ensureString(
+      raw.provider,
+      "judge.provider is required.",
+    ) as JudgeConfig["provider"],
     model: ensureString(raw.model, "judge.model is required."),
     temperature: optionalNumber(raw.temperature) ?? 0,
     maxTokens: optionalNumber(raw.max_tokens) ?? 0,
     biasMitigation:
-      raw.bias_mitigation && typeof raw.bias_mitigation === "object" && !Array.isArray(raw.bias_mitigation)
+      raw.bias_mitigation &&
+      typeof raw.bias_mitigation === "object" &&
+      !Array.isArray(raw.bias_mitigation)
         ? {
             randomizeOrder: optionalBoolean(
               (raw.bias_mitigation as YamlObject).randomize_order,
@@ -644,7 +674,9 @@ function parseJudgeConfig(value: unknown): JudgeConfig | undefined {
           }
         : undefined,
     costControls:
-      raw.cost_controls && typeof raw.cost_controls === "object" && !Array.isArray(raw.cost_controls)
+      raw.cost_controls &&
+      typeof raw.cost_controls === "object" &&
+      !Array.isArray(raw.cost_controls)
         ? {
             maxJudgeCallsPerScenario: optionalNumber(
               (raw.cost_controls as YamlObject).max_judge_calls_per_scenario,
@@ -660,7 +692,10 @@ function parseJudgeConfig(value: unknown): JudgeConfig | undefined {
 function parseScoreThreshold(value: unknown): ScoreThreshold {
   const raw = ensureObject(value, "score threshold must be an object.");
   return {
-    dimension: ensureString(raw.dimension, "score threshold dimension is required."),
+    dimension: ensureString(
+      raw.dimension,
+      "score threshold dimension is required.",
+    ),
     below: optionalNumber(raw.below),
     above: optionalNumber(raw.above),
   };
@@ -692,7 +727,10 @@ function parseRubric(value: unknown, inheritedJudge?: JudgeConfig): Rubric {
       ? raw.dimensions.map((item) => parseRubricDimension(item))
       : [],
     scoringOverrides: parseScoringOverrides(raw.scoring_overrides),
-    metaPrompt: ensureString(raw.meta_prompt, "rubric.meta_prompt is required."),
+    metaPrompt: ensureString(
+      raw.meta_prompt,
+      "rubric.meta_prompt is required.",
+    ),
     judge: parseJudgeConfig(raw.judge) ?? inheritedJudge,
   };
 }
@@ -735,7 +773,9 @@ function parseScenarioContext(value: unknown): ScenarioContext | undefined {
   return {
     systemPrompt: optionalString(raw.system_prompt),
     injectedData:
-      raw.injected_data && typeof raw.injected_data === "object" && !Array.isArray(raw.injected_data)
+      raw.injected_data &&
+      typeof raw.injected_data === "object" &&
+      !Array.isArray(raw.injected_data)
         ? (raw.injected_data as ScenarioContext["injectedData"])
         : {},
   };
@@ -746,7 +786,9 @@ function parseCheckpointAssertion(value: unknown): CheckpointAssertion {
   return {
     toolCalled: optionalString(raw.tool_called),
     withArgs:
-      raw.with_args && typeof raw.with_args === "object" && !Array.isArray(raw.with_args)
+      raw.with_args &&
+      typeof raw.with_args === "object" &&
+      !Array.isArray(raw.with_args)
         ? (raw.with_args as CheckpointAssertion["withArgs"])
         : undefined,
     responseContainsAny: stringArray(raw.response_contains_any),
@@ -789,7 +831,9 @@ function parseTurn(value: unknown): TurnType {
   throw new AgentProbeConfigError(`Unsupported scenario turn role: ${role}`);
 }
 
-function parseExpectedTools(value: unknown): ScenarioExpectations["expectedTools"] {
+function parseExpectedTools(
+  value: unknown,
+): ScenarioExpectations["expectedTools"] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -842,8 +886,10 @@ function parseScenarioExpectations(value: unknown): ScenarioExpectations {
   };
 
   for (const [key, entry] of Object.entries(raw)) {
-    const normalizedKey = key
-      .replaceAll(/_([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+    const normalizedKey = key.replaceAll(
+      /_([a-z])/g,
+      (_match, letter: string) => letter.toUpperCase(),
+    );
     if (!(normalizedKey in result)) {
       result[normalizedKey] = entry;
     }
@@ -857,14 +903,13 @@ function parseSession(value: unknown): Session {
     id: optionalString(raw.id),
     timeOffset: optionalString(raw.time_offset) ?? "0h",
     reset: (optionalString(raw.reset) ?? "none") as Session["reset"],
-    turns: Array.isArray(raw.turns) ? raw.turns.map((item) => parseTurn(item)) : [],
+    turns: Array.isArray(raw.turns)
+      ? raw.turns.map((item) => parseTurn(item))
+      : [],
   };
 }
 
-function parseScenario(
-  value: unknown,
-  defaults?: ScenarioDefaults,
-): Scenario {
+function parseScenario(value: unknown, defaults?: ScenarioDefaults): Scenario {
   const raw = ensureObject(value, "scenario must be an object.");
   return {
     id: ensureString(raw.id, "scenario.id is required."),
@@ -876,7 +921,9 @@ function parseScenario(
     maxTurns: optionalNumber(raw.max_turns),
     priority: optionalString(raw.priority) as Scenario["priority"],
     context: parseScenarioContext(raw.context),
-    turns: Array.isArray(raw.turns) ? raw.turns.map((item) => parseTurn(item)) : [],
+    turns: Array.isArray(raw.turns)
+      ? raw.turns.map((item) => parseTurn(item))
+      : [],
     sessions: Array.isArray(raw.sessions)
       ? raw.sessions.map((item) => parseSession(item))
       : [],
@@ -908,12 +955,20 @@ export function parseScenarioYaml(path: string): Scenarios {
   return parseScenarioDocument(readYaml(path), path);
 }
 
-function coalesceSingleValue(values: Array<string | undefined>): string | undefined {
-  const unique = [...new Set(values.filter((value): value is string => typeof value === "string"))];
+function coalesceSingleValue(
+  values: Array<string | undefined>,
+): string | undefined {
+  const unique = [
+    ...new Set(
+      values.filter((value): value is string => typeof value === "string"),
+    ),
+  ];
   return unique.length === 1 ? unique[0] : undefined;
 }
 
-function mergeScenarioDefaults(collections: Scenarios[]): ScenarioDefaults | undefined {
+function mergeScenarioDefaults(
+  collections: Scenarios[],
+): ScenarioDefaults | undefined {
   const merged: ScenarioDefaults = {};
   const sources = new Map<keyof ScenarioDefaults, string>();
 
@@ -924,7 +979,12 @@ function mergeScenarioDefaults(collections: Scenarios[]): ScenarioDefaults | und
       continue;
     }
 
-    for (const key of ["maxTurns", "timeoutSeconds", "persona", "rubric"] as const) {
+    for (const key of [
+      "maxTurns",
+      "timeoutSeconds",
+      "persona",
+      "rubric",
+    ] as const) {
       const value = defaults[key];
       if (value === undefined) {
         continue;
@@ -957,7 +1017,9 @@ export function parseScenariosInput(path: string): Scenarios {
   const collections = iterYamlFiles(resolved)
     .map((candidate) => {
       const raw = readYaml(candidate);
-      return "scenarios" in raw ? parseScenarioDocument(raw, candidate) : undefined;
+      return "scenarios" in raw
+        ? parseScenarioDocument(raw, candidate)
+        : undefined;
     })
     .filter((item): item is Scenarios => Boolean(item));
 
@@ -999,7 +1061,9 @@ export function parseScenariosInput(path: string): Scenarios {
 
   return {
     metadata: {
-      version: coalesceSingleValue(collections.map((item) => item.metadata.version)),
+      version: coalesceSingleValue(
+        collections.map((item) => item.metadata.version),
+      ),
       id: coalesceSingleValue(collections.map((item) => item.metadata.id)),
       name: coalesceSingleValue(collections.map((item) => item.metadata.name)),
       sourcePath: resolved,
@@ -1031,13 +1095,25 @@ export function processYamlFiles(dataPath: string): ProcessedYamlFile[] {
   return iterYamlFiles(dataPath).map((path) => {
     const parsed = parseYamlFile(path);
     if ("personas" in parsed) {
-      return { path, schema: "personas" as const, objectCount: parsed.personas.length };
+      return {
+        path,
+        schema: "personas" as const,
+        objectCount: parsed.personas.length,
+      };
     }
     if ("rubrics" in parsed) {
-      return { path, schema: "rubrics" as const, objectCount: parsed.rubrics.length };
+      return {
+        path,
+        schema: "rubrics" as const,
+        objectCount: parsed.rubrics.length,
+      };
     }
     if ("scenarios" in parsed) {
-      return { path, schema: "scenarios" as const, objectCount: parsed.scenarios.length };
+      return {
+        path,
+        schema: "scenarios" as const,
+        objectCount: parsed.scenarios.length,
+      };
     }
     return { path, schema: "endpoints" as const, objectCount: 1 };
   });

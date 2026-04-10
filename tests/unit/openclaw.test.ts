@@ -1,19 +1,17 @@
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { mkdirSync, unlinkSync, writeFileSync } from "node:fs";
+import { unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { ServerWebSocket } from "bun";
 
 import { executeCli } from "../../src/cli/main.ts";
 import { parseEndpointsYaml } from "../../src/domains/validation/load-suite.ts";
 import { buildEndpointAdapter } from "../../src/providers/sdk/adapters.ts";
 import {
-  configureEndpoint,
-} from "../../src/providers/sdk/preset-config.ts";
-import {
-  loadConfiguredEndpoint,
+  OpenClawGatewayClient,
   openclawChat,
   openclawHistory,
-  OpenClawGatewayClient,
 } from "../../src/providers/sdk/openclaw.ts";
+import { configureEndpoint } from "../../src/providers/sdk/preset-config.ts";
 import type { Endpoints, JsonValue } from "../../src/shared/types/contracts.ts";
 import { DATA_DIR, makeTempDir } from "./support.ts";
 
@@ -22,6 +20,8 @@ type SessionState = {
   label?: string;
   messages: Array<Record<string, JsonValue>>;
 };
+
+type GatewaySocket = ServerWebSocket<{ nonce: string }>;
 
 class FakeOpenClawGateway {
   readonly authAttempts: Array<Record<string, unknown>> = [];
@@ -76,15 +76,15 @@ class FakeOpenClawGateway {
     return `ws://127.0.0.1:${this.server?.port ?? 0}`;
   }
 
-  private handleFrame(
-    ws: any,
-    raw: string | Buffer,
-  ): void {
+  private handleFrame(ws: GatewaySocket, raw: string | Buffer): void {
     const frame = JSON.parse(String(raw)) as Record<string, unknown>;
     const method = frame.method;
-    const requestId = typeof frame.id === "string" ? frame.id : crypto.randomUUID();
+    const requestId =
+      typeof frame.id === "string" ? frame.id : crypto.randomUUID();
     const params =
-      frame.params && typeof frame.params === "object" && !Array.isArray(frame.params)
+      frame.params &&
+      typeof frame.params === "object" &&
+      !Array.isArray(frame.params)
         ? (frame.params as Record<string, unknown>)
         : {};
 
@@ -99,19 +99,22 @@ class FakeOpenClawGateway {
     }
 
     if (method === "sessions.create") {
-      let sessionKey =
+      const sessionKey =
         typeof params.key === "string" && params.key.trim()
           ? params.key.trim()
           : `session-${++this.sessionCounter}`;
       if (!this.sessions.has(sessionKey)) {
         this.sessions.set(sessionKey, {
           sessionId: `sess-${++this.sessionIdCounter}`,
-          label:
-            typeof params.label === "string" ? params.label : undefined,
+          label: typeof params.label === "string" ? params.label : undefined,
           messages: [],
         });
       }
-      const session = this.sessions.get(sessionKey)!;
+      const session = this.sessions.get(sessionKey);
+      if (!session) {
+        this.sendError(ws, requestId, "INVALID_REQUEST", "unknown session");
+        return;
+      }
       this.sendOk(ws, requestId, {
         ok: true,
         key: sessionKey,
@@ -135,7 +138,12 @@ class FakeOpenClawGateway {
           : crypto.randomUUID();
       const session = sessionKey ? this.sessions.get(sessionKey) : undefined;
       if (!session || !message) {
-        this.sendError(ws, requestId, "INVALID_REQUEST", "invalid chat.send params");
+        this.sendError(
+          ws,
+          requestId,
+          "INVALID_REQUEST",
+          "invalid chat.send params",
+        );
         return;
       }
 
@@ -194,17 +202,21 @@ class FakeOpenClawGateway {
   }
 
   private handleConnect(
-    ws: any,
+    ws: GatewaySocket,
     requestId: string,
     params: Record<string, unknown>,
   ): void {
     this.authAttempts.push(params);
     const device =
-      params.device && typeof params.device === "object" && !Array.isArray(params.device)
+      params.device &&
+      typeof params.device === "object" &&
+      !Array.isArray(params.device)
         ? (params.device as Record<string, unknown>)
         : {};
     const auth =
-      params.auth && typeof params.auth === "object" && !Array.isArray(params.auth)
+      params.auth &&
+      typeof params.auth === "object" &&
+      !Array.isArray(params.auth)
         ? (params.auth as Record<string, unknown>)
         : {};
     const nonce = typeof device.nonce === "string" ? device.nonce : undefined;
@@ -214,7 +226,9 @@ class FakeOpenClawGateway {
     }
 
     const deviceId =
-      typeof device.id === "string" ? device.id : `device-${crypto.randomUUID()}`;
+      typeof device.id === "string"
+        ? device.id
+        : `device-${crypto.randomUUID()}`;
     const token =
       typeof auth.token === "string"
         ? auth.token
@@ -241,7 +255,7 @@ class FakeOpenClawGateway {
   }
 
   private sendOk(
-    ws: any,
+    ws: GatewaySocket,
     id: string,
     payload: Record<string, unknown>,
   ): void {
@@ -256,7 +270,7 @@ class FakeOpenClawGateway {
   }
 
   private sendError(
-    ws: any,
+    ws: GatewaySocket,
     id: string,
     code: string,
     message: string,
@@ -301,7 +315,9 @@ describe("openclaw", () => {
     process.env.AGENTPROBE_STATE_DIR = stateRoot;
     process.env.OPENCLAW_GATEWAY_URL = gateway.url;
     process.env.OPENCLAW_GATEWAY_TOKEN = "shared-token";
-    return configureEndpoint(parseEndpointsYaml(join(DATA_DIR, "openclaw-endpoints.yaml")));
+    return configureEndpoint(
+      parseEndpointsYaml(join(DATA_DIR, "openclaw-endpoints.yaml")),
+    );
   }
 
   test("round trips chat and history", async () => {
@@ -311,7 +327,9 @@ describe("openclaw", () => {
 
     expect(result.status).toBe("ok");
     expect(result.reply).toBe("Echo: hello openclaw");
-    expect(result.sessionKey in Object.fromEntries(gateway.sessions)).toBe(true);
+    expect(result.sessionKey in Object.fromEntries(gateway.sessions)).toBe(
+      true,
+    );
 
     const history = await openclawHistory(endpoint, {
       sessionKey: result.sessionKey,
@@ -323,7 +341,7 @@ describe("openclaw", () => {
       "assistant",
     ]);
     expect(
-      ((history.messages.at(-1)?.content as Array<{ text: string }>)[0]?.text),
+      (history.messages.at(-1)?.content as Array<{ text: string }>)[0]?.text,
     ).toBe("Echo: hello openclaw");
   });
 
@@ -344,10 +362,10 @@ describe("openclaw", () => {
       expect(replyA.reply).toBe("Echo: alpha only");
       expect(replyB.reply).toBe("Echo: beta only");
       expect(
-        ((historyA.messages.at(-1)?.content as Array<{ text: string }>)[0]?.text),
+        (historyA.messages.at(-1)?.content as Array<{ text: string }>)[0]?.text,
       ).toBe("Echo: alpha only");
       expect(
-        ((historyB.messages.at(-1)?.content as Array<{ text: string }>)[0]?.text),
+        (historyB.messages.at(-1)?.content as Array<{ text: string }>)[0]?.text,
       ).toBe("Echo: beta only");
     } finally {
       await client.close();

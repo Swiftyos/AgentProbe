@@ -1,3 +1,4 @@
+import type { OpenAiResponsesClient } from "../../providers/sdk/openai-responses.ts";
 import type {
   JsonValue,
   OpenAiResponsesRequest,
@@ -5,7 +6,6 @@ import type {
   RubricScore,
 } from "../../shared/types/contracts.ts";
 import { AgentProbeRuntimeError } from "../../shared/utils/errors.ts";
-import { OpenAiResponsesClient } from "../../providers/sdk/openai-responses.ts";
 
 export function rubricToPromptMarkdown(rubric: Rubric): string {
   const lines = [
@@ -43,7 +43,9 @@ export function rubricToPromptMarkdown(rubric: Rubric): string {
     for (const condition of autoFail) {
       lines.push(
         `- \`${condition.dimension}\`: ${
-          condition.below !== undefined ? `below ${condition.below}` : `above ${condition.above}`
+          condition.below !== undefined
+            ? `below ${condition.below}`
+            : `above ${condition.above}`
         }`,
       );
     }
@@ -57,7 +59,9 @@ export function rubricToPromptMarkdown(rubric: Rubric): string {
     for (const condition of autoPass) {
       lines.push(
         `- \`${condition.dimension}\`: ${
-          condition.below !== undefined ? `below ${condition.below}` : `above ${condition.above}`
+          condition.below !== undefined
+            ? `below ${condition.below}`
+            : `above ${condition.above}`
         }`,
       );
     }
@@ -80,7 +84,8 @@ function judgeJsonSchema(rubric: Rubric): Record<string, unknown> {
       evidence: {
         type: "array",
         items: { type: "string" },
-        description: "Short evidence snippets or observations from the transcript.",
+        description:
+          "Short evidence snippets or observations from the transcript.",
       },
       score: {
         type: "number",
@@ -126,7 +131,10 @@ function judgeInstructions(
   rubric: Rubric,
   schema: Record<string, unknown>,
 ): string {
-  const dimensionIds = rubric.dimensions.map((item) => item.id).sort().join(", ");
+  const dimensionIds = rubric.dimensions
+    .map((item) => item.id)
+    .sort()
+    .join(", ");
   return [
     "You are an expert rubric judge. Evaluate only the provided response.",
     "",
@@ -148,30 +156,39 @@ function parseRubricScore(payload: string): RubricScore {
 
   const record = parsed as Record<string, unknown>;
   const dimensionsRaw = record.dimensions;
-  if (!dimensionsRaw || typeof dimensionsRaw !== "object" || Array.isArray(dimensionsRaw)) {
+  if (
+    !dimensionsRaw ||
+    typeof dimensionsRaw !== "object" ||
+    Array.isArray(dimensionsRaw)
+  ) {
     throw new AgentProbeRuntimeError("Judge returned invalid JSON output.");
   }
 
   return {
     dimensions: Object.fromEntries(
-      Object.entries(dimensionsRaw as Record<string, unknown>).map(([key, value]) => {
-        const item = value as Record<string, unknown>;
-        return [
-          key,
-          {
-            reasoning: typeof item.reasoning === "string" ? item.reasoning : "",
-            evidence: Array.isArray(item.evidence)
-              ? item.evidence.flatMap((entry) => (typeof entry === "string" ? [entry] : []))
-              : [],
-            score:
-              typeof item.score === "number"
-                ? item.score
-                : typeof item.score === "string"
-                  ? Number(item.score)
-                  : 0,
-          },
-        ];
-      }),
+      Object.entries(dimensionsRaw as Record<string, unknown>).map(
+        ([key, value]) => {
+          const item = value as Record<string, unknown>;
+          return [
+            key,
+            {
+              reasoning:
+                typeof item.reasoning === "string" ? item.reasoning : "",
+              evidence: Array.isArray(item.evidence)
+                ? item.evidence.flatMap((entry) =>
+                    typeof entry === "string" ? [entry] : [],
+                  )
+                : [],
+              score:
+                typeof item.score === "number"
+                  ? item.score
+                  : typeof item.score === "string"
+                    ? Number(item.score)
+                    : 0,
+            },
+          ];
+        },
+      ),
     ),
     overallNotes:
       typeof record.overall_notes === "string" ? record.overall_notes : "",
@@ -204,7 +221,9 @@ export async function judgeResponse(
   client: OpenAiResponsesClient,
 ): Promise<RubricScore> {
   if (rubric.dimensions.length === 0) {
-    throw new AgentProbeRuntimeError("Cannot judge a rubric with no dimensions.");
+    throw new AgentProbeRuntimeError(
+      "Cannot judge a rubric with no dimensions.",
+    );
   }
   if (!rubric.judge) {
     throw new AgentProbeRuntimeError("Rubric is missing judge configuration.");
@@ -235,7 +254,9 @@ export async function judgeResponse(
 
   const response = await client.create(request);
   if (!response.outputText.trim()) {
-    throw new AgentProbeRuntimeError("Judge response contained no text output.");
+    throw new AgentProbeRuntimeError(
+      "Judge response contained no text output.",
+    );
   }
   const score = parseRubricScore(response.outputText);
   validateRubricScore(rubric, score);

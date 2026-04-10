@@ -1,38 +1,39 @@
+import {
+  buildEndpointAdapter,
+  type EndpointAdapter,
+} from "../../providers/sdk/adapters.ts";
+import type { OpenAiResponsesClient } from "../../providers/sdk/openai-responses.ts";
 import type {
   AdapterReply,
+  CheckpointAssertion,
+  CheckpointResult,
   ConversationTurn,
   Endpoints,
   Persona,
   Rubric,
   RubricScore,
+  RunProgressEvent,
+  RunResult,
   Scenario,
   ScenarioDefaults,
   ScenarioRunResult,
   ScenarioTermination,
   Session,
   ToolCallRecord,
-  RunProgressEvent,
-  RunResult,
-  CheckpointAssertion,
-  CheckpointResult,
 } from "../../shared/types/contracts.ts";
 import {
   AgentProbeConfigError,
   AgentProbeRuntimeError,
 } from "../../shared/utils/errors.ts";
-import {
-  renderTemplate,
-} from "../../shared/utils/template.ts";
+import { renderTemplate } from "../../shared/utils/template.ts";
 import {
   parseEndpointsYaml,
   parsePersonaYaml,
   parseRubricsYaml,
   parseScenariosInput,
 } from "../validation/load-suite.ts";
-import { buildEndpointAdapter, type EndpointAdapter } from "../../providers/sdk/adapters.ts";
-import { OpenAiResponsesClient } from "../../providers/sdk/openai-responses.ts";
-import { generatePersonaStep, resolvePersonaModel } from "./simulator.ts";
 import { judgeResponse } from "./judge.ts";
+import { generatePersonaStep, resolvePersonaModel } from "./simulator.ts";
 
 const resetsRequiringReinit = new Set(["new", "fresh_agent"]);
 
@@ -67,27 +68,39 @@ export type RunRecorder = {
     options: { result: ScenarioRunResult },
   ) => void;
   recordScenarioError?: (scenarioRunId: number, error: Error) => void;
-  recordTurn?: (scenarioRunId: number, options: {
-    turnIndex: number;
-    turn: ConversationTurn;
-    source: string;
-    generatorModel?: string;
-  }) => void;
-  recordAssistantReply?: (scenarioRunId: number, options: {
-    turnIndex: number;
-    reply: AdapterReply;
-  }) => void;
-  recordCheckpoint?: (scenarioRunId: number, options: {
-    checkpointIndex: number;
-    precedingTurnIndex?: number;
-    assertions: CheckpointAssertion[];
-    result: CheckpointResult;
-  }) => void;
-  recordJudgeResult?: (scenarioRunId: number, options: {
-    rubric: Rubric;
-    score: RubricScore;
-    overallScore: number;
-  }) => void;
+  recordTurn?: (
+    scenarioRunId: number,
+    options: {
+      turnIndex: number;
+      turn: ConversationTurn;
+      source: string;
+      generatorModel?: string;
+    },
+  ) => void;
+  recordAssistantReply?: (
+    scenarioRunId: number,
+    options: {
+      turnIndex: number;
+      reply: AdapterReply;
+    },
+  ) => void;
+  recordCheckpoint?: (
+    scenarioRunId: number,
+    options: {
+      checkpointIndex: number;
+      precedingTurnIndex?: number;
+      assertions: CheckpointAssertion[];
+      result: CheckpointResult;
+    },
+  ) => void;
+  recordJudgeResult?: (
+    scenarioRunId: number,
+    options: {
+      rubric: Rubric;
+      score: RubricScore;
+      overallScore: number;
+    },
+  ) => void;
 };
 
 function effectiveSessions(scenario: Scenario): Session[] {
@@ -179,7 +192,9 @@ function evaluateCheckpointTurn(
         failures.push(`Expected tool ${assertion.toolCalled} was not called.`);
       } else if (assertion.withArgs) {
         for (const [key, value] of Object.entries(assertion.withArgs)) {
-          if (JSON.stringify(matchingTool.args[key]) !== JSON.stringify(value)) {
+          if (
+            JSON.stringify(matchingTool.args[key]) !== JSON.stringify(value)
+          ) {
             failures.push(
               `Tool ${assertion.toolCalled} did not receive expected argument ${key}.`,
             );
@@ -266,7 +281,8 @@ function formatTranscriptForJudge(
 
 function overallScore(rubric: Rubric, score: RubricScore): number {
   const totalWeight =
-    rubric.dimensions.reduce((sum, dimension) => sum + dimension.weight, 0) || 1;
+    rubric.dimensions.reduce((sum, dimension) => sum + dimension.weight, 0) ||
+    1;
   let weightedTotal = 0;
   for (const dimension of rubric.dimensions) {
     const rawScore = score.dimensions[dimension.id]?.score ?? 0;
@@ -420,7 +436,11 @@ export async function runScenario(
     : undefined;
 
   try {
-    for (let sessionIndex = 0; sessionIndex < sessions.length; sessionIndex += 1) {
+    for (
+      let sessionIndex = 0;
+      sessionIndex < sessions.length;
+      sessionIndex += 1
+    ) {
       const session = sessions[sessionIndex];
       const isFirst = sessionIndex === 0;
       if (!isFirst && resetsRequiringReinit.has(session.reset)) {
@@ -492,12 +512,18 @@ export async function runScenario(
             role: "checkpoint",
             assert: turn.assertions,
           });
-          const checkpointResult = evaluateCheckpointTurn(turn.assertions, lastReply);
+          const checkpointResult = evaluateCheckpointTurn(
+            turn.assertions,
+            lastReply,
+          );
           checkpoints.push(checkpointResult);
           if (scenarioRunId !== undefined) {
             options.recorder?.recordCheckpoint?.(scenarioRunId, {
               checkpointIndex: checkpoints.length - 1,
-              precedingTurnIndex: fullTranscript.length > 0 ? fullTranscript.length - 1 : undefined,
+              precedingTurnIndex:
+                fullTranscript.length > 0
+                  ? fullTranscript.length - 1
+                  : undefined,
               assertions: turn.assertions,
               result: checkpointResult,
             });
@@ -640,7 +666,11 @@ export async function runScenario(
     toolCallsByTurn,
     termination,
   );
-  const score = await judgeResponse(renderedRubric, transcriptText, options.client);
+  const score = await judgeResponse(
+    renderedRubric,
+    transcriptText,
+    options.client,
+  );
   const finalScore = overallScore(renderedRubric, score);
   if (scenarioRunId !== undefined) {
     options.recorder?.recordJudgeResult?.(scenarioRunId, {
@@ -752,56 +782,64 @@ export async function runSuite(options: {
       scenarioTotal: selectedScenarios.length,
     });
 
-    const preparedRuns: PreparedRun[] = selectedScenarios.map((scenario, ordinal) => {
-      const personaId = scenario.persona;
-      if (!personaId) {
-        throw new AgentProbeConfigError(
-          `Scenario ${scenario.id} has no persona (and no default was provided).`,
-        );
-      }
-      const persona = personasById.get(personaId);
-      if (!persona) {
-        throw new AgentProbeConfigError(
-          `Scenario ${scenario.id} references unknown persona \`${personaId}\`.`,
-        );
-      }
-      const rubricId = scenario.rubric;
-      if (!rubricId) {
-        throw new AgentProbeConfigError(
-          `Scenario ${scenario.id} has no rubric (and no default was provided).`,
-        );
-      }
-      const rubric = rubricsById.get(rubricId);
-      if (!rubric) {
-        throw new AgentProbeConfigError(
-          `Scenario ${scenario.id} references unknown rubric \`${rubricId}\`.`,
-        );
-      }
+    const preparedRuns: PreparedRun[] = selectedScenarios.map(
+      (scenario, ordinal) => {
+        const personaId = scenario.persona;
+        if (!personaId) {
+          throw new AgentProbeConfigError(
+            `Scenario ${scenario.id} has no persona (and no default was provided).`,
+          );
+        }
+        const persona = personasById.get(personaId);
+        if (!persona) {
+          throw new AgentProbeConfigError(
+            `Scenario ${scenario.id} references unknown persona \`${personaId}\`.`,
+          );
+        }
+        const rubricId = scenario.rubric;
+        if (!rubricId) {
+          throw new AgentProbeConfigError(
+            `Scenario ${scenario.id} has no rubric (and no default was provided).`,
+          );
+        }
+        const rubric = rubricsById.get(rubricId);
+        if (!rubric) {
+          throw new AgentProbeConfigError(
+            `Scenario ${scenario.id} references unknown rubric \`${rubricId}\`.`,
+          );
+        }
 
-      return {
-        scenario,
-        persona,
-        rubric,
-        ordinal,
-        total: selectedScenarios.length,
-        adapterFactory: () =>
-          options.adapterFactory
-            ? options.adapterFactory(endpointConfig)
-            : buildEndpointAdapter(endpointConfig),
-      };
-    });
+        return {
+          scenario,
+          persona,
+          rubric,
+          ordinal,
+          total: selectedScenarios.length,
+          adapterFactory: () =>
+            options.adapterFactory
+              ? options.adapterFactory(endpointConfig)
+              : buildEndpointAdapter(endpointConfig),
+        };
+      },
+    );
 
     const executePrepared = async (
       prepared: PreparedRun,
     ): Promise<ScenarioRunResult> => {
-      return await runScenario(prepared.adapterFactory(), prepared.scenario, prepared.persona, prepared.rubric, {
-        defaults: scenarioCollection.metadata.defaults,
-        client: options.client,
-        recorder: options.recorder,
-        scenarioOrdinal: prepared.ordinal,
-        dryRun: options.dryRun,
-        adapterFactory: prepared.adapterFactory,
-      });
+      return await runScenario(
+        prepared.adapterFactory(),
+        prepared.scenario,
+        prepared.persona,
+        prepared.rubric,
+        {
+          defaults: scenarioCollection.metadata.defaults,
+          client: options.client,
+          recorder: options.recorder,
+          scenarioOrdinal: prepared.ordinal,
+          dryRun: options.dryRun,
+          adapterFactory: prepared.adapterFactory,
+        },
+      );
     };
 
     let results: ScenarioRunResult[] = [];
@@ -833,7 +871,8 @@ export async function runSuite(options: {
               overallScore: result.overallScore,
             });
           } catch (error) {
-            const failure = error instanceof Error ? error : new Error(String(error));
+            const failure =
+              error instanceof Error ? error : new Error(String(error));
             failures.push(failure);
             options.progressCallback?.({
               kind: "scenario_error",
@@ -872,7 +911,8 @@ export async function runSuite(options: {
             overallScore: result.overallScore,
           });
         } catch (error) {
-          const failure = error instanceof Error ? error : new Error(String(error));
+          const failure =
+            error instanceof Error ? error : new Error(String(error));
           options.progressCallback?.({
             kind: "scenario_error",
             scenarioId: prepared.scenario.id,
@@ -897,8 +937,7 @@ export async function runSuite(options: {
     return result;
   } catch (error) {
     const failure = error instanceof Error ? error : new Error(String(error));
-    const exitCode =
-      failure instanceof AgentProbeConfigError ? 2 : 3;
+    const exitCode = failure instanceof AgentProbeConfigError ? 2 : 3;
     options.recorder?.recordRunError?.(failure, { exitCode });
     throw failure;
   }

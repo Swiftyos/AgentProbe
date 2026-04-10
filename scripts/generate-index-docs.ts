@@ -5,8 +5,15 @@
  * file and subdirectory link sections so they stay current.
  */
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs";
-import { dirname, join } from "path";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join } from "node:path";
 
 const REPO_ROOT = join(dirname(new URL(import.meta.url).pathname), "..");
 const DOCS_DIR = "docs";
@@ -75,13 +82,10 @@ function replaceSection(
   content: string,
   start: string,
   end: string,
-  lines: string[]
+  lines: string[],
 ): string {
-  const escaped = (s: string) =>
-    s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const pattern = new RegExp(
-    `${escaped(start)}[\\s\\S]*?${escaped(end)}`
-  );
+  const escaped = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`${escaped(start)}[\\s\\S]*?${escaped(end)}`);
   const body = [start, ...lines, end].join("\n");
   return pattern.test(content)
     ? content.replace(pattern, body)
@@ -103,7 +107,7 @@ for (const dir of [...directories].sort()) {
   const dirLines = subdirs.length
     ? subdirs.map(
         (s) =>
-          `- [${s.split("/").slice(-1)[0]}/INDEX.md](${s.split("/").slice(-1)[0]}/INDEX.md)`
+          `- [${s.split("/").slice(-1)[0]}/INDEX.md](${s.split("/").slice(-1)[0]}/INDEX.md)`,
       )
     : ["- No tracked subdirectories."];
 

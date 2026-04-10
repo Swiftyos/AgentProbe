@@ -4,7 +4,6 @@ import { join } from "node:path";
 
 import { judgeResponse } from "../../src/domains/evaluation/judge.ts";
 import { parseRubricsYaml } from "../../src/domains/validation/load-suite.ts";
-import { AgentProbeRuntimeError } from "../../src/shared/utils/errors.ts";
 import {
   asResponsesClient,
   buildRubric,
@@ -51,18 +50,23 @@ describe("judge", () => {
 
     expect(result).toEqual(parsed);
     expect(client.calls).toHaveLength(1);
-    const call = client.calls[0]!;
-    expect(call.model).toBe(rubric.judge!.model);
+    const call = client.calls[0];
+    expect(call).toBeDefined();
+    expect(rubric.judge).toBeDefined();
+    if (!call || !rubric.judge) {
+      throw new Error("Expected judge call configuration to be present.");
+    }
+    expect(call.model).toBe(rubric.judge.model);
     expect(call.text.format.type).toBe("json_schema");
     expect(call.text.format.strict).toBe(true);
     expect(call.text.format.schema.additionalProperties).toBe(false);
-    expect(call.temperature).toBe(rubric.judge!.temperature);
-    expect(call.maxOutputTokens).toBe(rubric.judge!.maxTokens);
+    expect(call.temperature).toBe(rubric.judge.temperature);
+    expect(call.maxOutputTokens).toBe(rubric.judge.maxTokens);
     expect(call.input).toBe(
       "Response to evaluate:\n\nReset your password from settings.",
     );
     expect(call.instructions).toContain("accuracy");
-    expect(call.instructions).toContain("\"additionalProperties\": false");
+    expect(call.instructions).toContain('"additionalProperties": false');
   });
 
   test("rejects missing judge config, wrong provider, empty output, dimension mismatches, and empty rubrics", async () => {
@@ -163,7 +167,9 @@ describe("judge", () => {
 
   test("parses alias-based rubrics from the repo data file", () => {
     const parsed = parseRubricsYaml(join(DATA_DIR, "rubric.yaml"));
-    const inherited = parsed.rubrics.find((rubric) => rubric.id === "sales-automation");
+    const inherited = parsed.rubrics.find(
+      (rubric) => rubric.id === "sales-automation",
+    );
 
     expect(parsed.rubrics).toHaveLength(15);
     expect(inherited?.metaPrompt).toContain("task-oriented scenario");

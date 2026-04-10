@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { parseEndpointsYaml, processYamlFiles } from "../../src/domains/validation/load-suite.ts";
+import {
+  parseEndpointsYaml,
+  processYamlFiles,
+} from "../../src/domains/validation/load-suite.ts";
 import { configureEndpoint } from "../../src/providers/sdk/preset-config.ts";
 import { DATA_DIR, makeTempDir } from "./support.ts";
 
@@ -30,7 +33,10 @@ describe("endpoint configuration", () => {
     process.env.OPENCLAW_GATEWAY_URL = "wss://gateway.test/socket";
     process.env.OPENCLAW_GATEWAY_TOKEN = "test-token";
 
-    const tempPath = join(makeTempDir("openclaw-endpoint"), "openclaw-endpoints.yaml");
+    const tempPath = join(
+      makeTempDir("openclaw-endpoint"),
+      "openclaw-endpoints.yaml",
+    );
     writeFileSync(
       tempPath,
       readFileSync(join(DATA_DIR, "openclaw-endpoints.yaml"), "utf8"),
@@ -43,7 +49,9 @@ describe("endpoint configuration", () => {
     expect((byPreset.connection as { url: string }).url).toBe(
       "wss://gateway.test/socket",
     );
-    expect(byPreset.websocket?.connect?.challengeEvent).toBe("connect.challenge");
+    expect(byPreset.websocket?.connect?.challengeEvent).toBe(
+      "connect.challenge",
+    );
     expect(byPreset.websocket?.connect?.method).toBe("connect");
     expect(byPreset.websocket?.connect?.params.client).toMatchObject({
       id: "openclaw-probe",
@@ -53,7 +61,9 @@ describe("endpoint configuration", () => {
       token: "test-token",
     });
 
-    const byFilename = parseEndpointsYaml(join(DATA_DIR, "openclaw-endpoints.yaml"));
+    const byFilename = parseEndpointsYaml(
+      join(DATA_DIR, "openclaw-endpoints.yaml"),
+    );
     byFilename.preset = undefined;
     const configuredByFilename = configureEndpoint(byFilename);
     expect((configuredByFilename.connection as { url: string }).url).toBe(
@@ -64,7 +74,9 @@ describe("endpoint configuration", () => {
   });
 
   test("rejects non-websocket openclaw urls", () => {
-    const endpoint = parseEndpointsYaml(join(DATA_DIR, "openclaw-endpoints.yaml"));
+    const endpoint = parseEndpointsYaml(
+      join(DATA_DIR, "openclaw-endpoints.yaml"),
+    );
     (endpoint.connection as { url: string }).url = "http://gateway.test";
     expect(() => configureEndpoint(endpoint)).toThrow(/ws:\/\/ or wss:\/\//);
   });
@@ -129,14 +141,12 @@ describe("endpoint configuration", () => {
     );
 
     const processed = processYamlFiles(root);
-    expect(
-      processed
-        .map((item) => item.path.split("/").at(-1))
-        .sort(),
-    ).toEqual([
-      "autogpt-endpoint.yaml",
-      "openclaw-endpoints.yaml",
-      "opencode-endpoints.yaml",
-    ]);
+    expect(processed.map((item) => item.path.split("/").at(-1)).sort()).toEqual(
+      [
+        "autogpt-endpoint.yaml",
+        "openclaw-endpoints.yaml",
+        "opencode-endpoints.yaml",
+      ],
+    );
   });
 });

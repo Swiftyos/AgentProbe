@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
 import type {
@@ -6,7 +6,10 @@ import type {
   OpenAiResponsesRequest,
   OpenAiResponsesResponse,
 } from "../../shared/types/contracts.ts";
-import { AgentProbeConfigError, AgentProbeRuntimeError } from "../../shared/utils/errors.ts";
+import {
+  AgentProbeConfigError,
+  AgentProbeRuntimeError,
+} from "../../shared/utils/errors.ts";
 
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
@@ -38,7 +41,10 @@ function normalizeJson(value: unknown): JsonValue {
   return String(value);
 }
 
-function appendFakeLog(path: string | undefined, record: Record<string, JsonValue>): void {
+function appendFakeLog(
+  path: string | undefined,
+  record: Record<string, JsonValue>,
+): void {
   if (!path) {
     return;
   }
@@ -113,7 +119,9 @@ export class OpenAiResponsesClient {
     }
   }
 
-  async create(request: OpenAiResponsesRequest): Promise<OpenAiResponsesResponse> {
+  async create(
+    request: OpenAiResponsesRequest,
+  ): Promise<OpenAiResponsesResponse> {
     if (this.fakeRules.length > 0) {
       const rule = matchFakeRule(request, this.fakeRules);
       appendFakeLog(this.fakeLogPath, {
@@ -172,7 +180,9 @@ export class OpenAiResponsesClient {
         ? payload.output_text
         : extractOutputText(payload);
     if (!outputText.trim()) {
-      throw new AgentProbeRuntimeError("OpenAI response contained no text output.");
+      throw new AgentProbeRuntimeError(
+        "OpenAI response contained no text output.",
+      );
     }
 
     return { outputText, raw: normalizeJson(payload) };

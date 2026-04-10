@@ -1,14 +1,8 @@
 import { dirname, resolve } from "node:path";
 
 import { runSuite } from "../domains/evaluation/run-suite.ts";
-import {
-  renderRunReport,
-  writeRunReport,
-} from "../domains/reporting/render-report.ts";
-import {
-  parseEndpointsYaml,
-  processYamlFiles,
-} from "../domains/validation/load-suite.ts";
+import { writeRunReport } from "../domains/reporting/render-report.ts";
+import { processYamlFiles } from "../domains/validation/load-suite.ts";
 import {
   DEFAULT_DB_DIRNAME,
   DEFAULT_DB_FILENAME,
@@ -17,22 +11,24 @@ import {
 import { OpenAiResponsesClient } from "../providers/sdk/openai-responses.ts";
 import {
   loadConfiguredEndpoint,
+  OpenClawGatewayClient,
   openclawChat,
   openclawHistory,
-  OpenClawGatewayClient,
 } from "../providers/sdk/openclaw.ts";
+import type { RunProgressEvent, RunResult } from "../shared/types/contracts.ts";
 import {
   AgentProbeConfigError,
   AgentProbeRuntimeError,
 } from "../shared/utils/errors.ts";
-import type { RunProgressEvent, RunResult } from "../shared/types/contracts.ts";
 
 function formatScore(score: number): string {
   return score.toFixed(2);
 }
 
 function commonParent(paths: string[]): string {
-  const splitPaths = paths.map((path) => resolve(path).split("/").filter(Boolean));
+  const splitPaths = paths.map((path) =>
+    resolve(path).split("/").filter(Boolean),
+  );
   const first = splitPaths[0] ?? [];
   const shared: string[] = [];
   for (let index = 0; index < first.length; index += 1) {
@@ -73,7 +69,9 @@ function scenarioLabel(event: RunProgressEvent): string {
 function printRunProgress(event: RunProgressEvent): void {
   if (event.kind === "suite_started") {
     const total = event.scenarioTotal ?? 0;
-    console.error(`Running ${total} ${total === 1 ? "scenario" : "scenarios"}...`);
+    console.error(
+      `Running ${total} ${total === 1 ? "scenario" : "scenarios"}...`,
+    );
     return;
   }
   const prefix = progressPrefix(event);
@@ -124,17 +122,10 @@ function parseOption(args: string[], name: string): string | undefined {
   return args[index + 1];
 }
 
-function stripOption(args: string[], name: string, hasValue: boolean): string[] {
-  const nextArgs = [...args];
-  const index = nextArgs.indexOf(name);
-  if (index === -1) {
-    return nextArgs;
-  }
-  nextArgs.splice(index, hasValue ? 2 : 1);
-  return nextArgs;
-}
-
-async function handleValidate(args: string[], globalDataPath?: string): Promise<number> {
+async function handleValidate(
+  args: string[],
+  globalDataPath?: string,
+): Promise<number> {
   const dataPath = parseOption(args, "--data-path") ?? globalDataPath ?? "data";
   console.log("Processed YAML files:");
   for (const item of processYamlFiles(dataPath)) {
@@ -176,7 +167,10 @@ async function handleRun(args: string[]): Promise<number> {
   return result.exitCode;
 }
 
-async function handleReport(args: string[], globalDataPath?: string): Promise<number> {
+async function handleReport(
+  args: string[],
+  globalDataPath?: string,
+): Promise<number> {
   const written = writeRunReport({
     runId: parseOption(args, "--run-id"),
     dbUrl: dbUrlFromPath(parseOption(args, "--db-path")),
@@ -189,7 +183,8 @@ async function handleReport(args: string[], globalDataPath?: string): Promise<nu
 
 async function handleOpenclaw(args: string[]): Promise<number> {
   const [subcommand, ...rest] = args;
-  const endpointPath = parseOption(rest, "--endpoint") ?? "data/openclaw-endpoints.yaml";
+  const endpointPath =
+    parseOption(rest, "--endpoint") ?? "data/openclaw-endpoints.yaml";
   const endpoint = loadConfiguredEndpoint(endpointPath);
 
   if (subcommand === "create-session") {
@@ -239,7 +234,9 @@ async function handleOpenclaw(args: string[]): Promise<number> {
     return 0;
   }
 
-  throw new AgentProbeConfigError(`Unknown openclaw subcommand: ${subcommand ?? ""}`);
+  throw new AgentProbeConfigError(
+    `Unknown openclaw subcommand: ${subcommand ?? ""}`,
+  );
 }
 
 export async function executeCli(argv: string[]): Promise<number> {

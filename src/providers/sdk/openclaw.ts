@@ -3,12 +3,12 @@ import {
   createPrivateKey,
   createPublicKey,
   generateKeyPairSync,
-  sign as signPayload,
   randomUUID,
+  sign as signPayload,
 } from "node:crypto";
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-
+import { parseEndpointsYaml } from "../../domains/validation/load-suite.ts";
 import type {
   AdapterReply,
   Endpoints,
@@ -18,10 +18,7 @@ import type {
   OpenClawHistory,
   OpenClawSession,
 } from "../../shared/types/contracts.ts";
-import {
-  AgentProbeRuntimeError,
-} from "../../shared/utils/errors.ts";
-import { parseEndpointsYaml } from "../../domains/validation/load-suite.ts";
+import { AgentProbeRuntimeError } from "../../shared/utils/errors.ts";
 import { configureEndpoint } from "./preset-config.ts";
 
 const DEFAULT_CONNECTION_TIMEOUT_SECONDS = 30;
@@ -64,7 +61,10 @@ export class OpenClawGatewayRequestError extends OpenClawGatewayError {
   readonly code?: string;
   readonly details?: unknown;
 
-  constructor(message: string, options: { code?: string; details?: unknown } = {}) {
+  constructor(
+    message: string,
+    options: { code?: string; details?: unknown } = {},
+  ) {
     super(message);
     this.name = "OpenClawGatewayRequestError";
     this.code = options.code;
@@ -82,14 +82,6 @@ function base64UrlEncode(value: Buffer): string {
     .replaceAll("+", "-")
     .replaceAll("/", "_")
     .replaceAll("=", "");
-}
-
-function base64UrlDecode(value: string): Buffer {
-  const padded = value + "=".repeat((4 - (value.length % 4)) % 4);
-  return Buffer.from(
-    padded.replaceAll("-", "+").replaceAll("_", "/"),
-    "base64",
-  );
 }
 
 function trimToUndefined(value: unknown): string | undefined {
@@ -125,17 +117,21 @@ function normalizeDeviceMetadata(value: unknown): string {
 }
 
 function resolveStateDir(): string {
-  if (Bun.env[STATE_DIR_ENV]?.trim()) {
-    return resolve(Bun.env[STATE_DIR_ENV]!);
+  const configuredStateDir = Bun.env[STATE_DIR_ENV]?.trim();
+  if (configuredStateDir) {
+    return resolve(configuredStateDir);
   }
-  if (Bun.env.XDG_STATE_HOME?.trim()) {
-    return resolve(Bun.env.XDG_STATE_HOME!, "agentprobe");
+  const xdgStateHome = Bun.env.XDG_STATE_HOME?.trim();
+  if (xdgStateHome) {
+    return resolve(xdgStateHome, "agentprobe");
   }
   return resolve(process.env.HOME ?? ".", ".local", "state", "agentprobe");
 }
 
 function extractRawPublicKey(spkiDer: Buffer): Buffer {
-  if (spkiDer.subarray(0, ED25519_SPKI_PREFIX.length).equals(ED25519_SPKI_PREFIX)) {
+  if (
+    spkiDer.subarray(0, ED25519_SPKI_PREFIX.length).equals(ED25519_SPKI_PREFIX)
+  ) {
     return spkiDer.subarray(ED25519_SPKI_PREFIX.length);
   }
   return spkiDer.subarray(-32);
@@ -181,8 +177,10 @@ function loadOrCreateDeviceIdentity(path: string): DeviceIdentity {
     typeof (existing as Record<string, unknown>).publicKeyPem === "string" &&
     typeof (existing as Record<string, unknown>).privateKeyPem === "string"
   ) {
-    const publicKeyPem = (existing as Record<string, unknown>).publicKeyPem as string;
-    const privateKeyPem = (existing as Record<string, unknown>).privateKeyPem as string;
+    const publicKeyPem = (existing as Record<string, unknown>)
+      .publicKeyPem as string;
+    const privateKeyPem = (existing as Record<string, unknown>)
+      .privateKeyPem as string;
     const deviceId = deriveDeviceId(publicKeyPem);
     if ((existing as Record<string, unknown>).deviceId !== deviceId) {
       writeJson(path, {
@@ -243,7 +241,8 @@ function loadDeviceAuthToken(
     token: record.token.trim(),
     role: options.role,
     scopes: coerceStringList(record.scopes),
-    updatedAtMs: typeof record.updatedAtMs === "number" ? record.updatedAtMs : 0,
+    updatedAtMs:
+      typeof record.updatedAtMs === "number" ? record.updatedAtMs : 0,
   };
 }
 
@@ -261,7 +260,12 @@ function storeDeviceAuthToken(
     (existing as Record<string, unknown>).tokens &&
     typeof (existing as Record<string, unknown>).tokens === "object" &&
     !Array.isArray((existing as Record<string, unknown>).tokens)
-      ? { ...((existing as Record<string, unknown>).tokens as Record<string, unknown>) }
+      ? {
+          ...((existing as Record<string, unknown>).tokens as Record<
+            string,
+            unknown
+          >),
+        }
       : {};
 
   tokens[options.role] = {
@@ -307,7 +311,9 @@ function buildDeviceAuthPayloadV3(options: {
 
 function signDevicePayload(privateKeyPem: string, payload: string): string {
   const privateKey = createPrivateKey(privateKeyPem);
-  return base64UrlEncode(signPayload(null, Buffer.from(payload, "utf8"), privateKey));
+  return base64UrlEncode(
+    signPayload(null, Buffer.from(payload, "utf8"), privateKey),
+  );
 }
 
 function parseFrame(rawFrame: unknown): Record<string, unknown> {
@@ -317,7 +323,11 @@ function parseFrame(rawFrame: unknown): Record<string, unknown> {
       : rawFrame instanceof ArrayBuffer
         ? Buffer.from(rawFrame).toString("utf8")
         : ArrayBuffer.isView(rawFrame)
-          ? Buffer.from(rawFrame.buffer, rawFrame.byteOffset, rawFrame.byteLength).toString("utf8")
+          ? Buffer.from(
+              rawFrame.buffer,
+              rawFrame.byteOffset,
+              rawFrame.byteLength,
+            ).toString("utf8")
           : "";
   const parsed = JSON.parse(text) as unknown;
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
@@ -326,7 +336,9 @@ function parseFrame(rawFrame: unknown): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
-function messageText(message: Record<string, unknown> | undefined): string | undefined {
+function messageText(
+  message: Record<string, unknown> | undefined,
+): string | undefined {
   if (!message) {
     return undefined;
   }
@@ -350,7 +362,9 @@ function messageText(message: Record<string, unknown> | undefined): string | und
   return undefined;
 }
 
-function latestAssistantReply(messages: Array<Record<string, unknown>>): string | undefined {
+function latestAssistantReply(
+  messages: Array<Record<string, unknown>>,
+): string | undefined {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message.role !== "assistant") {
@@ -390,7 +404,10 @@ export class OpenClawGatewayClient {
   private challengeRejecter?: (error: Error) => void;
   private challengePromise?: Promise<string>;
   private pending = new Map<string, PendingRequest>();
-  private chatWaiters = new Map<string, Array<(event: Record<string, unknown>) => void>>();
+  private chatWaiters = new Map<
+    string,
+    Array<(event: Record<string, unknown>) => void>
+  >();
   private readonly stateDir = resolve(resolveStateDir(), "openclaw");
   private readonly identityPath = resolve(this.stateDir, DEVICE_IDENTITY_FILE);
   private readonly authStorePath = resolve(this.stateDir, DEVICE_AUTH_FILE);
@@ -421,7 +438,9 @@ export class OpenClawGatewayClient {
 
     const connection = this.endpoint.connection;
     if (!connection || !("maxRetries" in connection)) {
-      throw new OpenClawGatewayError("OpenClaw endpoint is missing connection.");
+      throw new OpenClawGatewayError(
+        "OpenClaw endpoint is missing connection.",
+      );
     }
     const attempts = 1 + Math.max(connection.maxRetries ?? 0, 0);
     let lastError: Error | undefined;
@@ -432,8 +451,14 @@ export class OpenClawGatewayClient {
       while (true) {
         try {
           await this.openSocket();
+          const challengePromise = this.challengePromise;
+          if (!challengePromise) {
+            throw new OpenClawGatewayError(
+              "Gateway challenge promise was not initialized.",
+            );
+          }
           const nonce = await this.withTimeout(
-            this.challengePromise!,
+            challengePromise,
             Math.min(
               this.timeoutMs(),
               DEFAULT_CONNECT_CHALLENGE_TIMEOUT_SECONDS,
@@ -441,7 +466,7 @@ export class OpenClawGatewayClient {
             "Timed out waiting for gateway challenge.",
           );
           this.hello = await this.callRaw(
-            this.endpoint.websocket!.connect!.method ?? "connect",
+            this.endpoint.websocket?.connect?.method ?? "connect",
             this.buildConnectParams(nonce, useStoredRetry),
           );
           this.connected = true;
@@ -482,22 +507,21 @@ export class OpenClawGatewayClient {
   }
 
   async health(): Promise<Record<string, unknown>> {
-    const method =
-      this.endpoint.healthCheck?.endpoint && this.endpoint.healthCheck.endpoint.trim()
-        ? this.endpoint.healthCheck.endpoint
-        : "health";
+    const method = this.endpoint.healthCheck?.endpoint?.trim() || "health";
     const payload = await this.call(method);
     return payload && typeof payload === "object" && !Array.isArray(payload)
       ? (payload as Record<string, unknown>)
       : { payload };
   }
 
-  async createSession(options: {
-    key?: string;
-    label?: string;
-    agentId?: string;
-    model?: string;
-  } = {}): Promise<OpenClawSession> {
+  async createSession(
+    options: {
+      key?: string;
+      label?: string;
+      agentId?: string;
+      model?: string;
+    } = {},
+  ): Promise<OpenClawSession> {
     const params: Record<string, unknown> = {};
     if (options.key) params.key = options.key;
     if (options.label) params.label = options.label;
@@ -520,7 +544,9 @@ export class OpenClawGatewayClient {
       key: record.key,
       sessionId: trimToUndefined(record.sessionId),
       entry:
-        record.entry && typeof record.entry === "object" && !Array.isArray(record.entry)
+        record.entry &&
+        typeof record.entry === "object" &&
+        !Array.isArray(record.entry)
           ? (record.entry as Record<string, JsonValue>)
           : {},
     };
@@ -532,23 +558,28 @@ export class OpenClawGatewayClient {
   ): Promise<OpenClawHistory> {
     const payload = await this.call("chat.history", {
       sessionKey,
-      limit: Math.max(1, Math.min(options.limit ?? DEFAULT_HISTORY_LIMIT, 1000)),
+      limit: Math.max(
+        1,
+        Math.min(options.limit ?? DEFAULT_HISTORY_LIMIT, 1000),
+      ),
     });
     if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-      throw new OpenClawGatewayError("chat.history returned an invalid payload.");
+      throw new OpenClawGatewayError(
+        "chat.history returned an invalid payload.",
+      );
     }
     const record = payload as Record<string, unknown>;
     return {
       sessionKey,
       sessionId: trimToUndefined(record.sessionId),
       messages: Array.isArray(record.messages)
-        ? record.messages.filter(
-            (item): item is Record<string, JsonValue> =>
-              Boolean(item && typeof item === "object" && !Array.isArray(item)),
+        ? record.messages.filter((item): item is Record<string, JsonValue> =>
+            Boolean(item && typeof item === "object" && !Array.isArray(item)),
           )
         : [],
       thinkingLevel: trimToUndefined(record.thinkingLevel),
-      fastMode: typeof record.fastMode === "boolean" ? record.fastMode : undefined,
+      fastMode:
+        typeof record.fastMode === "boolean" ? record.fastMode : undefined,
       verboseLevel: trimToUndefined(record.verboseLevel),
     };
   }
@@ -563,13 +594,19 @@ export class OpenClawGatewayClient {
       idempotencyKey?: string;
     } = {},
   ): Promise<OpenClawChatResult> {
-    const requestedRunId = trimToUndefined(options.idempotencyKey) ?? randomUUID().replaceAll("-", "");
+    const requestedRunId =
+      trimToUndefined(options.idempotencyKey) ??
+      randomUUID().replaceAll("-", "");
     let waiterRunId = requestedRunId;
     let resolveEvent: ((event: Record<string, unknown>) => void) | undefined;
     const eventPromise = new Promise<Record<string, unknown>>((resolve) => {
       resolveEvent = resolve;
     });
-    this.registerChatWaiter(waiterRunId, sessionKey, resolveEvent!);
+    if (!resolveEvent) {
+      throw new OpenClawGatewayError("Chat waiter could not be initialized.");
+    }
+    const chatWaiter = resolveEvent;
+    this.registerChatWaiter(waiterRunId, sessionKey, chatWaiter);
 
     try {
       const payload = await this.call("chat.send", {
@@ -581,14 +618,16 @@ export class OpenClawGatewayClient {
       });
 
       if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-        throw new OpenClawGatewayError("chat.send returned an invalid payload.");
+        throw new OpenClawGatewayError(
+          "chat.send returned an invalid payload.",
+        );
       }
       const record = payload as Record<string, unknown>;
       const runId = trimToUndefined(record.runId) ?? requestedRunId;
       if (runId !== waiterRunId) {
-        this.unregisterChatWaiter(waiterRunId, sessionKey, resolveEvent!);
+        this.unregisterChatWaiter(waiterRunId, sessionKey, chatWaiter);
         waiterRunId = runId;
-        this.registerChatWaiter(waiterRunId, sessionKey, resolveEvent!);
+        this.registerChatWaiter(waiterRunId, sessionKey, chatWaiter);
       }
 
       const status = coerceChatStatus(record.status);
@@ -609,8 +648,7 @@ export class OpenClawGatewayClient {
       if (status === "error") {
         return {
           ...baseResult,
-          error:
-            trimToUndefined(record.summary) ?? "Gateway run failed.",
+          error: trimToUndefined(record.summary) ?? "Gateway run failed.",
         };
       }
       if (status === "aborted") {
@@ -619,7 +657,10 @@ export class OpenClawGatewayClient {
           error: "Run was aborted by the gateway.",
         };
       }
-      if (options.waitForReply === false || (options.timeoutMs ?? DEFAULT_REPLY_TIMEOUT_MS) === 0) {
+      if (
+        options.waitForReply === false ||
+        (options.timeoutMs ?? DEFAULT_REPLY_TIMEOUT_MS) === 0
+      ) {
         return baseResult;
       }
 
@@ -639,10 +680,14 @@ export class OpenClawGatewayClient {
 
       if (event.state === "final") {
         const messagePayload =
-          event.message && typeof event.message === "object" && !Array.isArray(event.message)
+          event.message &&
+          typeof event.message === "object" &&
+          !Array.isArray(event.message)
             ? (event.message as Record<string, JsonValue>)
             : undefined;
-        let reply = messageText(messagePayload as Record<string, unknown> | undefined);
+        let reply = messageText(
+          messagePayload as Record<string, unknown> | undefined,
+        );
         let sessionId: string | undefined;
         if (!reply) {
           const history = await this.history(sessionKey);
@@ -672,15 +717,17 @@ export class OpenClawGatewayClient {
         sessionKey,
         runId,
         status: "error",
-        error:
-          trimToUndefined(event.errorMessage) ?? "Gateway run failed.",
+        error: trimToUndefined(event.errorMessage) ?? "Gateway run failed.",
       };
     } finally {
-      this.unregisterChatWaiter(waiterRunId, sessionKey, resolveEvent!);
+      this.unregisterChatWaiter(waiterRunId, sessionKey, chatWaiter);
     }
   }
 
-  async call(method: string, params?: Record<string, unknown>): Promise<unknown> {
+  async call(
+    method: string,
+    params?: Record<string, unknown>,
+  ): Promise<unknown> {
     await this.connect();
     return await this.callRaw(method, params);
   }
@@ -694,13 +741,15 @@ export class OpenClawGatewayClient {
     }
 
     const requestId = randomUUID().replaceAll("-", "");
-    const responsePromise = new Promise<Record<string, unknown>>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this.pending.delete(requestId);
-        reject(new OpenClawGatewayTimeout(`${method} timed out.`));
-      }, this.timeoutMs());
-      this.pending.set(requestId, { resolve, reject, timeout });
-    });
+    const responsePromise = new Promise<Record<string, unknown>>(
+      (resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this.pending.delete(requestId);
+          reject(new OpenClawGatewayTimeout(`${method} timed out.`));
+        }, this.timeoutMs());
+        this.pending.set(requestId, { resolve, reject, timeout });
+      },
+    );
 
     this.websocket.send(
       JSON.stringify({
@@ -736,7 +785,9 @@ export class OpenClawGatewayClient {
   private async openSocket(): Promise<void> {
     const connection = this.endpoint.connection;
     if (!connection || !("url" in connection)) {
-      throw new OpenClawGatewayError("OpenClaw endpoint is missing connection.url.");
+      throw new OpenClawGatewayError(
+        "OpenClaw endpoint is missing connection.url.",
+      );
     }
 
     this.challengePromise = new Promise<string>((resolve, reject) => {
@@ -771,7 +822,9 @@ export class OpenClawGatewayClient {
         if (!settled) {
           settled = true;
           clearTimeout(timeout);
-          rejectPromise(new OpenClawGatewayError("Failed to open gateway websocket."));
+          rejectPromise(
+            new OpenClawGatewayError("Failed to open gateway websocket."),
+          );
         }
       };
     });
@@ -795,19 +848,25 @@ export class OpenClawGatewayClient {
           return;
         }
         if (
-          frame.event === (this.endpoint.websocket?.connect?.challengeEvent ?? "connect.challenge")
+          frame.event ===
+          (this.endpoint.websocket?.connect?.challengeEvent ??
+            "connect.challenge")
         ) {
           const nonce =
             frame.payload &&
             typeof frame.payload === "object" &&
             !Array.isArray(frame.payload)
-              ? trimToUndefined((frame.payload as Record<string, unknown>).nonce)
+              ? trimToUndefined(
+                  (frame.payload as Record<string, unknown>).nonce,
+                )
               : undefined;
           if (nonce) {
             this.challengeResolver?.(nonce);
           } else {
             this.challengeRejecter?.(
-              new OpenClawGatewayError("Gateway connect challenge missing nonce."),
+              new OpenClawGatewayError(
+                "Gateway connect challenge missing nonce.",
+              ),
             );
           }
           return;
@@ -817,7 +876,9 @@ export class OpenClawGatewayClient {
           return;
         }
         const payload =
-          frame.payload && typeof frame.payload === "object" && !Array.isArray(frame.payload)
+          frame.payload &&
+          typeof frame.payload === "object" &&
+          !Array.isArray(frame.payload)
             ? (frame.payload as Record<string, unknown>)
             : undefined;
         const runId = trimToUndefined(payload?.runId);
@@ -870,9 +931,13 @@ export class OpenClawGatewayClient {
     nonce: string,
     useStoredDeviceTokenRetry: boolean,
   ): Record<string, unknown> {
-    const params = structuredClone(this.endpoint.websocket?.connect?.params ?? {});
+    const params = structuredClone(
+      this.endpoint.websocket?.connect?.params ?? {},
+    );
     const client =
-      params.client && typeof params.client === "object" && !Array.isArray(params.client)
+      params.client &&
+      typeof params.client === "object" &&
+      !Array.isArray(params.client)
         ? (params.client as Record<string, unknown>)
         : {};
     const clientId = trimToUndefined(client.id) ?? "openclaw-probe";
@@ -883,10 +948,16 @@ export class OpenClawGatewayClient {
     const role = trimToUndefined(params.role) ?? "operator";
     const scopes = coerceStringList(params.scopes);
     const authConfig =
-      params.auth && typeof params.auth === "object" && !Array.isArray(params.auth)
+      params.auth &&
+      typeof params.auth === "object" &&
+      !Array.isArray(params.auth)
         ? (params.auth as Record<string, unknown>)
         : {};
-    const auth = this.selectConnectAuth(role, authConfig, useStoredDeviceTokenRetry);
+    const auth = this.selectConnectAuth(
+      role,
+      authConfig,
+      useStoredDeviceTokenRetry,
+    );
     const identity = this.loadDeviceIdentity();
     const signedAtMs = nowMs();
     const signaturePayload = buildDeviceAuthPayloadV3({
@@ -976,7 +1047,9 @@ export class OpenClawGatewayClient {
 
   private persistIssuedDeviceToken(): void {
     const auth =
-      this.hello?.auth && typeof this.hello.auth === "object" && !Array.isArray(this.hello.auth)
+      this.hello?.auth &&
+      typeof this.hello.auth === "object" &&
+      !Array.isArray(this.hello.auth)
         ? (this.hello.auth as Record<string, unknown>)
         : undefined;
     if (!auth) {
@@ -994,8 +1067,12 @@ export class OpenClawGatewayClient {
     });
   }
 
-  private shouldRetryWithStoredDeviceToken(error: OpenClawGatewayRequestError): boolean {
-    const parsedUrl = new URL((this.endpoint.connection as { url: string }).url);
+  private shouldRetryWithStoredDeviceToken(
+    error: OpenClawGatewayRequestError,
+  ): boolean {
+    const parsedUrl = new URL(
+      (this.endpoint.connection as { url: string }).url,
+    );
     const trusted =
       parsedUrl.protocol === "wss:" ||
       ["127.0.0.1", "::1", "localhost"].includes(parsedUrl.hostname);
@@ -1010,7 +1087,9 @@ export class OpenClawGatewayClient {
       return false;
     }
     const details =
-      error.details && typeof error.details === "object" && !Array.isArray(error.details)
+      error.details &&
+      typeof error.details === "object" &&
+      !Array.isArray(error.details)
         ? (error.details as Record<string, unknown>)
         : {};
     return (
@@ -1021,7 +1100,10 @@ export class OpenClawGatewayClient {
   }
 
   private configuredRole(): string {
-    return trimToUndefined(this.endpoint.websocket?.connect?.params.role) ?? "operator";
+    return (
+      trimToUndefined(this.endpoint.websocket?.connect?.params.role) ??
+      "operator"
+    );
   }
 
   private loadDeviceIdentity(): DeviceIdentity {
@@ -1046,7 +1128,9 @@ export class OpenClawGatewayClient {
     waiter: (event: Record<string, unknown>) => void,
   ): void {
     const key = `${runId}:${sessionKey}`;
-    const waiters = (this.chatWaiters.get(key) ?? []).filter((item) => item !== waiter);
+    const waiters = (this.chatWaiters.get(key) ?? []).filter(
+      (item) => item !== waiter,
+    );
     if (waiters.length > 0) {
       this.chatWaiters.set(key, waiters);
     } else {
@@ -1081,14 +1165,19 @@ export class OpenClawGatewayClient {
     message: string,
   ): Promise<T> {
     const timeoutPromise = new Promise<T>((_resolvePromise, rejectPromise) => {
-      setTimeout(() => rejectPromise(new OpenClawGatewayTimeout(message)), timeoutMs);
+      setTimeout(
+        () => rejectPromise(new OpenClawGatewayTimeout(message)),
+        timeoutMs,
+      );
     });
     return (await Promise.race([promise, timeoutPromise])) as T;
   }
 
   private timeoutMs(): number {
     const connection = this.endpoint.connection as { timeoutSeconds?: number };
-    return (connection.timeoutSeconds ?? DEFAULT_CONNECTION_TIMEOUT_SECONDS) * 1000;
+    return (
+      (connection.timeoutSeconds ?? DEFAULT_CONNECTION_TIMEOUT_SECONDS) * 1000
+    );
   }
 }
 
@@ -1113,7 +1202,9 @@ export class OpenClawEndpointAdapter {
     await (await this.ensureClient()).health();
   }
 
-  async openScenario(renderContext: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async openScenario(
+    renderContext: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
     const client = await this.ensureClient();
     const sessionKey =
       trimToUndefined(renderContext.session_key) ??
@@ -1123,7 +1214,9 @@ export class OpenClawEndpointAdapter {
       (renderContext.scenario &&
       typeof renderContext.scenario === "object" &&
       !Array.isArray(renderContext.scenario)
-        ? trimToUndefined((renderContext.scenario as Record<string, unknown>).name)
+        ? trimToUndefined(
+            (renderContext.scenario as Record<string, unknown>).name,
+          )
         : undefined);
     this.session = await client.createSession({ key: sessionKey, label });
     return {
@@ -1132,23 +1225,31 @@ export class OpenClawEndpointAdapter {
     };
   }
 
-  async sendUserTurn(renderContext: Record<string, unknown>): Promise<AdapterReply> {
+  async sendUserTurn(
+    renderContext: Record<string, unknown>,
+  ): Promise<AdapterReply> {
     const client = await this.ensureClient();
     const sessionKey =
       this.session?.key ??
       trimToUndefined(renderContext.session_key) ??
       trimToUndefined(renderContext.sessionKey);
     if (!sessionKey) {
-      throw new OpenClawGatewayError("OpenClaw adapter has no active session key.");
+      throw new OpenClawGatewayError(
+        "OpenClaw adapter has no active session key.",
+      );
     }
     const lastMessage =
-      renderContext.last_message && typeof renderContext.last_message === "object"
+      renderContext.last_message &&
+      typeof renderContext.last_message === "object"
         ? (renderContext.last_message as Record<string, unknown>)
         : undefined;
     const message =
-      trimToUndefined(lastMessage?.content) ?? trimToUndefined(renderContext.message);
+      trimToUndefined(lastMessage?.content) ??
+      trimToUndefined(renderContext.message);
     if (!message) {
-      throw new OpenClawGatewayError("OpenClaw adapter requires a user message.");
+      throw new OpenClawGatewayError(
+        "OpenClaw adapter requires a user message.",
+      );
     }
 
     const startedAt = performance.now();
@@ -1177,7 +1278,9 @@ export class OpenClawEndpointAdapter {
   }
 }
 
-export function buildOpenClawAdapter(endpoint: Endpoints): OpenClawEndpointAdapter {
+export function buildOpenClawAdapter(
+  endpoint: Endpoints,
+): OpenClawEndpointAdapter {
   return new OpenClawEndpointAdapter(endpoint);
 }
 

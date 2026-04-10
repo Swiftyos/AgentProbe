@@ -34,7 +34,9 @@ export class FakeResponsesClient {
     >,
   ) {}
 
-  async create(request: OpenAiResponsesRequest): Promise<OpenAiResponsesResponse> {
+  async create(
+    request: OpenAiResponsesRequest,
+  ): Promise<OpenAiResponsesResponse> {
     this.calls.push(request);
     if (this.responses.length === 0) {
       throw new Error("No fake OpenAI responses remaining.");
@@ -189,11 +191,9 @@ export function buildRubric(overrides: Partial<Rubric> = {}): Rubric {
   };
 }
 
-export function buildScore(options: {
-  dimensionId?: string;
-  score?: number;
-  passed?: boolean;
-} = {}): RubricScore {
+export function buildScore(
+  options: { dimensionId?: string; score?: number; passed?: boolean } = {},
+): RubricScore {
   const score = options.score ?? 4;
   return {
     dimensions: {
@@ -215,16 +215,18 @@ export function buildPersonaStep(
   return { status, message };
 }
 
-export function buildScenario(options: {
-  turns?: Scenario["turns"];
-  sessions?: Scenario["sessions"];
-  context?: Scenario["context"];
-  expectations?: Partial<Scenario["expectations"]>;
-  maxTurns?: number;
-  id?: string;
-  name?: string;
-  tags?: string[];
-} = {}): Scenario {
+export function buildScenario(
+  options: {
+    turns?: Scenario["turns"];
+    sessions?: Scenario["sessions"];
+    context?: Scenario["context"];
+    expectations?: Partial<Scenario["expectations"]>;
+    maxTurns?: number;
+    id?: string;
+    name?: string;
+    tags?: string[];
+  } = {},
+): Scenario {
   return {
     id: options.id ?? "flight-rebooking",
     name: options.name ?? "Flight Rebooking",
@@ -232,11 +234,10 @@ export function buildScenario(options: {
     persona: "business-traveler",
     rubric: "customer-support",
     maxTurns: options.maxTurns,
-    context:
-      options.context ?? {
-        systemPrompt: "You are a travel assistant.",
-        injectedData: { booking_id: "FLT-29481" },
-      },
+    context: options.context ?? {
+      systemPrompt: "You are a travel assistant.",
+      injectedData: { booking_id: "FLT-29481" },
+    },
     turns: options.turns ?? [],
     sessions: options.sessions ?? [],
     expectations: {
@@ -294,7 +295,9 @@ export function sendMessages(adapter: FakeAdapter): string[] {
 
 export function asResponsesClient(client: FakeResponsesClient) {
   return client as unknown as {
-    create: (request: OpenAiResponsesRequest) => Promise<OpenAiResponsesResponse>;
+    create: (
+      request: OpenAiResponsesRequest,
+    ) => Promise<OpenAiResponsesResponse>;
   };
 }
 

@@ -1,3 +1,4 @@
+import type { OpenAiResponsesClient } from "../../providers/sdk/openai-responses.ts";
 import type {
   ConversationTurn,
   JsonValue,
@@ -6,7 +7,6 @@ import type {
   PersonaStep,
 } from "../../shared/types/contracts.ts";
 import { AgentProbeRuntimeError } from "../../shared/utils/errors.ts";
-import { OpenAiResponsesClient } from "../../providers/sdk/openai-responses.ts";
 
 const DEFAULT_PERSONA_MODEL = "moonshotai/kimi-k2.5";
 
@@ -14,7 +14,9 @@ type ConversationHistory =
   | string
   | Array<ConversationTurn | Record<string, unknown>>;
 
-function simulatorJsonSchema(requireResponse: boolean): Record<string, unknown> {
+function simulatorJsonSchema(
+  requireResponse: boolean,
+): Record<string, unknown> {
   if (requireResponse) {
     return {
       type: "object",
@@ -132,7 +134,10 @@ export function personaToPromptMarkdown(persona: Persona): string {
   return lines.join("\n");
 }
 
-function simulatorInstructions(persona: Persona, requireResponse: boolean): string {
+function simulatorInstructions(
+  persona: Persona,
+  requireResponse: boolean,
+): string {
   const guidance = requireResponse
     ? [
         "A response is required for this turn.",
@@ -175,7 +180,9 @@ function displayRole(role: string): string {
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
-function coerceTurn(value: ConversationTurn | Record<string, unknown>): ConversationTurn {
+function coerceTurn(
+  value: ConversationTurn | Record<string, unknown>,
+): ConversationTurn {
   if ("role" in value && typeof value.role === "string") {
     return {
       role: value.role,
@@ -345,7 +352,9 @@ function looksLikeTerminalAcknowledgement(message: string): boolean {
   return markers.some((marker) => lowered.includes(marker));
 }
 
-function normalizeRequiredResponsePayload(parsed: Record<string, unknown>): PersonaStep {
+function normalizeRequiredResponsePayload(
+  parsed: Record<string, unknown>,
+): PersonaStep {
   for (const key of ["message", "response", "content", "text"] as const) {
     const value = parsed[key];
     if (typeof value === "string" && value.trim()) {
@@ -353,7 +362,10 @@ function normalizeRequiredResponsePayload(parsed: Record<string, unknown>): Pers
     }
   }
   return {
-    status: typeof parsed.status === "string" ? (parsed.status as PersonaStep["status"]) : "completed",
+    status:
+      typeof parsed.status === "string"
+        ? (parsed.status as PersonaStep["status"])
+        : "completed",
     message: typeof parsed.message === "string" ? parsed.message : null,
   };
 }
@@ -438,7 +450,8 @@ function parsePersonaPayload(
       }
       return {
         status,
-        message: typeof record.message === "string" ? record.message.trim() : null,
+        message:
+          typeof record.message === "string" ? record.message.trim() : null,
       };
     } catch {}
   }
@@ -456,7 +469,7 @@ function validatePersonaStep(
         "Persona simulator must return `continue` when a scripted turn requires a response.",
       );
     }
-    if (!step.message || !step.message.trim()) {
+    if (!step.message?.trim()) {
       throw new AgentProbeRuntimeError(
         "Persona simulator must return a non-empty `message` when status is `continue`.",
       );
@@ -465,7 +478,7 @@ function validatePersonaStep(
   }
 
   if (step.status === "continue") {
-    if (!step.message || !step.message.trim()) {
+    if (!step.message?.trim()) {
       throw new AgentProbeRuntimeError(
         "Persona simulator must return a non-empty `message` when status is `continue`.",
       );
@@ -494,7 +507,10 @@ export async function generatePersonaStep(
       format: {
         type: "json_schema",
         name: "persona_step",
-        schema: simulatorJsonSchema(requireResponse) as Record<string, JsonValue>,
+        schema: simulatorJsonSchema(requireResponse) as Record<
+          string,
+          JsonValue
+        >,
         strict: true,
       },
     },

@@ -4,14 +4,18 @@ function normalizePropertyName(raw: string): string {
   return raw.trim().replace(/^["']|["']$/g, "");
 }
 
-function tokenizeJsonPath(expr: string): Array<
+function tokenizeJsonPath(
+  expr: string,
+): Array<
   | { type: "root" }
   | { type: "property"; name: string }
   | { type: "filter"; property: string; equals: string }
 > {
   const trimmed = expr.trim();
   if (!trimmed.startsWith("$")) {
-    throw new AgentProbeConfigError(`Invalid JSONPath \`${expr}\`: must start with $.`);
+    throw new AgentProbeConfigError(
+      `Invalid JSONPath \`${expr}\`: must start with $.`,
+    );
   }
 
   const tokens: Array<
@@ -64,7 +68,10 @@ function tokenizeJsonPath(expr: string): Array<
   return tokens;
 }
 
-export function extractJsonPathMatches(payload: unknown, expr: string): unknown[] {
+export function extractJsonPathMatches(
+  payload: unknown,
+  expr: string,
+): unknown[] {
   if (expr.trim() === "$") {
     return [payload];
   }

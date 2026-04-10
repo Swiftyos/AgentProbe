@@ -1,8 +1,7 @@
-import { createHash, randomUUID } from "node:crypto";
-import { dirname, resolve } from "node:path";
-import { mkdirSync } from "node:fs";
-
 import { Database } from "bun:sqlite";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 import type {
   AdapterReply,
@@ -476,7 +475,9 @@ export class SqliteRunRecorder {
     const scenariosHash = hashValue(options.scenarioCollection);
     const personasHash = hashValue(options.personaCollection);
     const rubricHash = hashValue(options.rubricCollection);
-    const selectedScenarioIds = options.selectedScenarios.map((item) => item.id);
+    const selectedScenarioIds = options.selectedScenarios.map(
+      (item) => item.id,
+    );
     const suiteFingerprint = hashValue({
       endpoint_config_hash: endpointHash,
       scenarios_config_hash: scenariosHash,
@@ -537,7 +538,13 @@ export class SqliteRunRecorder {
           where id = ?
         `,
       )
-      .run(result.passed ? 1 : 0, result.exitCode, utcNow(), utcNow(), this.requireRunId());
+      .run(
+        result.passed ? 1 : 0,
+        result.exitCode,
+        utcNow(),
+        utcNow(),
+        this.requireRunId(),
+      );
   }
 
   recordRunError(error: Error, options: { exitCode: number }): void {
@@ -896,7 +903,8 @@ function mapRunSummaryRow(row: Record<string, unknown>): RunSummary {
     completedAt: typeof row.completed_at === "string" ? row.completed_at : null,
     suiteFingerprint:
       typeof row.suite_fingerprint === "string" ? row.suite_fingerprint : null,
-    finalError: decodeJson<Record<string, JsonValue>>(row.final_error_json) ?? null,
+    finalError:
+      decodeJson<Record<string, JsonValue>>(row.final_error_json) ?? null,
     aggregateCounts: {
       scenarioTotal: Number(row.scenario_total ?? 0),
       scenarioPassedCount: Number(row.scenario_passed_count ?? 0),
@@ -918,7 +926,10 @@ export function listRuns(options: { dbUrl?: string } = {}): RunSummary[] {
   }
 }
 
-function getScenarioRecords(database: Database, runId: string): RunRecord["scenarios"] {
+function getScenarioRecords(
+  database: Database,
+  runId: string,
+): RunRecord["scenarios"] {
   const scenarioRows = database
     .query("select * from scenario_runs where run_id = ? order by ordinal asc")
     .all(runId) as Array<Record<string, unknown>>;
@@ -926,7 +937,9 @@ function getScenarioRecords(database: Database, runId: string): RunRecord["scena
   return scenarioRows.map((row) => {
     const scenarioRunId = Number(row.id);
     const turns = database
-      .query("select * from turns where scenario_run_id = ? order by turn_index asc")
+      .query(
+        "select * from turns where scenario_run_id = ? order by turn_index asc",
+      )
       .all(scenarioRunId) as Array<Record<string, unknown>>;
     const targetEvents = database
       .query(
@@ -976,7 +989,8 @@ function getScenarioRecords(database: Database, runId: string): RunRecord["scena
           ? null
           : Number(row.pass_threshold),
       judge: {
-        provider: typeof row.judge_provider === "string" ? row.judge_provider : null,
+        provider:
+          typeof row.judge_provider === "string" ? row.judge_provider : null,
         model: typeof row.judge_model === "string" ? row.judge_model : null,
         temperature:
           row.judge_temperature === null || row.judge_temperature === undefined
@@ -1002,7 +1016,9 @@ function getScenarioRecords(database: Database, runId: string): RunRecord["scena
         source: String(turn.source),
         content: typeof turn.content === "string" ? turn.content : null,
         generator_model:
-          typeof turn.generator_model === "string" ? turn.generator_model : null,
+          typeof turn.generator_model === "string"
+            ? turn.generator_model
+            : null,
         latency_ms:
           turn.latency_ms === null || turn.latency_ms === undefined
             ? null
@@ -1057,7 +1073,8 @@ function getScenarioRecords(database: Database, runId: string): RunRecord["scena
       })),
       error: decodeJson<Record<string, JsonValue>>(row.error_json) ?? null,
       startedAt: String(row.started_at),
-      completedAt: typeof row.completed_at === "string" ? row.completed_at : null,
+      completedAt:
+        typeof row.completed_at === "string" ? row.completed_at : null,
     };
   });
 }
@@ -1080,7 +1097,8 @@ export function getRun(
       sourcePaths:
         decodeJson<Record<string, string>>(row.source_paths_json) ?? null,
       endpointSnapshot:
-        decodeJson<Record<string, JsonValue>>(row.endpoint_snapshot_json) ?? null,
+        decodeJson<Record<string, JsonValue>>(row.endpoint_snapshot_json) ??
+        null,
       selectedScenarioIds:
         decodeJson<string[]>(row.selected_scenario_ids_json) ?? null,
       scenarios: getScenarioRecords(database, runId),
@@ -1101,7 +1119,9 @@ export function latestRunForSuite(
           .query(
             "select id from runs where suite_fingerprint = ? and started_at < ? order by started_at desc limit 1",
           )
-          .get(suiteFingerprint, options.beforeStartedAt) as { id?: string } | null)
+          .get(suiteFingerprint, options.beforeStartedAt) as {
+          id?: string;
+        } | null)
       : (database
           .query(
             "select id from runs where suite_fingerprint = ? order by started_at desc limit 1",

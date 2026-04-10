@@ -86,21 +86,24 @@ export async function registerUser(options: {
   }
 }
 
-export async function resolveAuth(options: {
-  backendUrl?: string;
-  jwtSecret?: string;
-  jwtAlgorithm?: string;
-  issuer?: string;
-  audience?: string;
-  role?: string;
-  email?: string;
-  userId?: string;
-  name?: string;
-} = {}): Promise<AutogptAuthResult> {
+export async function resolveAuth(
+  options: {
+    backendUrl?: string;
+    jwtSecret?: string;
+    jwtAlgorithm?: string;
+    issuer?: string;
+    audience?: string;
+    role?: string;
+    email?: string;
+    userId?: string;
+    name?: string;
+  } = {},
+): Promise<AutogptAuthResult> {
   const backendUrl = options.backendUrl ?? DEFAULT_BACKEND_URL;
   const jwtSecret = options.jwtSecret ?? DEFAULT_JWT_SECRET;
   const jwtAlgorithm = options.jwtAlgorithm ?? DEFAULT_JWT_ALGORITHM;
-  const issuer = options.issuer ?? Bun.env.AUTOGPT_JWT_ISSUER ?? "supabase-demo";
+  const issuer =
+    options.issuer ?? Bun.env.AUTOGPT_JWT_ISSUER ?? "supabase-demo";
   const audience =
     options.audience ?? Bun.env.AUTOGPT_JWT_AUDIENCE ?? "authenticated";
   const role = options.role ?? Bun.env.AUTOGPT_JWT_ROLE ?? "user";

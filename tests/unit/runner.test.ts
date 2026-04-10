@@ -9,8 +9,6 @@ import {
 import type {
   Endpoints,
   RunProgressEvent,
-  Scenario,
-  ScenarioDefaults,
 } from "../../src/shared/types/contracts.ts";
 import {
   adapterReply,
@@ -78,7 +76,9 @@ describe("runner", () => {
   test("runScenario respects exact messages and checkpoint failures", async () => {
     const adapter = new FakeAdapter([
       adapterReply("Tracking number ZX9 is on the way.", {
-        toolCalls: [{ name: "lookup_order", args: { order_id: "123" }, order: 1 }],
+        toolCalls: [
+          { name: "lookup_order", args: { order_id: "123" }, order: 1 },
+        ],
       }),
     ]);
     const client = new FakeResponsesClient([
@@ -245,7 +245,9 @@ describe("runner", () => {
     const result = await runScenario(
       adapter,
       buildScenario({
-        turns: [{ role: "user", content: "First turn", useExactMessage: false }],
+        turns: [
+          { role: "user", content: "First turn", useExactMessage: false },
+        ],
       }),
       buildPersona(),
       buildRubric(),
@@ -266,13 +268,19 @@ describe("runner", () => {
 
   test("runScenario handles multi-session resets", async () => {
     const adapter = new FakeAdapter(
-      [adapterReply("Stored it."), adapterReply("Sarah handles client proposals.")],
+      [
+        adapterReply("Stored it."),
+        adapterReply("Sarah handles client proposals."),
+      ],
       { session_id: "session-1" },
     );
     const client = new FakeResponsesClient([
       buildPersonaStep("continue", "Remember that Sarah should be CC'd."),
       buildPersonaStep("completed"),
-      buildPersonaStep("continue", "Who should I CC on outgoing client proposals?"),
+      buildPersonaStep(
+        "continue",
+        "Who should I CC on outgoing client proposals?",
+      ),
       buildPersonaStep("completed"),
       buildScore(),
     ]);
@@ -321,9 +329,11 @@ describe("runner", () => {
 
     expect(adapter.healthCalls).toHaveLength(2);
     expect(adapter.openCalls).toHaveLength(2);
-    expect(result.transcript.some((turn) => turn.content?.includes("Session boundary"))).toBe(
-      true,
-    );
+    expect(
+      result.transcript.some((turn) =>
+        turn.content?.includes("Session boundary"),
+      ),
+    ).toBe(true);
   });
 
   test("runSuite filters tags, merges directories, emits progress, and preserves parallel order", async () => {
@@ -494,11 +504,11 @@ describe("runner", () => {
       kind: "suite_started",
       scenarioTotal: 2,
     });
-    expect(events.filter((event) => event.kind === "scenario_started")).toHaveLength(
-      2,
-    );
-    expect(events.filter((event) => event.kind === "scenario_finished")).toHaveLength(
-      2,
-    );
+    expect(
+      events.filter((event) => event.kind === "scenario_started"),
+    ).toHaveLength(2);
+    expect(
+      events.filter((event) => event.kind === "scenario_finished"),
+    ).toHaveLength(2);
   });
 });

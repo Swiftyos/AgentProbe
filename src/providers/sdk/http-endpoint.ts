@@ -1,26 +1,27 @@
 import type {
   AdapterReply,
   AutogptAuthResult,
-  Endpoints,
   EndpointRequest,
-  EndpointResponse,
+  Endpoints,
   HealthCheck,
   JsonValue,
-  NamedEndpoint,
   SessionLifecycleRequest,
   ToolCallRecord,
 } from "../../shared/types/contracts.ts";
+import {
+  AgentProbeConfigError,
+  AgentProbeRuntimeError,
+} from "../../shared/utils/errors.ts";
 import {
   extractFirstJsonPathMatch,
   extractTextByJsonPath,
 } from "../../shared/utils/json.ts";
 import {
-  AgentProbeConfigError,
-  AgentProbeRuntimeError,
-} from "../../shared/utils/errors.ts";
-import { renderJsonTemplate, renderTemplate } from "../../shared/utils/template.ts";
-import { dispatchKey } from "./preset-config.ts";
+  renderJsonTemplate,
+  renderTemplate,
+} from "../../shared/utils/template.ts";
 import { resolveAuth } from "./autogpt-auth.ts";
+import { dispatchKey } from "./preset-config.ts";
 
 type Fetcher = typeof fetch;
 
@@ -87,7 +88,11 @@ function extractUsage(payload: unknown): Record<string, JsonValue> {
 }
 
 function parseToolArgs(argumentsValue: unknown): Record<string, JsonValue> {
-  if (argumentsValue && typeof argumentsValue === "object" && !Array.isArray(argumentsValue)) {
+  if (
+    argumentsValue &&
+    typeof argumentsValue === "object" &&
+    !Array.isArray(argumentsValue)
+  ) {
     return argumentsValue as Record<string, JsonValue>;
   }
   if (typeof argumentsValue === "string" && argumentsValue.trim()) {
@@ -132,7 +137,7 @@ function normalizeToolCall(rawCall: unknown): ToolCallRecord | undefined {
   const args =
     fn && typeof fn === "object" && !Array.isArray(fn)
       ? (fn as Record<string, unknown>).arguments
-      : record.input ?? record.args;
+      : (record.input ?? record.args);
   if (typeof name !== "string" || !name.trim()) {
     return undefined;
   }
@@ -223,7 +228,9 @@ function extractAutogptToolCalls(payload: unknown): ToolCallRecord[] {
   const calls: ToolCallRecord[] = [];
   const byToolCallId = new Map<string, ToolCallRecord>();
 
-  const ensureCall = (record: Record<string, unknown>): ToolCallRecord | undefined => {
+  const ensureCall = (
+    record: Record<string, unknown>,
+  ): ToolCallRecord | undefined => {
     const toolCallId =
       typeof record.toolCallId === "string" && record.toolCallId.trim()
         ? record.toolCallId
@@ -318,7 +325,10 @@ function extractConfiguredToolCalls(
   }
   if (endpoint.toolExtraction?.format === "custom") {
     const key = dispatchKey(endpoint);
-    if (key && ["autogpt", "autogpt-endpoint.yaml", "autogpt-endpoint.yml"].includes(key)) {
+    if (
+      key &&
+      ["autogpt", "autogpt-endpoint.yaml", "autogpt-endpoint.yml"].includes(key)
+    ) {
       return extractAutogptToolCalls(payload);
     }
   }
@@ -331,13 +341,17 @@ export class HttpEndpointAdapter {
   constructor(
     readonly endpoint: Endpoints,
     private readonly fetchImpl: Fetcher = fetch,
-    private readonly autogptAuthResolver: (() => Promise<AutogptAuthResult> | AutogptAuthResult) | undefined = undefined,
+    private readonly autogptAuthResolver:
+      | (() => Promise<AutogptAuthResult> | AutogptAuthResult)
+      | undefined = undefined,
   ) {
     if (endpoint.transport !== "http") {
       throw new AgentProbeConfigError("HTTP adapter requires transport: http.");
     }
     if (!endpoint.connection || !("baseUrl" in endpoint.connection)) {
-      throw new AgentProbeConfigError("HTTP adapter requires an HTTP connection.");
+      throw new AgentProbeConfigError(
+        "HTTP adapter requires an HTTP connection.",
+      );
     }
   }
 
@@ -346,7 +360,10 @@ export class HttpEndpointAdapter {
     if (!healthCheck || healthCheck.enabled === false) {
       return;
     }
-    const request = await this.resolveRequestDefinition(healthCheck, renderContext);
+    const request = await this.resolveRequestDefinition(
+      healthCheck,
+      renderContext,
+    );
     const response = await this.fetch(request);
     if (!response.ok) {
       throw new AgentProbeRuntimeError(
@@ -355,7 +372,9 @@ export class HttpEndpointAdapter {
     }
   }
 
-  async openScenario(renderContext: Record<string, unknown>): Promise<Record<string, unknown>> {
+  async openScenario(
+    renderContext: Record<string, unknown>,
+  ): Promise<Record<string, unknown>> {
     const session = this.endpoint.session;
     if (!session || session.type === "stateless") {
       return {};
@@ -366,7 +385,10 @@ export class HttpEndpointAdapter {
       );
     }
 
-    const request = await this.resolveRequestDefinition(session.create, renderContext);
+    const request = await this.resolveRequestDefinition(
+      session.create,
+      renderContext,
+    );
     const response = await this.fetch(request);
     if (!response.ok) {
       throw new AgentProbeRuntimeError(
@@ -376,7 +398,10 @@ export class HttpEndpointAdapter {
     const payload = (await response.json()) as unknown;
     const sessionState: Record<string, unknown> = {};
     if (session.create.sessionIdPath) {
-      const sessionId = extractFirstJsonPathMatch(payload, session.create.sessionIdPath);
+      const sessionId = extractFirstJsonPathMatch(
+        payload,
+        session.create.sessionIdPath,
+      );
       if (sessionId === null || sessionId === undefined) {
         throw new AgentProbeRuntimeError(
           "Managed session create response did not contain a session id.",
@@ -396,12 +421,18 @@ export class HttpEndpointAdapter {
     return sessionState;
   }
 
-  async sendUserTurn(renderContext: Record<string, unknown>): Promise<AdapterReply> {
+  async sendUserTurn(
+    renderContext: Record<string, unknown>,
+  ): Promise<AdapterReply> {
     if (!this.endpoint.request) {
-      throw new AgentProbeConfigError("Endpoint is missing request configuration.");
+      throw new AgentProbeConfigError(
+        "Endpoint is missing request configuration.",
+      );
     }
     if (!this.endpoint.response) {
-      throw new AgentProbeConfigError("Endpoint is missing response configuration.");
+      throw new AgentProbeConfigError(
+        "Endpoint is missing response configuration.",
+      );
     }
 
     const request = await this.resolveRequestDefinition(
@@ -426,7 +457,9 @@ export class HttpEndpointAdapter {
       const lines = (await response.text()).split(/\r?\n/);
       const events = parseSseEvents(lines);
       assistantText = events
-        .map((event) => extractTextByJsonPath(event, responseConfig.contentPath))
+        .map((event) =>
+          extractTextByJsonPath(event, responseConfig.contentPath),
+        )
         .filter(Boolean)
         .join("\n")
         .trim();
@@ -435,7 +468,10 @@ export class HttpEndpointAdapter {
       toolCalls = extractConfiguredToolCalls(events, this.endpoint);
     } else if (responseConfig.format === "json") {
       const payload = (await response.json()) as unknown;
-      assistantText = extractTextByJsonPath(payload, responseConfig.contentPath);
+      assistantText = extractTextByJsonPath(
+        payload,
+        responseConfig.contentPath,
+      );
       rawBody = payload;
       usage = extractUsage(payload);
       toolCalls = extractConfiguredToolCalls(payload, this.endpoint);
@@ -475,7 +511,10 @@ export class HttpEndpointAdapter {
     if (!closeRequest) {
       return;
     }
-    const request = await this.resolveRequestDefinition(closeRequest, renderContext);
+    const request = await this.resolveRequestDefinition(
+      closeRequest,
+      renderContext,
+    );
     const response = await this.fetch(request);
     if (!response.ok && closeRequest.ignoreErrors !== true) {
       throw new AgentProbeRuntimeError(
@@ -490,7 +529,9 @@ export class HttpEndpointAdapter {
       headers: request.headers,
       body:
         request.content ??
-        (request.jsonBody !== undefined ? JSON.stringify(request.jsonBody) : undefined),
+        (request.jsonBody !== undefined
+          ? JSON.stringify(request.jsonBody)
+          : undefined),
     });
   }
 
@@ -508,10 +549,13 @@ export class HttpEndpointAdapter {
       ? this.endpoint.endpoints[endpointName]
       : undefined;
     if (endpointName && !namedEndpoint) {
-      throw new AgentProbeConfigError(`Unknown named endpoint: ${endpointName}`);
+      throw new AgentProbeConfigError(
+        `Unknown named endpoint: ${endpointName}`,
+      );
     }
 
-    const method = (requestLike as { method?: string }).method ?? namedEndpoint?.method;
+    const method =
+      (requestLike as { method?: string }).method ?? namedEndpoint?.method;
     const urlTemplate =
       (requestLike as { url?: string }).url ?? namedEndpoint?.url;
     const bodyTemplate =
@@ -590,7 +634,9 @@ export class HttpEndpointAdapter {
     const key = dispatchKey(this.endpoint);
     if (
       !key ||
-      !["autogpt", "autogpt-endpoint.yaml", "autogpt-endpoint.yml"].includes(key)
+      !["autogpt", "autogpt-endpoint.yaml", "autogpt-endpoint.yml"].includes(
+        key,
+      )
     ) {
       this.cachedAuthHeaders = {};
       return {};

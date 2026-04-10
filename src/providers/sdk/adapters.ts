@@ -3,10 +3,13 @@ import type {
   AutogptAuthResult,
   Endpoints,
 } from "../../shared/types/contracts.ts";
-import { AgentProbeConfigError, AgentProbeRuntimeError } from "../../shared/utils/errors.ts";
-import { configureEndpoint, dispatchKey } from "./preset-config.ts";
+import {
+  AgentProbeConfigError,
+  AgentProbeRuntimeError,
+} from "../../shared/utils/errors.ts";
 import { HttpEndpointAdapter } from "./http-endpoint.ts";
 import { buildOpenClawAdapter, OpenClawEndpointAdapter } from "./openclaw.ts";
+import { configureEndpoint, dispatchKey } from "./preset-config.ts";
 
 export type EndpointAdapter = {
   healthCheck: (renderContext: Record<string, unknown>) => Promise<void>;
@@ -33,7 +36,9 @@ class CliHarnessEndpointAdapter implements EndpointAdapter {
   }
 
   async sendUserTurn(): Promise<AdapterReply> {
-    throw new AgentProbeRuntimeError("CLI harness execution is not implemented yet.");
+    throw new AgentProbeRuntimeError(
+      "CLI harness execution is not implemented yet.",
+    );
   }
 
   async closeScenario(): Promise<void> {}
@@ -58,7 +63,11 @@ export function buildEndpointAdapter(
     const key = dispatchKey(endpoints);
     if (
       key &&
-      ["openclaw", "openclaw-endpoints.yaml", "openclaw-endpoints.yml"].includes(key)
+      [
+        "openclaw",
+        "openclaw-endpoints.yaml",
+        "openclaw-endpoints.yml",
+      ].includes(key)
     ) {
       return buildOpenClawAdapter(configured);
     }
@@ -72,4 +81,4 @@ export function buildEndpointAdapter(
   );
 }
 
-export { HttpEndpointAdapter, OpenClawEndpointAdapter, configureEndpoint };
+export { configureEndpoint, HttpEndpointAdapter, OpenClawEndpointAdapter };

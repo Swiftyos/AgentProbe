@@ -1,8 +1,5 @@
-import { createHash } from "node:crypto";
-
 import type {
   Endpoints,
-  EndpointAuth,
   WebSocketConnection,
 } from "../../shared/types/contracts.ts";
 import { AgentProbeConfigError } from "../../shared/utils/errors.ts";
@@ -55,7 +52,12 @@ function configureAutogpt(endpoint: Endpoints): Endpoints {
     Boolean(normalized.connection && "baseUrl" in normalized.connection),
     "AutoGPT endpoints require connection.base_url.",
   );
-  requireNamedEndpoints(normalized, "register_user", "create_session", "send_message");
+  requireNamedEndpoints(
+    normalized,
+    "register_user",
+    "create_session",
+    "send_message",
+  );
 
   if (!normalized.auth) {
     normalized.auth = {
@@ -191,7 +193,10 @@ function configureOpenclaw(endpoint: Endpoints): Endpoints {
   );
 
   normalized.websocket.connect.params.client ??= {};
-  const client = normalized.websocket.connect.params.client as Record<string, unknown>;
+  const client = normalized.websocket.connect.params.client as Record<
+    string,
+    unknown
+  >;
   client.id ??= DEFAULT_CLIENT_ID;
   client.version ??= "0.1.0";
   client.platform ??= "typescript";

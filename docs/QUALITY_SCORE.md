@@ -20,5 +20,5 @@ _No incidents yet._
 ## Next cleanup targets
 
 1. Land the Bun + TypeScript runtime so the implementation matches the docs contract.
-2. Promote Biome and strict `tsc --noEmit` from documented standards into enforced repo gates.
-3. Extend Bun-owned coverage to helper commands, observability assertions, and latency-budget checks.
+2. Extend Bun-owned coverage to helper commands, observability assertions, and latency-budget checks.
+3. Promote reliability budgets from documented standards into executable checks.

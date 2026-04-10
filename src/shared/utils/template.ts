@@ -28,7 +28,10 @@ function toCamelCase(value: string): string {
   );
 }
 
-function addTemplateAliases<T>(value: T, seen = new WeakMap<object, unknown>()): T {
+function addTemplateAliases<T>(
+  value: T,
+  seen = new WeakMap<object, unknown>(),
+): T {
   if (Array.isArray(value)) {
     return value.map((item) => addTemplateAliases(item, seen)) as T;
   }
@@ -64,27 +67,30 @@ function addTemplateAliases<T>(value: T, seen = new WeakMap<object, unknown>()):
 }
 
 export function resolveEnvInString(value: string): string {
-  return value.replace(envPattern, (_match, rawName, rawOperator, rawOperand) => {
-    const name = String(rawName);
-    const operator = typeof rawOperator === "string" ? rawOperator : "";
-    const operand = typeof rawOperand === "string" ? rawOperand : "";
-    const envValue = Bun.env[name];
+  return value.replace(
+    envPattern,
+    (_match, rawName, rawOperator, rawOperand) => {
+      const name = String(rawName);
+      const operator = typeof rawOperator === "string" ? rawOperator : "";
+      const operand = typeof rawOperand === "string" ? rawOperand : "";
+      const envValue = Bun.env[name];
 
-    if (envValue !== undefined && envValue !== "") {
-      return envValue;
-    }
-    if (operator === ":-") {
-      return operand;
-    }
-    if (operator === ":?") {
+      if (envValue !== undefined && envValue !== "") {
+        return envValue;
+      }
+      if (operator === ":-") {
+        return operand;
+      }
+      if (operator === ":?") {
+        throw new AgentProbeConfigError(
+          operand || `Environment variable ${name} is required.`,
+        );
+      }
       throw new AgentProbeConfigError(
-        operand || `Environment variable ${name} is required.`,
+        `Environment variable ${name} is required.`,
       );
-    }
-    throw new AgentProbeConfigError(
-      `Environment variable ${name} is required.`,
-    );
-  });
+    },
+  );
 }
 
 export function resolveEnvInValue<T>(value: T): T {
@@ -96,7 +102,10 @@ export function resolveEnvInValue<T>(value: T): T {
   }
   if (value && typeof value === "object") {
     return Object.fromEntries(
-      Object.entries(value).map(([key, item]) => [key, resolveEnvInValue(item)]),
+      Object.entries(value).map(([key, item]) => [
+        key,
+        resolveEnvInValue(item),
+      ]),
     ) as T;
   }
   return value;

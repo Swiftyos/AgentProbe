@@ -10,11 +10,15 @@ echo "=== Fast Feedback ==="
 echo "--- Repo validation ---"
 bash "$SCRIPT_DIR/validate-repo.sh"
 
-# 2. Type check
+# 2. Lint
+echo "--- Lint ---"
+bun run lint
+
+# 3. Type check
 echo "--- Type check ---"
 bun run typecheck
 
-# 3. Tests
+# 4. Tests
 echo "--- Tests ---"
 bun run test
 

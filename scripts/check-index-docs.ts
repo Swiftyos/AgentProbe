@@ -4,8 +4,8 @@
  * links to all sibling files and child directory INDEX.md files.
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from "fs";
-import { join, dirname } from "path";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 const REPO_ROOT = join(dirname(new URL(import.meta.url).pathname), "..");
 const DOCS_DIR = "docs";
@@ -79,7 +79,7 @@ for (const dir of [...directories].sort()) {
       !content.includes(`(${childName}/)`)
     ) {
       console.error(
-        `Missing child index link for ${child}/INDEX.md in ${label}`
+        `Missing child index link for ${child}/INDEX.md in ${label}`,
       );
       failed = true;
     }

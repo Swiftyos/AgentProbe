@@ -2,15 +2,17 @@ import { existsSync, readdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
 import nunjucks from "nunjucks";
-
-import type { JsonValue, RunRecord, ScenarioRecord } from "../../shared/types/contracts.ts";
-import { AgentProbeRuntimeError } from "../../shared/utils/errors.ts";
 import {
   DEFAULT_DB_DIRNAME,
   DEFAULT_DB_FILENAME,
   getRun,
   listRuns,
 } from "../../providers/persistence/sqlite-run-history.ts";
+import type {
+  RunRecord,
+  ScenarioRecord,
+} from "../../shared/types/contracts.ts";
+import { AgentProbeRuntimeError } from "../../shared/utils/errors.ts";
 
 type TemplateObject = Record<string, unknown>;
 
@@ -29,10 +31,6 @@ function asRecord(value: unknown): TemplateObject | undefined {
     return undefined;
   }
   return value as TemplateObject;
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined;
 }
 
 function numberValue(value: unknown): number | undefined {
@@ -163,7 +161,9 @@ function isCredentialError(error: unknown): boolean {
   const message = String(raw.message ?? "").toLowerCase();
   const errorType = String(raw.type ?? "").toLowerCase();
   const combined = `${errorType} ${message}`;
-  return CREDENTIAL_ERROR_PATTERNS.some((pattern) => combined.includes(pattern));
+  return CREDENTIAL_ERROR_PATTERNS.some((pattern) =>
+    combined.includes(pattern),
+  );
 }
 
 function statusTone(passed: unknown): "success" | "danger" | "neutral" {
@@ -187,7 +187,9 @@ function statusLabel(passed: unknown): "PASS" | "FAIL" | "PENDING" {
 }
 
 function roleTone(role: unknown): "assistant" | "user" | "system" {
-  const normalized = String(role ?? "").trim().toLowerCase();
+  const normalized = String(role ?? "")
+    .trim()
+    .toLowerCase();
   if (normalized === "assistant") {
     return "assistant";
   }
@@ -198,7 +200,9 @@ function roleTone(role: unknown): "assistant" | "user" | "system" {
 }
 
 function roleLabel(role: unknown): string {
-  const normalized = String(role ?? "").trim().toLowerCase();
+  const normalized = String(role ?? "")
+    .trim()
+    .toLowerCase();
   if (normalized === "assistant") {
     return "Assistant";
   }
@@ -214,7 +218,9 @@ function roleLabel(role: unknown): string {
   if (normalized === "system") {
     return "System";
   }
-  return normalized ? normalized[0]!.toUpperCase() + normalized.slice(1) : "Unknown";
+  return normalized
+    ? `${normalized[0]?.toUpperCase() ?? ""}${normalized.slice(1)}`
+    : "Unknown";
 }
 
 function buildTurnRows(scenario: ScenarioRecord): TemplateObject[] {
@@ -309,7 +315,10 @@ function buildDimensionRows(scenario: ScenarioRecord): TemplateObject[] {
   });
 }
 
-function prepareScenarioView(scenario: ScenarioRecord, index: number): TemplateObject {
+function prepareScenarioView(
+  scenario: ScenarioRecord,
+  index: number,
+): TemplateObject {
   const tags = stringArray(scenario.tags);
 
   return {
@@ -364,8 +373,8 @@ function prepareRunView(run: RunRecord): TemplateObject {
     prepareScenarioView(scenario, index),
   );
 
-  const credentialErrorCount = scenarios.filter((scenario) =>
-    scenario.is_credential_error === true,
+  const credentialErrorCount = scenarios.filter(
+    (scenario) => scenario.is_credential_error === true,
   ).length;
 
   const allTags: string[] = [];
@@ -1064,12 +1073,10 @@ function discoverDbUrls(searchRoot?: string): string[] {
   return [...new Set(candidates.map((path) => `sqlite:///${resolve(path)}`))];
 }
 
-function chooseLatestDiscoveredRun(searchRoot?: string):
-  | { dbUrl: string; runId: string; startedAt: string }
-  | undefined {
-  let best:
-    | { dbUrl: string; runId: string; startedAt: string }
-    | undefined;
+function chooseLatestDiscoveredRun(
+  searchRoot?: string,
+): { dbUrl: string; runId: string; startedAt: string } | undefined {
+  let best: { dbUrl: string; runId: string; startedAt: string } | undefined;
 
   for (const dbUrl of discoverDbUrls(searchRoot)) {
     const runs = listRuns({ dbUrl });
@@ -1086,12 +1093,14 @@ function chooseLatestDiscoveredRun(searchRoot?: string):
   return best;
 }
 
-export function writeRunReport(options: {
-  runId?: string;
-  outputPath?: string;
-  dbUrl?: string;
-  searchRoot?: string;
-} = {}): string {
+export function writeRunReport(
+  options: {
+    runId?: string;
+    outputPath?: string;
+    dbUrl?: string;
+    searchRoot?: string;
+  } = {},
+): string {
   let dbUrl = options.dbUrl;
   let runId = options.runId;
 

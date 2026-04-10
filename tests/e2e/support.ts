@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { delimiter, dirname, join, resolve } from "node:path";
 
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(THIS_DIR, "..", "..");
@@ -88,7 +88,8 @@ export const ASSISTANT_REPLIES: Record<string, string> = {
     "I can escalate the duplicate charge and connect you to billing.",
 };
 
-const REFUND_GUIDANCE = "Ask whether you can still get a refund for order R-100.";
+const REFUND_GUIDANCE =
+  "Ask whether you can still get a refund for order R-100.";
 const BILLING_GUIDANCE =
   "Explain that you were charged twice for invoice INV-200.";
 
@@ -102,10 +103,6 @@ function createDeferred<T>(): Deferred<T> {
   return { promise, resolve, reject };
 }
 
-function buildEnvPath(value: string, current?: string): string {
-  return current ? `${value}${delimiter}${current}` : value;
-}
-
 async function streamToText(
   stream: ReadableStream<Uint8Array> | null | undefined,
 ): Promise<string> {
@@ -115,7 +112,9 @@ async function streamToText(
   return await new Response(stream).text();
 }
 
-function normalizeJsonColumns(row: Record<string, unknown>): Record<string, unknown> {
+function normalizeJsonColumns(
+  row: Record<string, unknown>,
+): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(row).map(([key, value]) => {
       if (typeof value !== "string") {
@@ -159,7 +158,8 @@ async function assertProcessCompletes(
 
 function responseBodyForScenario(scenarioId: string | undefined): string {
   const assistantText =
-    (scenarioId && ASSISTANT_REPLIES[scenarioId]) || "Unhandled scenario response.";
+    (scenarioId && ASSISTANT_REPLIES[scenarioId]) ||
+    "Unhandled scenario response.";
   return [
     `data: ${JSON.stringify({ delta: assistantText })}`,
     "",
@@ -258,7 +258,10 @@ export class FakeAutogptBackend {
     }
 
     if (request.method === "POST" && url.pathname === "/api/chat/sessions") {
-      const body = (await request.json()) as { dry_run?: boolean; title?: string };
+      const body = (await request.json()) as {
+        dry_run?: boolean;
+        title?: string;
+      };
       const sessionId = `session-${++this.requestCounter.current}`;
       const scenarioId =
         typeof body.title === "string"
@@ -277,14 +280,19 @@ export class FakeAutogptBackend {
       return Response.json({ id: sessionId });
     }
 
-    const sendMatch = url.pathname.match(/^\/api\/chat\/sessions\/([^/]+)\/stream$/);
+    const sendMatch = url.pathname.match(
+      /^\/api\/chat\/sessions\/([^/]+)\/stream$/,
+    );
     if (request.method === "POST" && sendMatch) {
       const sessionId = sendMatch[1] ?? "";
       const scenarioId = this.sessionToScenario.get(sessionId);
       const body = (await request.json()) as JsonValue;
 
       this.activeSends += 1;
-      this.maxConcurrentSends = Math.max(this.maxConcurrentSends, this.activeSends);
+      this.maxConcurrentSends = Math.max(
+        this.maxConcurrentSends,
+        this.activeSends,
+      );
       await this.waitForSendBarrier();
       this.activeSends -= 1;
 
@@ -318,7 +326,11 @@ export async function createWorkspace(): Promise<E2EWorkspace> {
 
   const openAiScriptPath = join(rootDir, "openai-script.json");
   const openAiLogPath = join(rootDir, "openai-log.ndjson");
-  await writeFile(openAiScriptPath, JSON.stringify({ rules: [] }, null, 2), "utf8");
+  await writeFile(
+    openAiScriptPath,
+    JSON.stringify({ rules: [] }, null, 2),
+    "utf8",
+  );
   await writeFile(openAiLogPath, "", "utf8");
 
   return {
@@ -333,7 +345,11 @@ export async function createWorkspace(): Promise<E2EWorkspace> {
     openAiScriptPath,
     openAiLogPath,
     async writeOpenAiScript(script: OpenAiScript): Promise<void> {
-      await writeFile(openAiScriptPath, JSON.stringify(script, null, 2), "utf8");
+      await writeFile(
+        openAiScriptPath,
+        JSON.stringify(script, null, 2),
+        "utf8",
+      );
       await writeFile(openAiLogPath, "", "utf8");
     },
   };
@@ -356,14 +372,7 @@ export async function runAgentprobe(
   };
 
   const process = Bun.spawn({
-    cmd: [
-      "bun",
-      "run",
-      "agentprobe",
-      "--data-path",
-      options.suiteDir,
-      ...args,
-    ],
+    cmd: ["bun", "run", "agentprobe", "--data-path", options.suiteDir, ...args],
     cwd: options.cwd ?? options.suiteDir,
     env,
     stdout: "pipe",
@@ -417,7 +426,10 @@ export function buildOpenAiRules(): OpenAiScript {
       {
         name: "refund-scripted-turn",
         kind: "persona_step",
-        inputContains: [REFUND_GUIDANCE, "A response is required for this scripted turn."],
+        inputContains: [
+          REFUND_GUIDANCE,
+          "A response is required for this scripted turn.",
+        ],
         output: {
           message: "Can I still get a refund for order R-100?",
         },
@@ -425,7 +437,10 @@ export function buildOpenAiRules(): OpenAiScript {
       {
         name: "refund-follow-up-complete",
         kind: "persona_step",
-        inputContains: [ASSISTANT_REPLIES["refund-smoke"], "Decide whether the persona would continue"],
+        inputContains: [
+          ASSISTANT_REPLIES["refund-smoke"],
+          "Decide whether the persona would continue",
+        ],
         output: {
           status: "completed",
         },
@@ -449,7 +464,10 @@ export function buildOpenAiRules(): OpenAiScript {
       {
         name: "billing-scripted-turn",
         kind: "persona_step",
-        inputContains: [BILLING_GUIDANCE, "A response is required for this scripted turn."],
+        inputContains: [
+          BILLING_GUIDANCE,
+          "A response is required for this scripted turn.",
+        ],
         output: {
           message: "I was charged twice for invoice INV-200.",
         },
@@ -457,7 +475,10 @@ export function buildOpenAiRules(): OpenAiScript {
       {
         name: "billing-follow-up-complete",
         kind: "persona_step",
-        inputContains: [ASSISTANT_REPLIES["billing-followup"], "Decide whether the persona would continue"],
+        inputContains: [
+          ASSISTANT_REPLIES["billing-followup"],
+          "Decide whether the persona would continue",
+        ],
         output: {
           status: "completed",
         },

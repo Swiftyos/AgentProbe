@@ -118,7 +118,10 @@ describe("simulator", () => {
       [
         { role: "user", content: "I was charged twice." },
         { role: "checkpoint", assert: [{ tool_called: "lookup_charge" }] },
-        { role: "assistant", content: "I can check that. What is the order number?" },
+        {
+          role: "assistant",
+          content: "I can check that. What is the order number?",
+        },
       ],
       asResponsesClient(client) as never,
       { requireResponse: true },
@@ -234,7 +237,7 @@ describe("simulator", () => {
     const fencedClient = new FakeResponsesClient([
       {
         outputText:
-          "```json\n{\"status\":\"continue\",\"message\":\"I need the refund timeline.\"}\n```",
+          '```json\n{"status":"continue","message":"I need the refund timeline."}\n```',
       },
     ]);
     expect(
@@ -251,7 +254,7 @@ describe("simulator", () => {
 
     const embeddedClient = new FakeResponsesClient([
       {
-        outputText: "Here is the result: {\"status\":\"completed\",\"message\":null}",
+        outputText: 'Here is the result: {"status":"completed","message":null}',
       },
     ]);
     expect(
