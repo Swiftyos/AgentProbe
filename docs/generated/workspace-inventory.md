@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-04-10T10:27:48.357Z
+Generated: 2026-04-10T10:34:34.304Z
 
 ```text
   AGENTS.md
@@ -97,13 +97,10 @@ src/agentprobe/endpoints/
   src/agentprobe/simulator.py
 tests/
 tests/e2e/
-  tests/e2e/INDEX.md
   tests/e2e/cli.e2e.test.ts
 tests/e2e/fixtures/
-  tests/e2e/fixtures/INDEX.md
 tests/e2e/fixtures/suite/
 tests/e2e/python/
-  tests/e2e/python/INDEX.md
   tests/e2e/python/sitecustomize.py
   tests/e2e/support.ts
   tests/test_adapters.py
