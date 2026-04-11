@@ -70,6 +70,7 @@ class RunProgressEvent:
     kind: Literal[
         "suite_started", "scenario_started", "scenario_finished", "scenario_error"
     ]
+    run_id: str | None = None
     scenario_id: str | None = None
     scenario_name: str | None = None
     scenario_index: int | None = None
@@ -104,10 +105,17 @@ class _PreparedScenarioRun:
     ordinal: int
     total: int
     user_id: str | None = None
+    iteration: int = 1
 
     @property
     def index(self) -> int:
         return self.ordinal + 1
+
+    @property
+    def display_id(self) -> str:
+        if self.iteration > 1:
+            return f"{self.scenario.id}#{self.iteration}"
+        return self.scenario.id
 
 
 @dataclass(frozen=True, slots=True)
@@ -747,6 +755,7 @@ async def run_suite(
     progress_callback: RunProgressCallback | None = None,
     parallel: bool = False,
     dry_run: bool = False,
+    repeat: int = 1,
 ) -> RunResult:
     run_id = (
         recorder.record_run_started(
@@ -802,70 +811,76 @@ async def run_suite(
                 tags=tags,
             )
 
-        scenario_total = len(selected_scenarios)
+        effective_repeat = max(1, repeat)
+        scenario_total = len(selected_scenarios) * effective_repeat
         if progress_callback is not None:
             progress_callback(
-                RunProgressEvent(kind="suite_started", scenario_total=scenario_total)
+                RunProgressEvent(kind="suite_started", scenario_total=scenario_total, run_id=run_id)
             )
         prepared_runs: list[_PreparedScenarioRun] = []
-        for scenario_ordinal, item in enumerate(selected_scenarios):
-            resolved_persona_id = item.persona
-            if resolved_persona_id is None:
-                raise AgentProbeConfigError(
-                    f"Scenario {item.id} has no persona (and no default was provided)."
-                )
-            persona = persona_by_id.get(resolved_persona_id)
-            if persona is None:
-                raise AgentProbeConfigError(
-                    f"Scenario {item.id} references unknown persona `{resolved_persona_id}`."
-                )
+        ordinal_counter = 0
+        for iteration in range(1, effective_repeat + 1):
+            for item in selected_scenarios:
+                resolved_persona_id = item.persona
+                if resolved_persona_id is None:
+                    raise AgentProbeConfigError(
+                        f"Scenario {item.id} has no persona (and no default was provided)."
+                    )
+                persona = persona_by_id.get(resolved_persona_id)
+                if persona is None:
+                    raise AgentProbeConfigError(
+                        f"Scenario {item.id} references unknown persona `{resolved_persona_id}`."
+                    )
 
-            resolved_rubric_id = item.rubric
-            if resolved_rubric_id is None:
-                raise AgentProbeConfigError(
-                    f"Scenario {item.id} has no rubric (and no default was provided)."
+                resolved_rubric_id = item.rubric
+                if resolved_rubric_id is None:
+                    raise AgentProbeConfigError(
+                        f"Scenario {item.id} has no rubric (and no default was provided)."
+                    )
+                rubric_item = rubric_by_id.get(resolved_rubric_id)
+                if rubric_item is None:
+                    raise AgentProbeConfigError(
+                        f"Scenario {item.id} references unknown rubric `{resolved_rubric_id}`."
+                    )
+
+                def _make_adapter_factory(
+                    ec: Endpoints = endpoint_config,
+                    af: Callable[[Endpoints], EndpointAdapter] | None = adapter_factory,
+                    _item: Scenario = item,
+                ) -> tuple[Callable[[], EndpointAdapter], str]:
+                    # Pin a stable user_id per scenario+iteration so fresh_agent resets
+                    # create new sessions but authenticate as the SAME user.
+                    # Without this, each adapter gets a new uuid4() and S2 sees
+                    # an empty memory graph.
+                    import uuid as _uuid
+                    import os as _os
+                    _pinned_user_id = _os.environ.get("AUTOGPT_USER_ID") or str(_uuid.uuid4())
+                    logger.debug("Pinned user_id for scenario %s: %s", _item.id, _pinned_user_id)
+
+                    def _pinned_auth_resolver() -> object:
+                        from .endpoints.autogpt import resolve_auth as _resolve
+                        return _resolve(user_id=_pinned_user_id)
+
+                    def _factory() -> EndpointAdapter:
+                        if af is not None:
+                            return af(ec)
+                        return build_endpoint_adapter(ec, autogpt_auth_resolver=_pinned_auth_resolver)
+                    return _factory, _pinned_user_id
+
+                factory, pinned_user_id = _make_adapter_factory()
+                prepared_runs.append(
+                    _PreparedScenarioRun(
+                        adapter_factory=factory,
+                        scenario=item,
+                        persona=persona,
+                        rubric=rubric_item,
+                        ordinal=ordinal_counter,
+                        total=scenario_total,
+                        user_id=pinned_user_id,
+                        iteration=iteration,
+                    )
                 )
-            rubric_item = rubric_by_id.get(resolved_rubric_id)
-            if rubric_item is None:
-                raise AgentProbeConfigError(
-                    f"Scenario {item.id} references unknown rubric `{resolved_rubric_id}`."
-                )
-
-            def _make_adapter_factory(
-                ec: Endpoints = endpoint_config,
-                af: Callable[[Endpoints], EndpointAdapter] | None = adapter_factory,
-            ) -> tuple[Callable[[], EndpointAdapter], str]:
-                # Pin a stable user_id per scenario so fresh_agent resets
-                # create new sessions but authenticate as the SAME user.
-                # Without this, each adapter gets a new uuid4() and S2 sees
-                # an empty memory graph.
-                import uuid as _uuid
-                import os as _os
-                _pinned_user_id = _os.environ.get("AUTOGPT_USER_ID") or str(_uuid.uuid4())
-                logger.debug("Pinned user_id for scenario %s: %s", item.id, _pinned_user_id)
-
-                def _pinned_auth_resolver() -> object:
-                    from .endpoints.autogpt import resolve_auth as _resolve
-                    return _resolve(user_id=_pinned_user_id)
-
-                def _factory() -> EndpointAdapter:
-                    if af is not None:
-                        return af(ec)
-                    return build_endpoint_adapter(ec, autogpt_auth_resolver=_pinned_auth_resolver)
-                return _factory, _pinned_user_id
-
-            factory, pinned_user_id = _make_adapter_factory()
-            prepared_runs.append(
-                _PreparedScenarioRun(
-                    adapter_factory=factory,
-                    scenario=item,
-                    persona=persona,
-                    rubric=rubric_item,
-                    ordinal=scenario_ordinal,
-                    total=scenario_total,
-                    user_id=pinned_user_id,
-                )
-            )
+                ordinal_counter += 1
 
         results: list[ScenarioRunResult] = []
         if parallel:
@@ -874,7 +889,7 @@ async def run_suite(
                     progress_callback(
                         RunProgressEvent(
                             kind="scenario_started",
-                            scenario_id=prepared.scenario.id,
+                            scenario_id=prepared.display_id,
                             scenario_name=prepared.scenario.name,
                             scenario_index=prepared.index,
                             scenario_total=prepared.total,
@@ -903,7 +918,7 @@ async def run_suite(
                         progress_callback(
                             RunProgressEvent(
                                 kind="scenario_error",
-                                scenario_id=prepared.scenario.id,
+                                scenario_id=prepared.display_id,
                                 scenario_name=prepared.scenario.name,
                                 scenario_index=prepared.index,
                                 scenario_total=prepared.total,
@@ -922,7 +937,7 @@ async def run_suite(
                     progress_callback(
                         RunProgressEvent(
                             kind="scenario_finished",
-                            scenario_id=scenario_result.scenario_id,
+                            scenario_id=prepared.display_id,
                             scenario_name=scenario_result.scenario_name,
                             scenario_index=prepared.index,
                             scenario_total=prepared.total,
@@ -942,7 +957,7 @@ async def run_suite(
                     progress_callback(
                         RunProgressEvent(
                             kind="scenario_started",
-                            scenario_id=prepared.scenario.id,
+                            scenario_id=prepared.display_id,
                             scenario_name=prepared.scenario.name,
                             scenario_index=prepared.index,
                             scenario_total=prepared.total,
@@ -961,7 +976,7 @@ async def run_suite(
                         progress_callback(
                             RunProgressEvent(
                                 kind="scenario_error",
-                                scenario_id=prepared.scenario.id,
+                                scenario_id=prepared.display_id,
                                 scenario_name=prepared.scenario.name,
                                 scenario_index=prepared.index,
                                 scenario_total=prepared.total,
@@ -974,7 +989,7 @@ async def run_suite(
                     progress_callback(
                         RunProgressEvent(
                             kind="scenario_finished",
-                            scenario_id=scenario_result.scenario_id,
+                            scenario_id=prepared.display_id,
                             scenario_name=scenario_result.scenario_name,
                             scenario_index=prepared.index,
                             scenario_total=prepared.total,

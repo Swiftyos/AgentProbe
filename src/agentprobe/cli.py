@@ -18,6 +18,7 @@ from .endpoints.openclaw import (
     openclaw_history,
 )
 from .errors import AgentProbeConfigError, AgentProbeRuntimeError
+from .dashboard import DashboardState, write_dashboard
 from .report import write_run_report
 from .runner import (
     RunResult,
@@ -203,6 +204,20 @@ def validate(data_path: Path) -> None:
     help="Validate configuration and resolve scenarios without opening sessions or sending messages.",
 )
 @click.option(
+    "--repeat",
+    type=click.IntRange(min=1),
+    default=1,
+    show_default=True,
+    help="Run each matching scenario N times (each with a fresh user).",
+)
+@click.option(
+    "--dashboard",
+    "dashboard_path",
+    type=click.Path(file_okay=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Write a live-updating HTML dashboard to this path (auto-opens in browser).",
+)
+@click.option(
     "-v", "--verbose",
     count=True,
     help="Increase log verbosity. -v for INFO, -vv for DEBUG.",
@@ -216,6 +231,8 @@ def run(
     tags: str | None,
     parallel: bool,
     dry_run: bool,
+    repeat: int,
+    dashboard_path: Path | None,
     verbose: int,
 ) -> None:
     if verbose >= 2:
@@ -236,6 +253,25 @@ def run(
         rubric_path,
     )
 
+    dash_state: DashboardState | None = None
+    resolved_dashboard: Path | None = None
+    if dashboard_path is not None:
+        resolved_dashboard = dashboard_path.resolve()
+        dash_state = DashboardState(db_url=db_url)
+
+    def _progress(event: RunProgressEvent) -> None:
+        _print_run_progress(event)
+        if dash_state is not None and resolved_dashboard is not None:
+            dash_state.update(event)
+            write_dashboard(dash_state, resolved_dashboard)
+
+    if resolved_dashboard is not None:
+        import webbrowser
+        # Write initial empty dashboard then open in browser
+        assert dash_state is not None
+        write_dashboard(dash_state, resolved_dashboard)
+        webbrowser.open(resolved_dashboard.as_uri())
+
     async def execute(recorder: SqliteRunRecorder) -> RunResult:
         async with openai.AsyncClient(**_openai_client_kwargs()) as oai_client:
             return await run_suite(
@@ -247,9 +283,10 @@ def run(
                 tags=tags,
                 oai_client=oai_client,
                 recorder=recorder,
-                progress_callback=_print_run_progress,
+                progress_callback=_progress,
                 parallel=parallel,
                 dry_run=dry_run,
+                repeat=repeat,
             )
 
     try:
