@@ -43,7 +43,7 @@ def parse_time_offset(offset: str) -> timedelta:
         return timedelta(days=value)
     elif unit == "m":
         return timedelta(minutes=value)
-    return timedelta()
+    return timedelta()  # pragma: no cover - regex above restricts unit to h|d|m
 
 
 CopilotMode: TypeAlias = Literal["fast", "extended_thinking"]

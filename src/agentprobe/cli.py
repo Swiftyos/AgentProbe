@@ -19,7 +19,7 @@ from .endpoints.openclaw import (
     openclaw_history,
 )
 from .errors import AgentProbeConfigError, AgentProbeRuntimeError
-from .dashboard import DashboardState, write_dashboard
+from .dashboard import DashboardServer, DashboardState
 from .report import write_run_report
 from .runner import (
     RunResult,
@@ -213,10 +213,9 @@ def validate(data_path: Path) -> None:
 )
 @click.option(
     "--dashboard",
-    "dashboard_path",
-    type=click.Path(file_okay=True, dir_okay=False, path_type=Path),
-    default=None,
-    help="Write a live-updating HTML dashboard to this path (auto-opens in browser).",
+    "dashboard_enabled",
+    is_flag=True,
+    help="Open a live dashboard in the browser.",
 )
 @click.option(
     "-v", "--verbose",
@@ -233,7 +232,7 @@ def run(
     parallel: bool,
     dry_run: bool,
     repeat: int,
-    dashboard_path: Path | None,
+    dashboard_enabled: bool,
     verbose: int,
 ) -> None:
     if verbose >= 2:
@@ -255,23 +254,22 @@ def run(
     )
 
     dash_state: DashboardState | None = None
-    resolved_dashboard: Path | None = None
-    if dashboard_path is not None:
-        resolved_dashboard = dashboard_path.resolve()
+    dash_server: DashboardServer | None = None
+    if dashboard_enabled:
         dash_state = DashboardState(db_url=db_url)
+        try:
+            dash_server = DashboardServer(dash_state)
+            dash_server.start()
+            import webbrowser
+            webbrowser.open(dash_server.url)
+        except FileNotFoundError as exc:
+            click.echo(f"Dashboard unavailable: {exc}", err=True)
+            dash_server = None
 
     def _progress(event: RunProgressEvent) -> None:
         _print_run_progress(event)
-        if dash_state is not None and resolved_dashboard is not None:
+        if dash_state is not None:
             dash_state.update(event)
-            write_dashboard(dash_state, resolved_dashboard)
-
-    if resolved_dashboard is not None:
-        import webbrowser
-        # Write initial empty dashboard then open in browser
-        assert dash_state is not None
-        write_dashboard(dash_state, resolved_dashboard)
-        webbrowser.open(resolved_dashboard.as_uri())
 
     async def execute(recorder: SqliteRunRecorder) -> RunResult:
         async with openai.AsyncClient(**_openai_client_kwargs()) as oai_client:
