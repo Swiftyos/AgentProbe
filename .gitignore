@@ -13,3 +13,4 @@ agentprobe-report-*.html
 .mypy_cache/
 .ruff_cache/
 .env
+.coverage
