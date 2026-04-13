@@ -14,3 +14,4 @@ agentprobe-report-*.html
 .ruff_cache/
 .env
 .coverage
+coverage/
