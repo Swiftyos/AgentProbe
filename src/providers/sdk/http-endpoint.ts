@@ -523,7 +523,7 @@ export class HttpEndpointAdapter {
     const form = new FormData();
     form.append("file", blob, fileName);
     const response = await this.fetchImpl(
-      `${baseUrl}/api/workspace/files/upload`,
+      `${baseUrl}/api/workspace/files/upload?overwrite=true`,
       {
         method: "POST",
         headers: authHeaders,
