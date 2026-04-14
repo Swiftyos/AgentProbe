@@ -584,7 +584,7 @@ export type ScenarioRecord = {
 export type OpenAiResponsesRequest = {
   model: string;
   instructions: string;
-  input: string;
+  input: string | OpenAiResponsesInputMessage[];
   text: {
     format: {
       type: "json_schema";
@@ -596,6 +596,24 @@ export type OpenAiResponsesRequest = {
   };
   temperature?: number;
   maxOutputTokens?: number;
+  prompt?: {
+    promptCacheKey?: string;
+  };
+  cacheControl?: {
+    type: "ephemeral";
+    ttl?: "1h";
+  };
+};
+
+export type OpenAiResponsesInputMessage = {
+  type: "message";
+  role: "user" | "assistant" | "system" | "developer";
+  content: OpenAiResponsesInputTextPart[];
+};
+
+export type OpenAiResponsesInputTextPart = {
+  type: "input_text";
+  text: string;
 };
 
 export type OpenAiResponsesResponse = {

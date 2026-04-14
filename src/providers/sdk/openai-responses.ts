@@ -75,11 +75,35 @@ function loadFakeRules(path: string | undefined): FakeRule[] {
   return Array.isArray(parsed.rules) ? (parsed.rules as FakeRule[]) : [];
 }
 
+function flattenInputText(request: OpenAiResponsesRequest): string {
+  if (typeof request.input === "string") {
+    return request.input;
+  }
+  return request.input
+    .flatMap((message) => message.content.map((part) => part.text))
+    .join("\n\n");
+}
+
+function serializeInput(request: OpenAiResponsesRequest): unknown {
+  if (typeof request.input === "string") {
+    return request.input;
+  }
+  return request.input.map((message) => ({
+    type: message.type,
+    role: message.role,
+    content: message.content.map((part) => ({
+      type: part.type,
+      text: part.text,
+    })),
+  }));
+}
+
 function matchFakeRule(
   request: OpenAiResponsesRequest,
   rules: FakeRule[],
 ): FakeRule {
   const kind = request.text.format.name;
+  const inputText = flattenInputText(request);
   for (const rule of rules) {
     if ((rule.kind ?? "") !== kind) {
       continue;
@@ -87,7 +111,7 @@ function matchFakeRule(
     const inputContains = Array.isArray(rule.inputContains)
       ? rule.inputContains
       : [];
-    if (inputContains.some((item) => !request.input.includes(String(item)))) {
+    if (inputContains.some((item) => !inputText.includes(String(item)))) {
       continue;
     }
     const instructionsContains = Array.isArray(rule.instructionsContains)
@@ -103,7 +127,7 @@ function matchFakeRule(
     return rule;
   }
   throw new AgentProbeRuntimeError(
-    `No fake OpenAI response matched the request. kind='${kind}' input='${request.input}'`,
+    `No fake OpenAI response matched the request. kind='${kind}' input='${inputText}'`,
   );
 }
 
@@ -142,7 +166,7 @@ export class OpenAiResponsesClient {
         kind: request.text.format.name,
         matched_rule: rule.name ?? "",
         model: request.model || null,
-        input: request.input,
+        input: flattenInputText(request),
         request: normalizeJson(request),
       });
       const output =
@@ -169,7 +193,7 @@ export class OpenAiResponsesClient {
         body: JSON.stringify({
           model: request.model,
           instructions: request.instructions,
-          input: request.input,
+          input: serializeInput(request),
           text: {
             format: {
               type: request.text.format.type,
@@ -181,6 +205,17 @@ export class OpenAiResponsesClient {
           },
           temperature: request.temperature,
           max_output_tokens: request.maxOutputTokens,
+          prompt: request.prompt
+            ? {
+                prompt_cache_key: request.prompt.promptCacheKey,
+              }
+            : undefined,
+          cache_control: request.cacheControl
+            ? {
+                type: request.cacheControl.type,
+                ttl: request.cacheControl.ttl,
+              }
+            : undefined,
         }),
       });
     } catch (error) {
