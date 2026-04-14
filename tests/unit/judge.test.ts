@@ -105,7 +105,7 @@ describe("judge", () => {
         ],
       },
     ]);
-    expect(call.prompt?.promptCacheKey).toMatch(
+    expect(call.promptCacheKey).toMatch(
       /^agentprobe:judge:support:[0-9a-f]{16}$/,
     );
     expect(call.cacheControl).toEqual({ type: "ephemeral" });

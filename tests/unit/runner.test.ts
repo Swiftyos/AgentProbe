@@ -1260,24 +1260,31 @@ describe("runner", () => {
 
     const events: RunProgressEvent[] = [];
 
-    await expect(
-      runSuite({
-        endpoint: endpointPath,
-        scenarios: scenariosPath,
-        personas: personasPath,
-        rubric: rubricPath,
-        client: asResponsesClient(new FakeResponsesClient([])) as never,
-        adapterFactory: (_endpoint: Endpoints) =>
-          new FailingAdapter("endpoint down"),
-        progressCallback: (event) => {
-          events.push(event);
-        },
-        parallel: true,
-      }),
-    ).rejects.toThrow("endpoint down");
+    const result = await runSuite({
+      endpoint: endpointPath,
+      scenarios: scenariosPath,
+      personas: personasPath,
+      rubric: rubricPath,
+      client: asResponsesClient(new FakeResponsesClient([])) as never,
+      adapterFactory: (_endpoint: Endpoints) =>
+        new FailingAdapter("endpoint down"),
+      progressCallback: (event) => {
+        events.push(event);
+      },
+      parallel: true,
+    });
 
     expect(
       events.filter((event) => event.kind === "scenario_error"),
     ).toHaveLength(2);
+    expect(result.passed).toBe(false);
+    expect(result.exitCode).toBe(1);
+    expect(result.results).toHaveLength(2);
+    expect(result.results.every((item) => item.passed === false)).toBe(true);
+    expect(
+      result.results.every((item) =>
+        item.judgeScore?.overallNotes.includes("endpoint down"),
+      ),
+    ).toBe(true);
   });
 });
