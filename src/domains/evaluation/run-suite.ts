@@ -1046,6 +1046,26 @@ export async function runSuite(options: {
       );
     };
 
+    const erroredScenarioResult = (
+      prepared: PreparedRun,
+      error: Error,
+    ): ScenarioRunResult => ({
+      scenarioId: prepared.displayId,
+      scenarioName: prepared.scenario.name,
+      personaId: prepared.persona.id,
+      rubricId: prepared.rubric.id,
+      userId: prepared.userId,
+      passed: false,
+      overallScore: 0,
+      transcript: [],
+      checkpoints: [],
+      judgeScore: {
+        dimensions: {},
+        overallNotes: `Scenario failed to execute: ${error.message}`,
+        passed: false,
+      },
+    });
+
     let results: ScenarioRunResult[] = [];
     const parallelEnabled =
       options.parallel || options.parallelLimit !== undefined;
@@ -1099,6 +1119,10 @@ export async function runSuite(options: {
           const failure =
             error instanceof Error ? error : new Error(String(error));
           failures.push(failure);
+          orderedResults[prepared.ordinal] = erroredScenarioResult(
+            prepared,
+            failure,
+          );
           options.progressCallback?.({
             kind: "scenario_error",
             runId,
@@ -1116,9 +1140,6 @@ export async function runSuite(options: {
       await Promise.all(
         Array.from({ length: concurrencyLimit }, () => runNextPrepared()),
       );
-      if (failures.length > 0) {
-        throw failures[0];
-      }
       results = orderedResults.filter(
         (item): item is ScenarioRunResult => item !== undefined,
       );
@@ -1148,6 +1169,7 @@ export async function runSuite(options: {
         } catch (error) {
           const failure =
             error instanceof Error ? error : new Error(String(error));
+          results.push(erroredScenarioResult(prepared, failure));
           options.progressCallback?.({
             kind: "scenario_error",
             runId,
@@ -1157,7 +1179,6 @@ export async function runSuite(options: {
             scenarioTotal: prepared.total,
             error: failure,
           });
-          throw failure;
         }
       }
     }

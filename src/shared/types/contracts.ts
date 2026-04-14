@@ -596,9 +596,7 @@ export type OpenAiResponsesRequest = {
   };
   temperature?: number;
   maxOutputTokens?: number;
-  prompt?: {
-    promptCacheKey?: string;
-  };
+  promptCacheKey?: string;
   cacheControl?: {
     type: "ephemeral";
     ttl?: "1h";

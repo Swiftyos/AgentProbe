@@ -328,9 +328,7 @@ export async function judgeResponse(
     },
     temperature: rubric.judge.temperature,
     maxOutputTokens: rubric.judge.maxTokens,
-    prompt: {
-      promptCacheKey: judgePromptCacheKey(rubric, evaluationContext, schema),
-    },
+    promptCacheKey: judgePromptCacheKey(rubric, evaluationContext, schema),
     cacheControl: judgeCacheControl(rubric.judge.model),
   };
 
