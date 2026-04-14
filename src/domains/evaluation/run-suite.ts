@@ -312,13 +312,13 @@ function formatTranscriptForJudge(
 
   transcript.forEach((turn, index) => {
     const content = (turn.content ?? "").trim();
-    if (!content) {
-      return;
-    }
-    lines.push(`${displayTurnRole(turn.role)}: ${content}`);
     const toolCalls = toolCallsByTurn[index] ?? [];
-    if (toolCalls.length > 0) {
-      lines.push("Tool Calls:");
+    const role = turn.role.trim().toLowerCase();
+
+    if (role === "assistant" && toolCalls.length > 0) {
+      lines.push(
+        "Assistant Tool Calls (executed before the assistant's reply):",
+      );
       for (const toolCall of toolCalls) {
         lines.push(`- ${toolCall.name}: ${JSON.stringify(toolCall.args)}`);
         const output =
@@ -333,6 +333,11 @@ function formatTranscriptForJudge(
         }
       }
     }
+
+    if (!content) {
+      return;
+    }
+    lines.push(`${displayTurnRole(turn.role)}: ${content}`);
   });
 
   return lines.join("\n").trim();
