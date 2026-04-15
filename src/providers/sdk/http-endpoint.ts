@@ -468,6 +468,21 @@ export class HttpEndpointAdapter {
         .join(" ")
         .replace(/ {2,}/g, " ")
         .trim();
+      if (!assistantText) {
+        const errorTexts = events
+          .filter(
+            (e) =>
+              e &&
+              typeof e === "object" &&
+              !Array.isArray(e) &&
+              (e as Record<string, unknown>).type === "error",
+          )
+          .map((e) => (e as Record<string, unknown>).errorText)
+          .filter((t) => typeof t === "string" && t.trim());
+        if (errorTexts.length > 0) {
+          assistantText = `[Backend error: ${errorTexts.join("; ")}]`;
+        }
+      }
       rawBody = events;
       usage = events.length > 0 ? extractUsage(events.at(-1)) : {};
       toolCalls = extractConfiguredToolCalls(events, this.endpoint);
