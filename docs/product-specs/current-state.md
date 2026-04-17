@@ -1,6 +1,6 @@
 # Current State
 
-Last validated against `platform.md`: 2026-04-13
+Last validated against `platform.md`: 2026-04-17
 
 ## Implemented scenarios
 
@@ -19,6 +19,18 @@ Last validated against `platform.md`: 2026-04-13
 - [ ] HTML report renders from recorded run history
 - [ ] Dashboard mode serves live run state from a Bun HTTP server
 - [ ] Reliability signals exist for critical command paths
+
+### Server control plane (planned — Phase 1–4)
+
+- [ ] Default start-server boot binds loopback with read-only history browsing
+- [ ] Non-loopback exposure requires unsafe flag and token
+- [ ] Read-only HTTP and UI surfaces browse persisted run history
+- [ ] Live run events stream through Server-Sent Events with replay support
+- [ ] Run control starts validated ad-hoc or preset-backed runs
+- [ ] Cancellation cooperatively stops a server-managed run
+- [ ] Presets save cross-file scenario selections for one-click rerun
+- [ ] Comparison workspace diffs 2 to 10 historical runs
+- [ ] Docker image boots safely with SQLite-on-volume persistence
 
 ## Notes
 
