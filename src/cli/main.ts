@@ -7,11 +7,13 @@ import {
   parseScenariosInput,
   processYamlFiles,
 } from "../domains/validation/load-suite.ts";
+import { runMigrations } from "../providers/persistence/migrations/index.ts";
 import {
   DEFAULT_DB_DIRNAME,
   DEFAULT_DB_FILENAME,
   SqliteRunRecorder,
 } from "../providers/persistence/sqlite-run-history.ts";
+import { parseDbUrl } from "../providers/persistence/url.ts";
 import { OpenAiResponsesClient } from "../providers/sdk/openai-responses.ts";
 import {
   loadConfiguredEndpoint,
@@ -493,6 +495,40 @@ async function handleOpenclaw(args: string[]): Promise<number> {
   );
 }
 
+async function handleDbMigrate(args: string[]): Promise<number> {
+  const dbFlag = parseOption(args, "--db");
+  const envUrl = process.env.AGENTPROBE_DB_URL;
+  let resolvedUrl: string;
+  if (dbFlag) {
+    if (
+      dbFlag.startsWith("sqlite://") ||
+      dbFlag.startsWith("postgres://") ||
+      dbFlag.startsWith("postgresql://")
+    ) {
+      resolvedUrl = dbFlag;
+    } else {
+      resolvedUrl = `sqlite:///${resolve(dbFlag)}`;
+    }
+  } else if (envUrl) {
+    resolvedUrl = envUrl;
+  } else {
+    resolvedUrl = `sqlite:///${resolve(DEFAULT_DB_DIRNAME, DEFAULT_DB_FILENAME)}`;
+  }
+
+  // Validate the URL scheme with a clear error before doing work.
+  parseDbUrl(resolvedUrl);
+
+  const report = await runMigrations(resolvedUrl);
+  console.log(`backend: ${report.backend}`);
+  console.log(`db_url:  ${report.dbUrl}`);
+  console.log(`current: ${report.currentVersion}`);
+  console.log(`target:  ${report.targetVersion}`);
+  console.log(
+    `applied: ${report.applied.length === 0 ? "(none)" : report.applied.join(",")}`,
+  );
+  return 0;
+}
+
 async function handleStartServer(
   args: string[],
   globalDataPath?: string,
@@ -567,6 +603,9 @@ export async function executeCli(argv: string[]): Promise<number> {
     }
     if (command === "start-server") {
       return await handleStartServer(rest, globalDataPath);
+    }
+    if (command === "db:migrate") {
+      return await handleDbMigrate(rest);
     }
     throw new AgentProbeConfigError(`Unknown command: ${command}`);
   } catch (error) {

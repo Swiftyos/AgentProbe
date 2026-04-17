@@ -1,15 +1,27 @@
+import { createRepository } from "../../providers/persistence/factory.ts";
+import {
+  checkSchemaVersion,
+  POSTGRES_TARGET_VERSION,
+} from "../../providers/persistence/migrations/index.ts";
 import { initDb } from "../../providers/persistence/sqlite-run-history.ts";
+import type { PersistenceRepository } from "../../providers/persistence/types.ts";
+import { isPostgresUrl, redactDbUrl } from "../../providers/persistence/url.ts";
 import {
   AgentProbeConfigError,
   AgentProbeRuntimeError,
 } from "../../shared/utils/errors.ts";
 import { verifyBearerToken } from "./auth/token.ts";
 import type { ServerConfig } from "./config.ts";
+import {
+  type ComparisonController,
+  createComparisonController,
+} from "./controllers/comparison-controller.ts";
 import { PresetController } from "./controllers/preset-controller.ts";
 import { RunController } from "./controllers/run-controller.ts";
 import { SuiteController } from "./controllers/suite-controller.ts";
 import { ensureRequestId, errorResponse } from "./http-helpers.ts";
-import { handleHealthz, handleReadyz } from "./routes/health.ts";
+import { handleCompareRuns } from "./routes/comparisons.ts";
+import { handleHealthz, handleReadyz, handleSession } from "./routes/health.ts";
 import {
   handleCreatePreset,
   handleDeletePreset,
@@ -43,6 +55,8 @@ export type ServerContext = {
   presetController: PresetController;
   runController: RunController;
   suiteController: SuiteController;
+  comparisonController: ComparisonController;
+  repository: PersistenceRepository;
   streamHub: StreamHub;
   requestId: string;
   startedAt: number;
@@ -96,6 +110,7 @@ function buildRoutes(): Route[] {
   return [
     compileRoute("GET", "/healthz", handleHealthz, { requiresAuth: false }),
     compileRoute("GET", "/readyz", handleReadyz, { requiresAuth: false }),
+    compileRoute("GET", "/api/session", handleSession, { requiresAuth: false }),
     compileRoute("GET", "/api/suites", handleListSuites),
     compileRoute(
       "GET",
@@ -134,6 +149,9 @@ function buildRoutes(): Route[] {
       "/api/runs/:runId/report.html",
       (request, context, params) =>
         handleRunReport(request, context, { runId: params.runId ?? "" }),
+    ),
+    compileRoute("GET", "/api/comparisons", (request, context) =>
+      handleCompareRuns(request, context),
     ),
     compileRoute("GET", "/api/presets", handleListPresets),
     compileRoute("POST", "/api/presets", handleCreatePreset),
@@ -225,16 +243,23 @@ export async function startAgentProbeServer(
   config: ServerConfig,
 ): Promise<StartedServer> {
   if (config.dbUrl) {
-    if (
-      config.dbUrl.startsWith("postgres://") ||
-      config.dbUrl.startsWith("postgresql://")
-    ) {
-      throw new AgentProbeConfigError(
-        "Postgres is not yet supported; Phase 3 will introduce `postgres://` support.",
+    if (isPostgresUrl(config.dbUrl)) {
+      const report = await checkSchemaVersion(config.dbUrl);
+      if (report.currentVersion < POSTGRES_TARGET_VERSION) {
+        throw new AgentProbeConfigError(
+          `Postgres schema version ${report.currentVersion} is behind expected ${POSTGRES_TARGET_VERSION} ` +
+            `for ${report.dbUrl}. Run \`agentprobe db:migrate\` before starting the server.`,
+        );
+      }
+      process.stderr.write(
+        `[server] using postgres backend at ${redactDbUrl(config.dbUrl)} (schema v${report.currentVersion})\n`,
       );
+    } else {
+      initDb(config.dbUrl);
     }
-    initDb(config.dbUrl);
   }
+
+  const repository = createRepository(config.dbUrl);
 
   const suiteController = new SuiteController({ dataPath: config.dataPath });
   // Warm cache and surface directory errors early.
@@ -247,6 +272,7 @@ export async function startAgentProbeServer(
     suiteController,
     streamHub,
   });
+  const comparisonController = createComparisonController({ repository });
   const routes = buildRoutes();
   const startedAt = Date.now();
 
@@ -255,6 +281,8 @@ export async function startAgentProbeServer(
     presetController,
     runController,
     suiteController,
+    comparisonController,
+    repository,
     streamHub,
     startedAt,
     version: SERVER_VERSION,

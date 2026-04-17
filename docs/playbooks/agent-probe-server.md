@@ -133,5 +133,114 @@ bun run fast-feedback
 - Paths rejected by write APIs: `endpoint`, `personas`, `rubric`, and every
   `selection[].file` must resolve under `--data`.
 
-Postgres support and schema migration commands are planned for the later
-comparison/Postgres phase; Phase 2 remains SQLite-only.
+## Postgres Backend (Phase 3)
+
+The server accepts `sqlite:///…`, `postgres://…`, and `postgresql://…` URLs via
+`--db` or `AGENTPROBE_DB_URL`. SQLite remains the default when the URL is absent
+or points at a filesystem path. Postgres support ships in Phase 3 with a
+dedicated migration CLI, schema-version boot gate, and credential redaction in
+logs and `/api/session`.
+
+### Setup
+
+1. Provision Postgres 14+ (the Docker Compose example ships an optional
+   `postgres:16-alpine` service).
+2. Export the URL once so the CLI and the server agree:
+
+   ```bash
+   export AGENTPROBE_DB_URL="postgres://agentprobe:agentprobe@localhost:5432/agentprobe"
+   ```
+
+3. Apply migrations with the CLI before starting the server. The command is
+   non-interactive and prints the backend / current / target versions plus the
+   list of migrations it applied:
+
+   ```bash
+   bun src/cli/main.ts db:migrate
+   # backend: postgres
+   # db_url:  postgres://agentprobe:***@localhost:5432/agentprobe
+   # current: 0
+   # target:  1
+   # applied: 1
+   ```
+
+4. Boot the server. It performs a **check-only** version probe — it will refuse
+   to start when the schema is behind the expected version, with a message
+   telling you to rerun `agentprobe db:migrate`:
+
+   ```bash
+   bun run agentprobe start-server --data data
+   ```
+
+### Rollback / Reset
+
+- To downgrade, restore from a Postgres-native backup (`pg_dump` → `pg_restore`).
+  The migration dispatcher is forward-only and does not synthesise downgrade
+  scripts.
+- For local experiments, drop the schema and rerun `db:migrate`:
+
+  ```bash
+  psql "$AGENTPROBE_DB_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+  bun src/cli/main.ts db:migrate
+  ```
+
+### Backups
+
+- Schedule `pg_dump -Fc "$AGENTPROBE_DB_URL" > agentprobe-$(date +%F).dump`
+  daily or hourly against the operator's preferred window. Store dumps outside
+  the container volume so a lost node does not take the backup with it.
+- For the SQLite-on-volume path, `sqlite3 … ".backup /tmp/runs.sqlite3.bak"`
+  remains the safe approach while the server is running.
+
+### Connection errors
+
+| Symptom | Likely cause |
+| --- | --- |
+| `Postgres backend requires Bun ≥ 1.2` | Runtime is too old; upgrade Bun. |
+| `Failed to open Postgres connection: ECONNREFUSED` | Postgres not running or the URL host/port is wrong. |
+| `Postgres schema version N is behind expected M` | Run `agentprobe db:migrate` before `start-server`. |
+| `Recording runs against Postgres is not enabled in this release` | Intentional Phase 3 scope: run recording stays on SQLite while Postgres read/compare/preset CRUD ships first. |
+| `Unsupported database URL scheme` | Provide one of `sqlite:///…`, `postgres://…`, `postgresql://…`. |
+
+Credentials are never logged: `/readyz`, `/api/session`, and server boot logs
+go through the same redactor (`user:***@host`).
+
+## Comparison Semantics (Phase 3)
+
+`GET /api/comparisons?run_ids=a,b,c,…` loads 2–10 runs and returns a payload
+that powers the `/compare` dashboard workspace. Alignment is chosen in this
+order of preference:
+
+1. **Preset snapshot** — all runs share the same embedded
+   `preset_snapshot_json` (endpoint/personas/rubric/selection). Preferred
+   because it is the most specific match.
+2. **Preset ID** — runs share `preset_id` but their snapshots differ (someone
+   edited the preset between runs).
+3. **Scenario ID** — no preset information is shared, so rows align by the raw
+   scenario id.
+4. **`file::scenario_id`** — if any run contains duplicate scenario ids across
+   different YAML files, every row is keyed as `<file>::<scenario_id>` so the
+   duplicates do not silently merge into one row.
+
+Each row carries:
+
+- `present_in`: the subset of run ids that produced the scenario.
+- `entries[<run_id>]`: `{status, score, reason}` per run, with
+  `status = "missing"` when the run did not produce that scenario.
+- `delta_score`: last score minus first score across present runs, `null` when
+  fewer than two numeric scores are available.
+- `status_change`: one of `unchanged | regressed | improved | mixed`.
+
+The HTTP endpoint:
+
+- Rejects fewer than 2 or more than 10 run ids with
+  `400 {"error":{"code":"bad_request"}}`.
+- Dedupes repeated run ids in the query string.
+- Returns 404 through the same error envelope when any run id cannot be
+  resolved.
+- Sends `cache-control: no-store` (comparison deltas must always reflect the
+  current run state).
+
+The dashboard reads `?run_ids=a,b[&only=changes]` so shared deep links survive
+refresh, and the preset detail view surfaces a "Compare last two runs" CTA
+that pre-selects the two most recent runs for the preset.

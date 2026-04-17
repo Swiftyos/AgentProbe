@@ -63,7 +63,7 @@ describe("server config", () => {
     expect(config.token).toBe("secret");
   });
 
-  test("allows loopback ranges and rejects postgres until Phase 3", () => {
+  test("allows loopback ranges and accepts postgres URLs in Phase 3", () => {
     const data = makeDataDir();
 
     expect(
@@ -73,12 +73,22 @@ describe("server config", () => {
       }).host,
     ).toBe("127.9.8.7");
 
-    expect(() =>
-      buildServerConfig({
-        args: ["--data", data, "--db", "postgres://localhost/agentprobe"],
-        env: {},
-      }),
-    ).toThrow(/Phase 3/);
+    const pg = buildServerConfig({
+      args: ["--data", data, "--db", "postgres://u:p@localhost/agentprobe"],
+      env: {},
+    });
+    expect(pg.dbUrl).toBe("postgres://u:p@localhost/agentprobe");
+
+    const pgql = buildServerConfig({
+      args: [
+        "--data",
+        data,
+        "--db",
+        "postgresql://u:p@localhost:5432/agentprobe",
+      ],
+      env: {},
+    });
+    expect(pgql.dbUrl).toBe("postgresql://u:p@localhost:5432/agentprobe");
   });
 
   test("uses env fallbacks when CLI flags are absent", () => {
