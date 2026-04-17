@@ -200,18 +200,14 @@ function normalizeDbUrl(
   if (dbUrlFlag) {
     if (
       dbUrlFlag.startsWith("postgres://") ||
-      dbUrlFlag.startsWith("postgresql://")
+      dbUrlFlag.startsWith("postgresql://") ||
+      dbUrlFlag.startsWith("sqlite://")
     ) {
-      throw new AgentProbeConfigError(
-        "Postgres URLs are not supported yet; Phase 3 will introduce `postgres://` support.",
-      );
+      return dbUrlFlag;
     }
-    if (!dbUrlFlag.startsWith("sqlite://")) {
-      throw new AgentProbeConfigError(
-        `Unsupported database URL: ${dbUrlFlag}. Expected a \`sqlite://\` URL.`,
-      );
-    }
-    return dbUrlFlag;
+    throw new AgentProbeConfigError(
+      `Unsupported database URL: ${dbUrlFlag}. Expected \`sqlite://\`, \`postgres://\`, or \`postgresql://\`.`,
+    );
   }
   if (dbFlag) {
     return `sqlite:///${resolve(dbFlag)}`;

@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import { AveragesTable } from "./components/AveragesTable.tsx";
+import { CompareView } from "./components/CompareView.tsx";
 import { ConversationView } from "./components/ConversationView.tsx";
 import { DetailPanel } from "./components/DetailPanel.tsx";
 import { ProgressBar } from "./components/ProgressBar.tsx";
@@ -1527,6 +1528,15 @@ function PresetDetailView({
         </tbody>
       </table>
       <div className="section-title">Runs</div>
+      {runs.runs.length >= 2 && (
+        <p className="compare-cta">
+          <a
+            href={`/compare?run_ids=${encodeURIComponent(runs.runs[0]?.runId ?? "")},${encodeURIComponent(runs.runs[1]?.runId ?? "")}`}
+          >
+            Compare last two runs →
+          </a>
+        </p>
+      )}
       <RunsTable runs={runs.runs} />
     </>
   );
@@ -1777,6 +1787,15 @@ function LiveDashboard() {
 
 export function App() {
   const [mode, setMode] = useState<AppMode>("detecting");
+  const [pathname, setPathname] = useState<string>(
+    typeof window !== "undefined" ? window.location.pathname : "/",
+  );
+
+  useEffect(() => {
+    const onPopState = () => setPathname(window.location.pathname);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1793,6 +1812,10 @@ export function App() {
       cancelled = true;
     };
   }, []);
+
+  if (pathname === "/compare") {
+    return <CompareView token={readStoredToken() || null} />;
+  }
 
   if (mode === "detecting") {
     return <Loading label="Starting dashboard..." />;

@@ -7,12 +7,38 @@ services:
       AGENTPROBE_SERVER_TOKEN: ${AGENTPROBE_SERVER_TOKEN:?set AGENTPROBE_SERVER_TOKEN}
       OPEN_ROUTER_API_KEY: ${OPEN_ROUTER_API_KEY:?set OPEN_ROUTER_API_KEY}
       AGENTPROBE_SERVER_DATA: /app/data
+      # Default backend is SQLite persisted on the named volume below.
+      # To switch to Postgres, uncomment the postgres service and AGENTPROBE_DB_URL
+      # line below, then run `bun src/cli/main.ts db:migrate` before starting
+      # this service. The server refuses to boot against an out-of-date Postgres schema.
       AGENTPROBE_SERVER_DB: /app/.agentprobe/runs.sqlite3
+      # AGENTPROBE_DB_URL: postgres://agentprobe:agentprobe@postgres:5432/agentprobe
       AGENTPROBE_SERVER_DASHBOARD_DIST: /app/dashboard/dist
       AGENTPROBE_SERVER_LOG_FORMAT: json
     volumes:
       - ./data:/app/data:ro
       - agentprobe-sqlite:/app/.agentprobe
+    # depends_on:
+    #   postgres:
+    #     condition: service_healthy
+
+  # Optional Postgres backend. The default stack ships SQLite on a volume;
+  # operators who want durable history across container recreations can enable
+  # this service. Remember to run `agentprobe db:migrate` before `start-server`.
+  # postgres:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: agentprobe
+  #     POSTGRES_PASSWORD: agentprobe
+  #     POSTGRES_DB: agentprobe
+  #   volumes:
+  #     - agentprobe-postgres:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U agentprobe -d agentprobe"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 10
 
 volumes:
   agentprobe-sqlite:
+  # agentprobe-postgres:

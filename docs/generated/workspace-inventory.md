@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-04-17T12:55:35.944Z
+Generated: 2026-04-17T13:33:31.087Z
 
 ```text
   AGENTS.md
@@ -21,6 +21,7 @@ dashboard/src/
   dashboard/src/App.tsx
 dashboard/src/components/
   dashboard/src/components/AveragesTable.tsx
+  dashboard/src/components/CompareView.tsx
   dashboard/src/components/ConversationView.tsx
   dashboard/src/components/DetailPanel.tsx
   dashboard/src/components/ProgressBar.tsx
@@ -364,7 +365,15 @@ src/domains/validation/
   src/domains/validation/load-suite.ts
 src/providers/
 src/providers/persistence/
+  src/providers/persistence/factory.ts
+src/providers/persistence/migrations/
+  src/providers/persistence/postgres-backend.ts
+  src/providers/persistence/postgres-client.ts
+  src/providers/persistence/sqlite-backend.ts
+  src/providers/persistence/sqlite-connection.ts
   src/providers/persistence/sqlite-run-history.ts
+  src/providers/persistence/types.ts
+  src/providers/persistence/url.ts
 src/providers/sdk/
   src/providers/sdk/adapters.ts
   src/providers/sdk/autogpt-auth.ts
@@ -402,6 +411,7 @@ tests/e2e/fixtures/suite/
   tests/e2e/support.ts
 tests/integration/
 tests/integration/server/
+  tests/integration/server/comparisons.test.ts
   tests/integration/server/read-only.test.ts
   tests/integration/server/write-control.test.ts
 tests/unit/
@@ -413,10 +423,15 @@ tests/unit/
   tests/unit/judge.test.ts
   tests/unit/load-suite.test.ts
   tests/unit/openclaw.test.ts
+tests/unit/persistence/
+  tests/unit/persistence/factory.test.ts
+  tests/unit/persistence/migrations.test.ts
+  tests/unit/persistence/url.test.ts
   tests/unit/report.test.ts
   tests/unit/runner.test.ts
 tests/unit/server/
   tests/unit/server/auth.test.ts
+  tests/unit/server/comparison.test.ts
   tests/unit/server/config.test.ts
   tests/unit/server/selection.test.ts
   tests/unit/server/streams.test.ts
