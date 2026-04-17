@@ -1,6 +1,6 @@
 # Current State
 
-Last validated against `platform.md`: 2026-04-13
+Last validated against `platform.md`: 2026-04-17
 
 ## Implemented scenarios
 
@@ -19,6 +19,18 @@ Last validated against `platform.md`: 2026-04-13
 - [ ] HTML report renders from recorded run history
 - [ ] Dashboard mode serves live run state from a Bun HTTP server
 - [ ] Reliability signals exist for critical command paths
+
+### Server control plane (Phase 1-4)
+
+- [x] Default start-server boot binds loopback with read-only history browsing
+- [x] Non-loopback exposure requires unsafe flag and token
+- [x] Read-only HTTP and UI surfaces browse persisted run history
+- [x] Live run events stream through Server-Sent Events with replay support
+- [x] Run control starts validated ad-hoc or preset-backed runs
+- [x] Cancellation cooperatively stops a server-managed run
+- [x] Presets save cross-file scenario selections for one-click rerun
+- [ ] Comparison workspace diffs 2 to 10 historical runs
+- [x] Docker image boots safely with SQLite-on-volume persistence
 
 ## Notes
 
@@ -40,6 +52,9 @@ Last validated against `platform.md`: 2026-04-13
   can create sessions, send chat turns, and read session history.
 - `bun run fast-feedback` now enforces Biome linting, strict TypeScript checks,
   and Bun tests alongside repo validation.
+- `agentprobe start-server` now supports token-protected write routes for
+  ad-hoc dry-runs, cooperative cancellation, preset CRUD, preset launch, SSE
+  replay, and Docker packaging with SQLite-on-volume persistence.
 - Reliability and latency-budget enforcement are now documented as required, but
   the repo has not fully promoted them into executable checks yet.
 - The repository contract is Bun-first even while some baseline implementation

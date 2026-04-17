@@ -7,11 +7,13 @@ import {
   parseScenariosInput,
   processYamlFiles,
 } from "../domains/validation/load-suite.ts";
+import { createRepository } from "../providers/persistence/factory.ts";
+import { runMigrations } from "../providers/persistence/migrations/index.ts";
 import {
   DEFAULT_DB_DIRNAME,
   DEFAULT_DB_FILENAME,
-  SqliteRunRecorder,
 } from "../providers/persistence/sqlite-run-history.ts";
+import { parseDbUrl } from "../providers/persistence/url.ts";
 import { OpenAiResponsesClient } from "../providers/sdk/openai-responses.ts";
 import {
   loadConfiguredEndpoint,
@@ -19,6 +21,8 @@ import {
   openclawChat,
   openclawHistory,
 } from "../providers/sdk/openclaw.ts";
+import { startAgentProbeServer } from "../runtime/server/app-server.ts";
+import { buildServerConfig } from "../runtime/server/config.ts";
 import type { RunProgressEvent, RunResult } from "../shared/types/contracts.ts";
 import {
   AgentProbeConfigError,
@@ -327,9 +331,9 @@ async function handleRun(args: string[]): Promise<number> {
 
   const client = new OpenAiResponsesClient();
   client.assertConfigured();
-  const recorder = new SqliteRunRecorder(
-    suiteDbUrl([endpoint, scenarios, personas, rubric]),
-  );
+  const dbUrl = suiteDbUrl([endpoint, scenarios, personas, rubric]);
+  const repository = createRepository(dbUrl);
+  const recorder = repository.createRecorder();
   const repeat = parseIntegerOption(args, "--repeat");
   if (repeat !== undefined && repeat < 1) {
     throw new AgentProbeConfigError("--repeat must be at least 1.");
@@ -337,7 +341,7 @@ async function handleRun(args: string[]): Promise<number> {
 
   const dashboardEnabled = parseFlag(args, "--dashboard");
   const dashboard = dashboardEnabled
-    ? startDashboardServer({ dbUrl: recorder.dbUrl })
+    ? startDashboardServer({ dbUrl })
     : undefined;
   const parallel = parseParallelOption(args);
 
@@ -373,9 +377,11 @@ async function handleRun(args: string[]): Promise<number> {
       dryRun: parseFlag(args, "--dry-run"),
       repeat,
     });
+    await recorder.drain?.();
     printRunSummary(result);
     return result.exitCode;
   } finally {
+    await recorder.close?.();
     dashboard?.stop();
   }
 }
@@ -491,6 +497,88 @@ async function handleOpenclaw(args: string[]): Promise<number> {
   );
 }
 
+async function handleDbMigrate(args: string[]): Promise<number> {
+  const dbFlag = parseOption(args, "--db");
+  const envUrl = process.env.AGENTPROBE_DB_URL;
+  let resolvedUrl: string;
+  if (dbFlag) {
+    if (
+      dbFlag.startsWith("sqlite://") ||
+      dbFlag.startsWith("postgres://") ||
+      dbFlag.startsWith("postgresql://")
+    ) {
+      resolvedUrl = dbFlag;
+    } else {
+      resolvedUrl = `sqlite:///${resolve(dbFlag)}`;
+    }
+  } else if (envUrl) {
+    resolvedUrl = envUrl;
+  } else {
+    resolvedUrl = `sqlite:///${resolve(DEFAULT_DB_DIRNAME, DEFAULT_DB_FILENAME)}`;
+  }
+
+  // Validate the URL scheme with a clear error before doing work.
+  parseDbUrl(resolvedUrl);
+
+  const report = await runMigrations(resolvedUrl);
+  console.log(`backend: ${report.backend}`);
+  console.log(`db_url:  ${report.dbUrl}`);
+  console.log(`current: ${report.currentVersion}`);
+  console.log(`target:  ${report.targetVersion}`);
+  console.log(
+    `applied: ${report.applied.length === 0 ? "(none)" : report.applied.join(",")}`,
+  );
+  return 0;
+}
+
+async function handleStartServer(
+  args: string[],
+  globalDataPath?: string,
+): Promise<number> {
+  const effectiveArgs = [...args];
+  if (globalDataPath && !effectiveArgs.includes("--data")) {
+    effectiveArgs.push("--data", globalDataPath);
+  }
+  const config = buildServerConfig({
+    args: effectiveArgs,
+    env: process.env as Record<string, string | undefined>,
+  });
+  const server = await startAgentProbeServer(config);
+  console.error(`AgentProbe server listening on ${server.url}`);
+  console.error(`  data:      ${config.dataPath}`);
+  console.error(`  db_url:    ${config.dbUrl || "(none)"}`);
+  console.error(
+    `  token:     ${config.token ? "set" : "(none)"}${
+      config.unsafeExpose ? " (unsafe-expose)" : ""
+    }`,
+  );
+  if (config.openBrowser) {
+    void bestEffortOpenBrowser(server.url);
+  }
+
+  let shuttingDown = false;
+  const shutdown = async (signal: string): Promise<void> => {
+    if (shuttingDown) {
+      return;
+    }
+    shuttingDown = true;
+    console.error(`\nReceived ${signal}; shutting down.`);
+    await server.stop();
+    process.exit(0);
+  };
+
+  process.on("SIGINT", () => {
+    void shutdown("SIGINT");
+  });
+  process.on("SIGTERM", () => {
+    void shutdown("SIGTERM");
+  });
+
+  return await new Promise<number>(() => {
+    // Resolves only on signal-driven shutdown.
+  });
+}
+
 export async function executeCli(argv: string[]): Promise<number> {
   const normalized = normalizeGlobalArgs(argv);
   applyVerbosityLevel(normalized.verbosity);
@@ -514,6 +602,12 @@ export async function executeCli(argv: string[]): Promise<number> {
     }
     if (command === "openclaw") {
       return await handleOpenclaw(rest);
+    }
+    if (command === "start-server") {
+      return await handleStartServer(rest, globalDataPath);
+    }
+    if (command === "db:migrate") {
+      return await handleDbMigrate(rest);
     }
     throw new AgentProbeConfigError(`Unknown command: ${command}`);
   } catch (error) {
