@@ -5,15 +5,21 @@
 | When                       | Command                    |
 |----------------------------|----------------------------|
 | Before every PR            | `bun run fast-feedback`    |
+| Before CI handoff          | `bun run ci`               |
 | To validate repo truth     | `bun run docs:validate`    |
 | To refresh docs indexes    | `bun run docs:index`       |
 | To refresh workspace docs  | `bun run docs:workspace`   |
 | To refresh quality score   | `bun run docs:quality`     |
 
+Quality-gate ownership and maintenance rules live in
+[`docs/references/quality-gates.md`](references/quality-gates.md).
+
 ## PR requirements
 
 Every PR must:
 - [ ] Pass `fast-feedback.sh`
+- [ ] Pass `bun run ci` locally when touching shared runtime, harness, CI, or
+      generated-doc logic
 - [ ] Include a filled-out PR template
 - [ ] Update `docs/product-specs/platform.md` first if behavior changed
 - [ ] Leave behind enough logs, metrics, tests, or screenshots for the next

@@ -61,6 +61,16 @@ const checks: Check[] = [
     "Bun-first workflow and TypeScript standards documented",
   ),
   row(
+    "Validation gates",
+    [
+      "package.json",
+      "docs/references/quality-gates.md",
+      "scripts/fast-feedback.sh",
+      ".github/workflows/ci.yaml",
+    ],
+    "Fast local and CI-equivalent gates are repo-owned",
+  ),
+  row(
     "Reliability standards",
     ["docs/RELIABILITY.md", "docs/references/observability.md"],
     "Logging, metrics, spans, and latency budgets are documented",

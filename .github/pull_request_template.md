@@ -9,6 +9,7 @@ _What user-visible behavior changed? If none, write "No behavior changes."_
 ## Validation
 
 - [ ] `./scripts/fast-feedback.sh` passed
+- [ ] `bun run ci` passed, or not required for this change
 - [ ] Behavior docs updated (if behavior changed)
 
 ## Screenshots / video

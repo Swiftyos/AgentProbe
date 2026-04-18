@@ -5,6 +5,11 @@
       "source": "Swiftyos/HarnessEngineeringSkills",
       "sourceType": "github",
       "computedHash": "51ec59b5e6073212c0f9af39e906be0fb8234e25dde26369d3cb8fbb01e66652"
+    },
+    "update-harness": {
+      "source": "Swiftyos/HarnessEngineeringSkills",
+      "sourceType": "github",
+      "computedHash": "4e837e511815af635e77b1c58d5d045a630c5f743de63c22a990a1c94a7a5ae8"
     }
   }
 }

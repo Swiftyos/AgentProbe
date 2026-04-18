@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-04-17T16:26:34.861Z
+Generated: 2026-04-18T20:18:18.548Z
 
 ```text
   AGENTS.md
@@ -12,9 +12,9 @@ Generated: 2026-04-17T16:26:34.861Z
   biome.json
   bun.lock
   bunfig.toml
-coverage/
-  coverage/lcov.info
 dashboard/
+dashboard/dist/
+  dashboard/dist/index.html
   dashboard/index.html
   dashboard/package.json
 dashboard/src/
@@ -417,7 +417,10 @@ tests/integration/server/
 tests/unit/
   tests/unit/adapters.test.ts
   tests/unit/autogpt-auth.test.ts
+  tests/unit/dashboard-app.test.tsx
   tests/unit/dashboard.test.ts
+tests/unit/dashboard/
+  tests/unit/dashboard/compare-view.test.tsx
   tests/unit/db.test.ts
   tests/unit/endpoint-config.test.ts
   tests/unit/judge.test.ts
@@ -435,6 +438,7 @@ tests/unit/server/
   tests/unit/server/comparison.test.ts
   tests/unit/server/config.test.ts
   tests/unit/server/inline-dashboard.test.ts
+  tests/unit/server/preset-fake-repository.test.ts
   tests/unit/server/selection.test.ts
   tests/unit/server/streams.test.ts
   tests/unit/simulator.test.ts

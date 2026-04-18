@@ -53,6 +53,9 @@ bun run test:e2e
 
 # Run the repo-wide fast feedback loop before a PR
 bun run fast-feedback
+
+# Run the local CI-equivalent gate before CI handoff
+bun run ci
 ```
 
 ## Environment

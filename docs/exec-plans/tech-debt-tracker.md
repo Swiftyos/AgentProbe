@@ -4,8 +4,8 @@ Known cleanup work that should remain visible until it is planned or fixed.
 
 ## Active themes
 
-- Promote Bun + TypeScript quality gates from documented standards into enforced
-  scripts and CI checks.
+- Add explicit coverage and type-safety ratchets once the Bun + TypeScript
+  runtime stabilizes enough for thresholds to be meaningful.
 - Add executable observability and latency-budget assertions for critical paths.
 
 ## Promotion rule

@@ -1,6 +1,6 @@
 # Quality Score
 
-Last updated: 2026-04-17
+Last updated: 2026-04-18
 
 ## Health summary
 
@@ -10,6 +10,7 @@ Last updated: 2026-04-17
 | Product specs        | 🟢 | Canonical behavior and coverage snapshots present |
 | Planning             | 🟢 | Plans and debt tracking are versioned in-repo |
 | Toolchain contract   | 🟢 | Bun-first workflow and TypeScript standards documented |
+| Validation gates     | 🟢 | Fast local and CI-equivalent gates are repo-owned |
 | Reliability standards | 🟢 | Logging, metrics, spans, and latency budgets are documented |
 | Generated docs       | 🟢 | Generated inventories available and script-owned |
 

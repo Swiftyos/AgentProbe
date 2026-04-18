@@ -25,6 +25,15 @@ restore_originals() {
   fi
 }
 
+normalize_generated_dir() {
+  local dir="$1"
+  while IFS= read -r -d '' file; do
+    local tmp="$file.tmp"
+    grep -v '^Generated:' "$file" > "$tmp"
+    mv "$tmp" "$file"
+  done < <(find "$dir" -type f -name '*.md' -print0)
+}
+
 # Copy current generated docs and generated quality score
 if [ -d "$REPO_ROOT/docs/generated" ]; then
   cp -r "$REPO_ROOT/docs/generated" "$TEMP_DIR/before-generated"
@@ -52,8 +61,12 @@ if [ -f "$REPO_ROOT/docs/QUALITY_SCORE.md" ]; then
 fi
 
 # Compare ignoring timestamp lines (Generated: ...)
-if diff -r "$TEMP_DIR/before-generated" "$TEMP_DIR/after-generated" | grep -v "^[<>] Generated:" | grep -q "^[<>]"; then
-  # There are real differences beyond timestamps
+cp -r "$TEMP_DIR/before-generated" "$TEMP_DIR/before-generated-normalized"
+cp -r "$TEMP_DIR/after-generated" "$TEMP_DIR/after-generated-normalized"
+normalize_generated_dir "$TEMP_DIR/before-generated-normalized"
+normalize_generated_dir "$TEMP_DIR/after-generated-normalized"
+
+if ! diff -r "$TEMP_DIR/before-generated-normalized" "$TEMP_DIR/after-generated-normalized" > /dev/null; then
   STALE=true
 else
   STALE=false

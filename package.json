@@ -12,6 +12,7 @@
     "docs:quality": "bun scripts/refresh-quality-score.ts",
     "docs:validate": "./scripts/validate-repo.sh",
     "fast-feedback": "./scripts/fast-feedback.sh",
+    "ci": "bun run docs:validate && bun run lint && bun run typecheck && bun run test:coverage",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "bun test",

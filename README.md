@@ -32,6 +32,9 @@ bun run test:e2e
 
 # Run the repo-wide PR loop
 bun run fast-feedback
+
+# Run the local CI-equivalent gate
+bun run ci
 ```
 
 ## Docs map

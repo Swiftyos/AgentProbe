@@ -4,57 +4,62 @@
  * Output: docs/generated/workspace-inventory.md
  */
 
-import { mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 const REPO_ROOT = join(dirname(new URL(import.meta.url).pathname), "..");
 const OUTPUT = join(REPO_ROOT, "docs", "generated", "workspace-inventory.md");
-
-const IGNORE = new Set([
-  ".git",
-  "node_modules",
-  ".local-data",
-  "test-results",
-  "dist",
-  "build",
-  ".venv",
-  ".mypy_cache",
-  ".pytest_cache",
-  ".ruff_cache",
-  "__pycache__",
-  ".DS_Store",
-]);
 
 interface Entry {
   path: string;
   type: "dir" | "file";
 }
 
-function walk(dir: string, depth = 0, maxDepth = 3): Entry[] {
-  if (depth > maxDepth) return [];
-  const entries: Entry[] = [];
-  let children: string[];
-  try {
-    children = readdirSync(dir).sort();
-  } catch {
-    return entries;
+function trackedFiles(): string[] {
+  const result = spawnSync("git", ["ls-files"], {
+    cwd: REPO_ROOT,
+    encoding: "utf8",
+  });
+  if (result.status !== 0) {
+    const stderr = result.stderr.trim();
+    throw new Error(`git ls-files failed${stderr ? `: ${stderr}` : ""}`);
   }
-  for (const name of children) {
-    if (IGNORE.has(name) || name.startsWith(".")) continue;
-    const full = join(dir, name);
-    const stat = statSync(full);
-    const rel = relative(REPO_ROOT, full);
-    if (stat.isDirectory()) {
-      entries.push({ path: `${rel}/`, type: "dir" });
-      entries.push(...walk(full, depth + 1, maxDepth));
-    } else {
-      entries.push({ path: rel, type: "file" });
-    }
-  }
-  return entries;
+  return result.stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((path) => !path.split("/").some((part) => part.startsWith(".")))
+    .sort();
 }
 
-const entries = walk(REPO_ROOT);
+function inventoryEntries(files: string[], maxDepth = 3): Entry[] {
+  const entries = new Map<string, Entry>();
+
+  for (const file of files) {
+    const parts = file.split("/");
+    const parentParts = parts.slice(0, -1);
+
+    for (
+      let depth = 1;
+      depth <= Math.min(parentParts.length, maxDepth + 1);
+      depth++
+    ) {
+      const dir = `${parentParts.slice(0, depth).join("/")}/`;
+      entries.set(dir, { path: dir, type: "dir" });
+    }
+
+    if (parentParts.length <= maxDepth) {
+      entries.set(file, { path: file, type: "file" });
+    }
+  }
+
+  return [...entries.values()].sort((a, b) =>
+    a.path === b.path ? 0 : a.path < b.path ? -1 : 1,
+  );
+}
+
+const entries = inventoryEntries(trackedFiles());
 const lines = [
   "# Workspace Inventory",
   "",
