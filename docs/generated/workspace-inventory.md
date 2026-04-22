@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-04-18T20:18:18.548Z
+Generated: 2026-04-22T10:24:20.186Z
 
 ```text
   AGENTS.md
@@ -347,6 +347,7 @@ scripts/
   scripts/generate-index-docs.ts
   scripts/generate-workspace-docs.ts
   scripts/refresh-quality-score.ts
+  scripts/seed-preset.ts
   scripts/validate-repo.sh
   scripts/validate-setup.sh
   skills-lock.json
