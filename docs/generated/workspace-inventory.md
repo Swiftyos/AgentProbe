@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-04-17T13:33:31.087Z
+Generated: 2026-04-27T09:42:41.006Z
 
 ```text
   AGENTS.md
@@ -12,8 +12,6 @@ Generated: 2026-04-17T13:33:31.087Z
   biome.json
   bun.lock
   bunfig.toml
-coverage/
-  coverage/lcov.info
 dashboard/
   dashboard/index.html
   dashboard/package.json
@@ -369,6 +367,8 @@ src/providers/persistence/
 src/providers/persistence/migrations/
   src/providers/persistence/postgres-backend.ts
   src/providers/persistence/postgres-client.ts
+  src/providers/persistence/postgres-recorder.ts
+  src/providers/persistence/recorder-common.ts
   src/providers/persistence/sqlite-backend.ts
   src/providers/persistence/sqlite-connection.ts
   src/providers/persistence/sqlite-run-history.ts
@@ -410,6 +410,8 @@ tests/e2e/fixtures/suite/
   tests/e2e/start-server.e2e.test.ts
   tests/e2e/support.ts
 tests/integration/
+tests/integration/persistence/
+  tests/integration/persistence/recorder-contract.test.ts
 tests/integration/server/
   tests/integration/server/comparisons.test.ts
   tests/integration/server/read-only.test.ts
