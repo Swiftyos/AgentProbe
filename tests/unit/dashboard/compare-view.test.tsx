@@ -268,16 +268,23 @@ describe("CompareView", () => {
 
     expect(bodyText()).toContain("Null To Zero");
     expect(bodyText()).toContain("Zero Score");
-    const scores = Array.from(container.querySelectorAll(".compare-score")).map(
-      (node) => node.textContent?.trim(),
-    );
-    expect(scores).toContain("—");
-    expect(scores).toContain("0.00");
+    // The new layout renders status badges + a font-mono score below them in
+    // each cell. Score text "—" and "0.00" should both appear in body text.
+    expect(bodyText()).toContain("—");
+    expect(bodyText()).toContain("0.00");
 
-    const onlyChanges = container.querySelector(
-      ".compare-actions input[type='checkbox']",
-    );
-    if (!(onlyChanges instanceof browser.HTMLInputElement)) {
+    // The "Only changes" toggle is now a shadcn Radix Checkbox (button role).
+    const onlyChanges = Array.from(
+      container.querySelectorAll('button[role="checkbox"]'),
+    ).find((node) => {
+      const labelId = node.getAttribute("aria-labelledby");
+      const labelText =
+        (labelId ? container.querySelector(`#${labelId}`)?.textContent : null) ??
+        node.parentElement?.textContent ??
+        "";
+      return labelText.includes("Only changes");
+    });
+    if (!(onlyChanges instanceof browser.HTMLElement)) {
       throw new Error("Only changes checkbox not found.");
     }
     await click(onlyChanges);
@@ -309,7 +316,7 @@ describe("CompareView", () => {
       throw new Error(`Unexpected fetch: ${url}`);
     });
 
-    expect(buttonByText("Apply").disabled).toBe(true);
+    expect(buttonByText("Apply selection").disabled).toBe(true);
 
     const first = container.querySelector(`input[value='${RUN_A}']`);
     const second = container.querySelector(`input[value='${RUN_B}']`);
@@ -321,10 +328,10 @@ describe("CompareView", () => {
     }
 
     await click(first);
-    expect(buttonByText("Apply").disabled).toBe(true);
+    expect(buttonByText("Apply selection").disabled).toBe(true);
 
     await click(second);
-    expect(buttonByText("Apply").disabled).toBe(false);
+    expect(buttonByText("Apply selection").disabled).toBe(false);
   });
 
   test("renders an empty state when no aligned rows are returned", async () => {

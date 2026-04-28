@@ -31,6 +31,7 @@ export type ScenarioSummary = {
   suiteId: string;
   id: string;
   name: string;
+  description: string | null;
   tags: string[];
   priority: string | null;
   persona: string | null;
@@ -42,6 +43,8 @@ export type SuiteInventory = {
   dataPath: string;
   suites: SuiteSummary[];
   scenarios: ScenarioSummary[];
+  /** Full Scenario records keyed by `${sourcePath}::${id}` for detail views. */
+  scenarioRecords: Map<string, Scenario>;
   personas: Array<{
     suiteId: string;
     id: string;
@@ -109,6 +112,7 @@ function buildInventory(dataPath: string): SuiteInventory {
   const files = iterYamlFiles(resolvedData);
   const suites: SuiteSummary[] = [];
   const scenarios: ScenarioSummary[] = [];
+  const scenarioRecords = new Map<string, Scenario>();
   const personas: SuiteInventory["personas"] = [];
   const rubrics: SuiteInventory["rubrics"] = [];
   const endpoints: SuiteInventory["endpoints"] = [];
@@ -144,12 +148,14 @@ function buildInventory(dataPath: string): SuiteInventory {
           suiteId,
           id: scenario.id,
           name: scenario.name,
+          description: scenario.description?.trim() || null,
           tags: scenario.tags,
           priority: scenario.priority ?? null,
           persona: scenario.persona ?? null,
           rubric: scenario.rubric ?? null,
           sourcePath: relativePath,
         });
+        scenarioRecords.set(`${relativePath}::${scenario.id}`, scenario);
       }
       continue;
     }
@@ -220,6 +226,7 @@ function buildInventory(dataPath: string): SuiteInventory {
     dataPath: resolvedData,
     suites,
     scenarios,
+    scenarioRecords,
     personas,
     rubrics,
     endpoints,
@@ -290,6 +297,15 @@ export class SuiteController {
 
   scenariosForSuite(suiteId: string): ScenarioSummary[] {
     return this.scenarios().filter((item) => item.suiteId === suiteId);
+  }
+
+  /**
+   * Look up the full Scenario record for the detail panel by its source-file
+   * relative path and scenario id. Returns undefined when the inventory has
+   * been invalidated or the inputs do not match a known scenario.
+   */
+  scenarioRecord(sourcePath: string, id: string): Scenario | undefined {
+    return this.refreshIfNeeded().scenarioRecords.get(`${sourcePath}::${id}`);
   }
 
   invalidate(): void {

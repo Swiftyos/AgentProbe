@@ -2,20 +2,30 @@ import {
   initDb,
   SqliteRunRecorder,
   createPreset as sqliteCreatePreset,
+  deleteEndpointOverride as sqliteDeleteEndpointOverride,
+  deleteStoredSecret as sqliteDeleteStoredSecret,
+  getEndpointOverride as sqliteGetEndpointOverride,
   getPreset as sqliteGetPreset,
   getRun as sqliteGetRun,
+  getStoredSecret as sqliteGetStoredSecret,
   latestRunForSuite as sqliteLatestRunForSuite,
+  listEndpointOverrides as sqliteListEndpointOverrides,
   listPresets as sqliteListPresets,
   listRuns as sqliteListRuns,
   listRunsForPreset as sqliteListRunsForPreset,
   markRunCancelled as sqliteMarkRunCancelled,
+  putEndpointOverride as sqlitePutEndpointOverride,
+  putStoredSecret as sqlitePutStoredSecret,
   softDeletePreset as sqliteSoftDeletePreset,
   updatePreset as sqliteUpdatePreset,
+  updateRunMetadata as sqliteUpdateRunMetadata,
 } from "./sqlite-run-history.ts";
 import type {
   PresetWriteInput,
   RecordingRepository,
   RunRecorder,
+  StoredEndpointOverride,
+  StoredSecretEnvelope,
 } from "./types.ts";
 
 /** SQLite-backed repository; wraps the existing synchronous free-function API. */
@@ -91,5 +101,54 @@ export class SqliteRepository implements RecordingRepository {
       dbUrl: this.dbUrl,
       exitCode: options.exitCode,
     });
+  }
+
+  async updateRunMetadata(
+    runId: string,
+    patch: { label?: string | null; notes?: string | null },
+  ) {
+    return sqliteUpdateRunMetadata(runId, patch, { dbUrl: this.dbUrl });
+  }
+
+  async getSecret(key: string): Promise<StoredSecretEnvelope | undefined> {
+    return sqliteGetStoredSecret(key, { dbUrl: this.dbUrl });
+  }
+
+  async putSecret(key: string, secret: StoredSecretEnvelope): Promise<void> {
+    sqlitePutStoredSecret(key, secret, { dbUrl: this.dbUrl });
+  }
+
+  async deleteSecret(key: string): Promise<boolean> {
+    return sqliteDeleteStoredSecret(key, { dbUrl: this.dbUrl });
+  }
+
+  async getEndpointOverride(
+    endpointPath: string,
+  ): Promise<StoredEndpointOverride | undefined> {
+    return sqliteGetEndpointOverride(endpointPath, { dbUrl: this.dbUrl });
+  }
+
+  async listEndpointOverrides(): Promise<StoredEndpointOverride[]> {
+    return sqliteListEndpointOverrides({ dbUrl: this.dbUrl });
+  }
+
+  async putEndpointOverride(
+    endpointPath: string,
+    overrides: Record<string, unknown>,
+  ): Promise<StoredEndpointOverride> {
+    sqlitePutEndpointOverride(endpointPath, overrides, { dbUrl: this.dbUrl });
+    const stored = sqliteGetEndpointOverride(endpointPath, {
+      dbUrl: this.dbUrl,
+    });
+    if (!stored) {
+      throw new Error(
+        `Endpoint override for \`${endpointPath}\` was not found after insert.`,
+      );
+    }
+    return stored;
+  }
+
+  async deleteEndpointOverride(endpointPath: string): Promise<boolean> {
+    return sqliteDeleteEndpointOverride(endpointPath, { dbUrl: this.dbUrl });
   }
 }

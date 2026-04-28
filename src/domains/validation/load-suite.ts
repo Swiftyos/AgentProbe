@@ -792,6 +792,7 @@ function parseScenarioDefaults(value: unknown): ScenarioDefaults | undefined {
     copilotMode: optionalString(
       raw.copilot_mode,
     ) as ScenarioDefaults["copilotMode"],
+    category: optionalString(raw.category),
   };
 }
 
@@ -999,6 +1000,7 @@ function parseScenario(value: unknown, defaults?: ScenarioDefaults): Scenario {
     name: ensureString(raw.name, "scenario.name is required."),
     description: optionalString(raw.description),
     tags: stringArray(raw.tags),
+    category: optionalString(raw.category) ?? defaults?.category,
     persona: optionalString(raw.persona) ?? defaults?.persona,
     rubric: optionalString(raw.rubric) ?? defaults?.rubric,
     maxTurns: optionalNumber(raw.max_turns),
@@ -1068,6 +1070,7 @@ function mergeScenarioDefaults(
       "timeoutSeconds",
       "persona",
       "rubric",
+      "category",
     ] as const) {
       const value = defaults[key];
       if (value === undefined) {

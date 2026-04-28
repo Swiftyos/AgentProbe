@@ -25,7 +25,10 @@ const input: PresetWriteInput = {
   endpoint: "data/autogpt-endpoint.yaml",
   personas: "data/personas.yaml",
   rubric: "data/rubric.yaml",
-  selection: SCENARIO_IDS.map((id) => ({ file: "data/baseline-scenarios.yaml", id })),
+  selection: SCENARIO_IDS.map((id) => ({
+    file: "data/baseline-scenarios.yaml",
+    id,
+  })),
   parallel: { enabled: true, limit: 3 },
   repeat: 1,
   dryRun: false,

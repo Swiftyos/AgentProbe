@@ -179,8 +179,9 @@ export class OpenAiResponsesClient {
   private readonly retryBaseMs: number;
   private readonly retryMaxMs: number;
 
-  constructor() {
-    this.apiKey = Bun.env.OPEN_ROUTER_API_KEY?.trim();
+  constructor(options: { apiKey?: string } = {}) {
+    const overrideKey = options.apiKey?.trim();
+    this.apiKey = overrideKey || Bun.env.OPEN_ROUTER_API_KEY?.trim();
     this.baseUrl = OPENROUTER_BASE_URL;
     this.fakeScriptPath = Bun.env.AGENTPROBE_E2E_OPENAI_SCRIPT?.trim();
     this.fakeLogPath = Bun.env.AGENTPROBE_E2E_OPENAI_LOG?.trim();

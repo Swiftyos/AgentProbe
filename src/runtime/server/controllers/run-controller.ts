@@ -26,6 +26,8 @@ import {
   requiredSelection,
   requiredString,
 } from "../validation.ts";
+import type { EndpointOverridesController } from "./endpoint-overrides-controller.ts";
+import type { SettingsController } from "./settings-controller.ts";
 import type {
   ResolvedScenarioSelection,
   SuiteController,
@@ -44,8 +46,10 @@ type RunSpec = {
   repeat: number;
   dryRun: boolean;
   label?: string;
+  notes?: string;
   presetId?: string | null;
   presetSnapshot?: PresetSnapshot | null;
+  baseUrlOverride?: string;
 };
 
 type ActiveRun = {
@@ -129,8 +133,13 @@ function writeRunExecutorPersistenceErrorLog(
   );
 }
 
-function ensureOpenRouterConfigured(): OpenAiResponsesClient {
-  const client = new OpenAiResponsesClient();
+async function resolveOpenRouterClient(
+  settingsController: SettingsController,
+): Promise<OpenAiResponsesClient> {
+  const { value } = await settingsController.getOpenRouterApiKey();
+  const client = new OpenAiResponsesClient(
+    value ? { apiKey: value } : undefined,
+  );
   try {
     client.assertConfigured();
   } catch (error) {
@@ -169,15 +178,38 @@ export class RunController {
       repository: RecordingRepository;
       suiteController: SuiteController;
       streamHub: StreamHub;
+      settingsController: SettingsController;
+      endpointOverridesController: EndpointOverridesController;
     },
   ) {}
 
-  assertRunnable(): void {
-    ensureOpenRouterConfigured();
+  async assertRunnable(): Promise<void> {
+    await resolveOpenRouterClient(this.options.settingsController);
   }
 
   private resolvePath(path: string): string {
     return this.options.suiteController.resolveDataFile(path).absolutePath;
+  }
+
+  /**
+   * Resolve the effective base_url override for a run: the per-request override
+   * (passed in the launch payload) wins; otherwise we fall back to the saved
+   * override for that endpoint YAML.
+   */
+  private async resolveBaseUrlOverride(
+    endpointPathInput: string,
+    requestOverride: string | undefined,
+  ): Promise<string | undefined> {
+    if (requestOverride && requestOverride.trim()) {
+      return requestOverride.trim();
+    }
+    const { relativePath } =
+      this.options.suiteController.resolveDataFile(endpointPathInput);
+    const fields =
+      await this.options.endpointOverridesController.resolveFields(
+        relativePath,
+      );
+    return fields.baseUrl;
   }
 
   private suiteKey(spec: RunSpec): string {
@@ -236,8 +268,14 @@ export class RunController {
       presetSnapshot = snapshotFromPreset(preset);
     }
 
+    const endpointInput = requiredString(body, "endpoint");
+    const baseUrlOverride = await this.resolveBaseUrlOverride(
+      endpointInput,
+      optionalString(body, "base_url"),
+    );
+
     return {
-      endpoint: this.resolvePath(requiredString(body, "endpoint")),
+      endpoint: this.resolvePath(endpointInput),
       personas: this.resolvePath(requiredString(body, "personas")),
       rubric: this.resolvePath(requiredString(body, "rubric")),
       scenariosPath: this.options.suiteController.resolvedDataPath,
@@ -246,8 +284,10 @@ export class RunController {
       repeat,
       dryRun,
       label: optionalString(body, "label"),
+      notes: optionalString(body, "notes"),
       presetId,
       presetSnapshot,
+      baseUrlOverride,
     };
   }
 
@@ -273,11 +313,20 @@ export class RunController {
     const repeat =
       optionalPositiveInteger(overrides, "repeat") ?? preset.repeat;
     const dryRun = optionalBoolean(overrides, "dry_run") ?? preset.dryRun;
+    const endpointOverride = optionalString(overrides, "endpoint");
+    const personasOverride = optionalString(overrides, "personas");
+    const rubricOverride = optionalString(overrides, "rubric");
+
+    const endpointInput = endpointOverride ?? preset.endpoint;
+    const baseUrlOverride = await this.resolveBaseUrlOverride(
+      endpointInput,
+      optionalString(overrides, "base_url"),
+    );
 
     return {
-      endpoint: this.resolvePath(preset.endpoint),
-      personas: this.resolvePath(preset.personas),
-      rubric: this.resolvePath(preset.rubric),
+      endpoint: this.resolvePath(endpointInput),
+      personas: this.resolvePath(personasOverride ?? preset.personas),
+      rubric: this.resolvePath(rubricOverride ?? preset.rubric),
       scenariosPath: this.options.suiteController.resolvedDataPath,
       selection: this.options.suiteController.resolveSelection(
         preset.selection,
@@ -286,8 +335,10 @@ export class RunController {
       repeat,
       dryRun,
       label: optionalString(body, "label"),
+      notes: optionalString(body, "notes"),
       presetId: preset.id,
       presetSnapshot: snapshotFromPreset(preset),
+      baseUrlOverride,
     };
   }
 
@@ -308,8 +359,10 @@ export class RunController {
     return await this.presetSpec(presetId, body);
   }
 
-  start(spec: RunSpec): StartRunResult {
-    const client = ensureOpenRouterConfigured();
+  async start(spec: RunSpec): Promise<StartRunResult> {
+    const client = await resolveOpenRouterClient(
+      this.options.settingsController,
+    );
     const suiteKey = this.suiteKey(spec);
     if (this.activeBySuiteKey.has(suiteKey)) {
       throw new HttpInputError(
@@ -408,9 +461,11 @@ export class RunController {
         repeat: spec.repeat,
         signal: options.abortController.signal,
         label: spec.label,
+        notes: spec.notes,
         trigger: "server",
         presetId: spec.presetId,
         presetSnapshot: spec.presetSnapshot,
+        baseUrlOverride: spec.baseUrlOverride,
       });
     } catch (error) {
       const runId = options.recorder.runId;

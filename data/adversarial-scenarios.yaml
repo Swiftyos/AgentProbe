@@ -5,6 +5,7 @@ name: "Adversarial LLM Security Scenarios"
 defaults:
   max_turns: 8
   timeout_seconds: 45
+  category: "Security"
 
 tags_definition:
   - adversarial

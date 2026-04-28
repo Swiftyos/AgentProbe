@@ -9,6 +9,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-operations-multi-function-ai-assistant
+    category: "Founder Ops"
     persona: founder-operator
     rubric: operations-automation
     turns:
@@ -41,6 +42,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-operations-multi-function-ai-assistant
+    category: "Founder Ops"
     persona: founder-operator
     rubric: operations-automation
     turns:
@@ -70,6 +72,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-operations-multi-function-ai-assistant
+    category: "Founder Ops"
     persona: founder-operator
     rubric: operations-automation
     turns:
@@ -100,6 +103,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-operations-multi-function-ai-assistant
+    category: "Founder Ops"
     persona: founder-operator
     rubric: operations-automation
     turns:
@@ -142,6 +146,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-operations-multi-function-ai-assistant
+    category: "Founder Ops"
     persona: founder-operator
     rubric: operations-automation
     turns:
@@ -172,6 +177,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-operations-multi-function-ai-assistant
+    category: "Founder Ops"
     persona: founder-operator
     rubric: operations-automation
     turns:
@@ -202,6 +208,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-operations-multi-function-ai-assistant
+    category: "Founder Ops"
     persona: founder-operator
     rubric: operations-automation
     turns:
@@ -231,6 +238,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-operations-multi-function-ai-assistant
+    category: "Founder Ops"
     persona: founder-operator
     rubric: operations-automation
     turns:
@@ -259,6 +267,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-operations-multi-function-ai-assistant
+    category: "Founder Ops"
     persona: founder-operator
     rubric: operations-automation
     turns:
@@ -299,6 +308,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-operations-multi-function-ai-assistant
+    category: "Founder Ops"
     persona: founder-operator
     rubric: operations-automation
     turns:
@@ -330,6 +340,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-operations-multi-function-ai-assistant
+    category: "Founder Ops"
     persona: founder-operator
     rubric: operations-automation
     turns:
@@ -359,6 +370,7 @@ scenarios:
     tags:
       - tasks-100
       - data-pipeline-document-processing
+    category: "Data Pipeline"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -390,6 +402,7 @@ scenarios:
     tags:
       - tasks-100
       - data-pipeline-document-processing
+    category: "Data Pipeline"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -420,6 +433,7 @@ scenarios:
     tags:
       - tasks-100
       - data-pipeline-document-processing
+    category: "Data Pipeline"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -449,6 +463,7 @@ scenarios:
     tags:
       - tasks-100
       - data-pipeline-document-processing
+    category: "Data Pipeline"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -479,6 +494,7 @@ scenarios:
     tags:
       - tasks-100
       - data-pipeline-document-processing
+    category: "Data Pipeline"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -508,6 +524,7 @@ scenarios:
     tags:
       - tasks-100
       - data-pipeline-document-processing
+    category: "Data Pipeline"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -543,6 +560,7 @@ scenarios:
     tags:
       - tasks-100
       - data-pipeline-document-processing
+    category: "Data Pipeline"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -575,6 +593,7 @@ scenarios:
     tags:
       - tasks-100
       - data-pipeline-document-processing
+    category: "Data Pipeline"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -612,6 +631,7 @@ scenarios:
     tags:
       - tasks-100
       - data-pipeline-document-processing
+    category: "Data Pipeline"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -638,6 +658,7 @@ scenarios:
     tags:
       - tasks-100
       - repetitive-business-process-offloading
+    category: "Process Automation"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -672,6 +693,7 @@ scenarios:
     tags:
       - tasks-100
       - repetitive-business-process-offloading
+    category: "Process Automation"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -702,6 +724,7 @@ scenarios:
     tags:
       - tasks-100
       - repetitive-business-process-offloading
+    category: "Process Automation"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -731,6 +754,7 @@ scenarios:
     tags:
       - tasks-100
       - repetitive-business-process-offloading
+    category: "Process Automation"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -761,6 +785,7 @@ scenarios:
     tags:
       - tasks-100
       - repetitive-business-process-offloading
+    category: "Process Automation"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -789,6 +814,7 @@ scenarios:
     tags:
       - tasks-100
       - repetitive-business-process-offloading
+    category: "Process Automation"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -822,6 +848,7 @@ scenarios:
     tags:
       - tasks-100
       - repetitive-business-process-offloading
+    category: "Process Automation"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -851,6 +878,7 @@ scenarios:
     tags:
       - tasks-100
       - repetitive-business-process-offloading
+    category: "Process Automation"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -889,6 +917,7 @@ scenarios:
     tags:
       - tasks-100
       - full-stack-app-software-building
+    category: "Software Build"
     persona: developer
     rubric: operations-automation
     turns:
@@ -914,6 +943,7 @@ scenarios:
     tags:
       - tasks-100
       - full-stack-app-software-building
+    category: "Software Build"
     persona: developer
     rubric: operations-automation
     turns:
@@ -939,6 +969,7 @@ scenarios:
     tags:
       - tasks-100
       - full-stack-app-software-building
+    category: "Software Build"
     persona: developer
     rubric: operations-automation
     turns:
@@ -964,6 +995,7 @@ scenarios:
     tags:
       - tasks-100
       - full-stack-app-software-building
+    category: "Software Build"
     persona: developer
     rubric: operations-automation
     turns:
@@ -989,6 +1021,7 @@ scenarios:
     tags:
       - tasks-100
       - full-stack-app-software-building
+    category: "Software Build"
     persona: developer
     rubric: operations-automation
     turns:
@@ -1012,6 +1045,7 @@ scenarios:
     tags:
       - tasks-100
       - full-stack-app-software-building
+    category: "Software Build"
     persona: developer
     rubric: operations-automation
     turns:
@@ -1036,6 +1070,7 @@ scenarios:
     tags:
       - tasks-100
       - full-stack-app-software-building
+    category: "Software Build"
     persona: developer
     rubric: operations-automation
     turns:
@@ -1062,6 +1097,7 @@ scenarios:
     tags:
       - tasks-100
       - full-stack-app-software-building
+    category: "Software Build"
     persona: developer
     rubric: operations-automation
     turns:
@@ -1087,6 +1123,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-led-business-operations-automation
+    category: "Business Automation"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1128,6 +1165,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-led-business-operations-automation
+    category: "Business Automation"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1156,6 +1194,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-led-business-operations-automation
+    category: "Business Automation"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1192,6 +1231,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-led-business-operations-automation
+    category: "Business Automation"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1227,6 +1267,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-led-business-operations-automation
+    category: "Business Automation"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1264,6 +1305,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-led-business-operations-automation
+    category: "Business Automation"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1295,6 +1337,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-led-business-operations-automation
+    category: "Business Automation"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1329,6 +1372,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-led-business-operations-automation
+    category: "Business Automation"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1365,6 +1409,7 @@ scenarios:
     tags:
       - tasks-100
       - sales-marketing-pipeline-automation
+    category: "Sales Pipeline"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -1399,6 +1444,7 @@ scenarios:
     tags:
       - tasks-100
       - sales-marketing-pipeline-automation
+    category: "Sales Pipeline"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -1428,6 +1474,7 @@ scenarios:
     tags:
       - tasks-100
       - sales-marketing-pipeline-automation
+    category: "Sales Pipeline"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -1462,6 +1509,7 @@ scenarios:
     tags:
       - tasks-100
       - sales-marketing-pipeline-automation
+    category: "Sales Pipeline"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -1493,6 +1541,7 @@ scenarios:
     tags:
       - tasks-100
       - sales-marketing-pipeline-automation
+    category: "Sales Pipeline"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -1527,6 +1576,7 @@ scenarios:
     tags:
       - tasks-100
       - sales-marketing-pipeline-automation
+    category: "Sales Pipeline"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -1557,6 +1607,7 @@ scenarios:
     tags:
       - tasks-100
       - sales-marketing-pipeline-automation
+    category: "Sales Pipeline"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -1589,6 +1640,7 @@ scenarios:
     tags:
       - tasks-100
       - small-business-growth-strategy
+    category: "Growth Strategy"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1623,6 +1675,7 @@ scenarios:
     tags:
       - tasks-100
       - small-business-growth-strategy
+    category: "Growth Strategy"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1661,6 +1714,7 @@ scenarios:
     tags:
       - tasks-100
       - small-business-growth-strategy
+    category: "Growth Strategy"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1694,6 +1748,7 @@ scenarios:
     tags:
       - tasks-100
       - small-business-growth-strategy
+    category: "Growth Strategy"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1722,6 +1777,7 @@ scenarios:
     tags:
       - tasks-100
       - small-business-growth-strategy
+    category: "Growth Strategy"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1756,6 +1812,7 @@ scenarios:
     tags:
       - tasks-100
       - small-business-growth-strategy
+    category: "Growth Strategy"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1787,6 +1844,7 @@ scenarios:
     tags:
       - tasks-100
       - small-business-growth-strategy
+    category: "Growth Strategy"
     persona: smb-founder
     rubric: operations-automation
     turns:
@@ -1820,6 +1878,7 @@ scenarios:
     tags:
       - tasks-100
       - automated-data-analysis-reporting
+    category: "Data Analysis"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -1850,6 +1909,7 @@ scenarios:
     tags:
       - tasks-100
       - automated-data-analysis-reporting
+    category: "Data Analysis"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -1881,6 +1941,7 @@ scenarios:
     tags:
       - tasks-100
       - automated-data-analysis-reporting
+    category: "Data Analysis"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -1913,6 +1974,7 @@ scenarios:
     tags:
       - tasks-100
       - automated-data-analysis-reporting
+    category: "Data Analysis"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -1944,6 +2006,7 @@ scenarios:
     tags:
       - tasks-100
       - automated-data-analysis-reporting
+    category: "Data Analysis"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -1975,6 +2038,7 @@ scenarios:
     tags:
       - tasks-100
       - automated-data-analysis-reporting
+    category: "Data Analysis"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -2006,6 +2070,7 @@ scenarios:
     tags:
       - tasks-100
       - automated-data-analysis-reporting
+    category: "Data Analysis"
     persona: data-analyst
     rubric: operations-automation
     turns:
@@ -2038,6 +2103,7 @@ scenarios:
     tags:
       - tasks-100
       - marketing-outreach-lead-generation-pipeline
+    category: "Lead Generation"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -2072,6 +2138,7 @@ scenarios:
     tags:
       - tasks-100
       - marketing-outreach-lead-generation-pipeline
+    category: "Lead Generation"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -2103,6 +2170,7 @@ scenarios:
     tags:
       - tasks-100
       - marketing-outreach-lead-generation-pipeline
+    category: "Lead Generation"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -2144,6 +2212,7 @@ scenarios:
     tags:
       - tasks-100
       - marketing-outreach-lead-generation-pipeline
+    category: "Lead Generation"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -2174,6 +2243,7 @@ scenarios:
     tags:
       - tasks-100
       - marketing-outreach-lead-generation-pipeline
+    category: "Lead Generation"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -2204,6 +2274,7 @@ scenarios:
     tags:
       - tasks-100
       - marketing-outreach-lead-generation-pipeline
+    category: "Lead Generation"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -2236,6 +2307,7 @@ scenarios:
     tags:
       - tasks-100
       - marketing-outreach-lead-generation-pipeline
+    category: "Lead Generation"
     persona: data-driven-founder
     rubric: operations-automation
     turns:
@@ -2268,6 +2340,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-personal-productivity-research
+    category: "Personal Productivity"
     persona: power-user-founder
     rubric: operations-automation
     turns:
@@ -2298,6 +2371,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-personal-productivity-research
+    category: "Personal Productivity"
     persona: power-user-founder
     rubric: operations-automation
     turns:
@@ -2327,6 +2401,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-personal-productivity-research
+    category: "Personal Productivity"
     persona: power-user-founder
     rubric: operations-automation
     turns:
@@ -2359,6 +2434,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-personal-productivity-research
+    category: "Personal Productivity"
     persona: power-user-founder
     rubric: operations-automation
     turns:
@@ -2403,6 +2479,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-personal-productivity-research
+    category: "Personal Productivity"
     persona: power-user-founder
     rubric: operations-automation
     turns:
@@ -2434,6 +2511,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-personal-productivity-research
+    category: "Personal Productivity"
     persona: power-user-founder
     rubric: operations-automation
     turns:
@@ -2464,6 +2542,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-personal-productivity-research
+    category: "Personal Productivity"
     persona: power-user-founder
     rubric: operations-automation
     turns:
@@ -2510,6 +2589,7 @@ scenarios:
     tags:
       - tasks-100
       - custom-ai-agent-builder-for-business
+    category: "Agent Builder"
     persona: agent-architect
     rubric: operations-automation
     turns:
@@ -2542,6 +2622,7 @@ scenarios:
     tags:
       - tasks-100
       - custom-ai-agent-builder-for-business
+    category: "Agent Builder"
     persona: agent-architect
     rubric: operations-automation
     turns:
@@ -2572,6 +2653,7 @@ scenarios:
     tags:
       - tasks-100
       - custom-ai-agent-builder-for-business
+    category: "Agent Builder"
     persona: agent-architect
     rubric: operations-automation
     turns:
@@ -2605,6 +2687,7 @@ scenarios:
     tags:
       - tasks-100
       - custom-ai-agent-builder-for-business
+    category: "Agent Builder"
     persona: agent-architect
     rubric: operations-automation
     turns:
@@ -2639,6 +2722,7 @@ scenarios:
     tags:
       - tasks-100
       - custom-ai-agent-builder-for-business
+    category: "Agent Builder"
     persona: agent-architect
     rubric: operations-automation
     turns:
@@ -2670,6 +2754,7 @@ scenarios:
     tags:
       - tasks-100
       - custom-ai-agent-builder-for-business
+    category: "Agent Builder"
     persona: agent-architect
     rubric: operations-automation
     turns:
@@ -2727,6 +2812,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-personal-productivity-agent
+    category: "Personal Productivity"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -2761,6 +2847,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-personal-productivity-agent
+    category: "Personal Productivity"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -2792,6 +2879,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-personal-productivity-agent
+    category: "Personal Productivity"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -2829,6 +2917,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-personal-productivity-agent
+    category: "Personal Productivity"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -2861,6 +2950,7 @@ scenarios:
     tags:
       - tasks-100
       - founder-personal-productivity-agent
+    category: "Personal Productivity"
     persona: busy-professional
     rubric: operations-automation
     turns:
@@ -2895,6 +2985,7 @@ scenarios:
     tags:
       - tasks-100
       - ai-agent-building-deployment
+    category: "Agent Deployment"
     persona: agent-deployer
     rubric: operations-automation
     turns:
@@ -2926,6 +3017,7 @@ scenarios:
     tags:
       - tasks-100
       - ai-agent-building-deployment
+    category: "Agent Deployment"
     persona: agent-deployer
     rubric: operations-automation
     turns:
@@ -2953,6 +3045,7 @@ scenarios:
     tags:
       - tasks-100
       - ai-agent-building-deployment
+    category: "Agent Deployment"
     persona: agent-deployer
     rubric: operations-automation
     turns:
@@ -2984,6 +3077,7 @@ scenarios:
     tags:
       - tasks-100
       - ai-agent-building-deployment
+    category: "Agent Deployment"
     persona: agent-deployer
     rubric: operations-automation
     turns:
@@ -3015,6 +3109,7 @@ scenarios:
     tags:
       - tasks-100
       - ai-agent-building-deployment
+    category: "Agent Deployment"
     persona: agent-deployer
     rubric: operations-automation
     turns:
@@ -3044,6 +3139,7 @@ scenarios:
     tags:
       - tasks-100
       - academic-scientific-research-assistant
+    category: "Research"
     persona: academic-researcher
     rubric: operations-automation
     turns:
@@ -3076,6 +3172,7 @@ scenarios:
     tags:
       - tasks-100
       - academic-scientific-research-assistant
+    category: "Research"
     persona: academic-researcher
     rubric: operations-automation
     turns:
@@ -3103,6 +3200,7 @@ scenarios:
     tags:
       - tasks-100
       - academic-scientific-research-assistant
+    category: "Research"
     persona: academic-researcher
     rubric: operations-automation
     turns:
@@ -3133,6 +3231,7 @@ scenarios:
     tags:
       - tasks-100
       - academic-scientific-research-assistant
+    category: "Research"
     persona: academic-researcher
     rubric: operations-automation
     turns:
@@ -3166,6 +3265,7 @@ scenarios:
     tags:
       - tasks-100
       - academic-scientific-research-assistant
+    category: "Research"
     persona: academic-researcher
     rubric: operations-automation
     turns:

@@ -4,6 +4,26 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>AgentProbe Dashboard</title>
+    <script>
+      // Apply the persisted theme (or system preference) before React mounts so
+      // there is no flash of the wrong palette on first paint.
+      (function () {
+        try {
+          var stored = localStorage.getItem("agentprobe:theme");
+          var theme =
+            stored === "light" || stored === "dark"
+              ? stored
+              : window.matchMedia("(prefers-color-scheme: dark)").matches
+                ? "dark"
+                : "light";
+          if (theme === "dark") {
+            document.documentElement.classList.add("dark");
+          }
+        } catch (error) {
+          // Storage may be unavailable — leave the default light theme.
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

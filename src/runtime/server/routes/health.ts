@@ -16,10 +16,11 @@ export function handleHealthz(
   );
 }
 
-export function handleSession(
+export async function handleSession(
   _request: Request,
   context: ServerContext,
-): Response {
+): Promise<Response> {
+  const openRouter = await context.settingsController.openRouterApiKeyStatus();
   return jsonResponse(
     {
       version: context.version,
@@ -29,7 +30,7 @@ export function handleSession(
         url: context.config.dbUrl ? redactDbUrl(context.config.dbUrl) : null,
       },
       secrets: {
-        open_router_api_key: Boolean(process.env.OPEN_ROUTER_API_KEY),
+        open_router_api_key: openRouter,
       },
     },
     { requestId: context.requestId },

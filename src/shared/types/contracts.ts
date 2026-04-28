@@ -310,6 +310,7 @@ export type ScenarioDefaults = {
   rubric?: string;
   userName?: string;
   copilotMode?: CopilotMode;
+  category?: string;
 };
 
 export type ScenarioContext = {
@@ -390,6 +391,7 @@ export type Scenario = {
   name: string;
   description?: string;
   tags: string[];
+  category?: string;
   persona?: string;
   rubric?: string;
   maxTurns?: number;
@@ -528,6 +530,7 @@ export type RunSummary = {
   exitCode?: number | null;
   preset?: string | null;
   label?: string | null;
+  notes?: string | null;
   trigger?: string | null;
   cancelledAt?: string | null;
   presetId?: string | null;

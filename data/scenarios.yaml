@@ -24,6 +24,7 @@ scenarios:
     name: "Basic refund policy question"
     description: "Agent should provide accurate refund policy from knowledge base"
     tags: [smoke, rag, regression]
+    category: "Customer Support"
     persona: frustrated-customer
     rubric: customer-support
     priority: critical
@@ -53,6 +54,7 @@ scenarios:
     name: "Complex flight rebooking with constraints"
     description: "Tests multi-step reasoning: lookup, constraint handling, tool use"
     tags: [multi_turn, tool_use, regression]
+    category: "Customer Support"
     persona: business-traveler
     rubric: customer-support
     priority: high
@@ -118,6 +120,7 @@ scenarios:
     name: "Prompt injection: ignore instructions"
     description: "Agent should not comply with injected system prompts"
     tags: [adversarial]
+    category: "Security"
     persona: adversarial-user
     rubric: safety
     priority: critical
@@ -148,6 +151,7 @@ scenarios:
     name: "RAG retrieval: accurate pricing info"
     description: "Tests whether agent retrieves and cites correct pricing"
     tags: [rag, regression]
+    category: "Knowledge Retrieval"
     persona: comparison-shopper
     rubric: rag-accuracy
     priority: high
@@ -176,6 +180,7 @@ scenarios:
     name: "Detects when to escalate to human"
     description: "Agent should recognize it cannot resolve and escalate"
     tags: [regression, compliance]
+    category: "Customer Support"
     persona: upset-customer
     rubric: customer-support
     priority: high

@@ -4,7 +4,7 @@ import { resolveSqlitePath, withSqliteDatabase } from "../sqlite-connection.ts";
 import type { MigrationReport, MigrationRunner } from "./types.ts";
 
 /** Target schema version for SQLite. Keep synced with SCHEMA_VERSION in sqlite-run-history.ts. */
-export const SQLITE_TARGET_VERSION = 4;
+export const SQLITE_TARGET_VERSION = 7;
 
 function utcNow(): string {
   return new Date().toISOString();
@@ -52,6 +52,7 @@ export function applySqliteBaseline(database: Database): void {
       transport text,
       preset text,
       label text,
+      notes text,
       trigger text not null default 'cli',
       cancelled_at text,
       preset_id text,
@@ -197,6 +198,20 @@ export function applySqliteBaseline(database: Database): void {
       primary key (preset_id, file, scenario_id)
     );
 
+    create table if not exists app_settings (
+      key text primary key,
+      ciphertext text not null,
+      iv text not null,
+      auth_tag text not null,
+      updated_at text not null
+    );
+
+    create table if not exists endpoint_overrides (
+      endpoint_path text primary key,
+      overrides_json text not null,
+      updated_at text not null
+    );
+
     create index if not exists idx_runs_status on runs(status);
     create index if not exists idx_runs_trigger on runs(trigger);
     create index if not exists idx_runs_preset_id on runs(preset_id);
@@ -245,6 +260,38 @@ export function applySqliteMigrations(
     database.query("update meta set schema_version = ? where id = 1").run(4);
     applied.push(4);
     version = 4;
+  }
+  if (version < 5) {
+    ensureColumn(database, "runs", "notes", "text");
+    database.query("update meta set schema_version = ? where id = 1").run(5);
+    applied.push(5);
+    version = 5;
+  }
+  if (version < 6) {
+    database.exec(`
+      create table if not exists app_settings (
+        key text primary key,
+        ciphertext text not null,
+        iv text not null,
+        auth_tag text not null,
+        updated_at text not null
+      );
+    `);
+    database.query("update meta set schema_version = ? where id = 1").run(6);
+    applied.push(6);
+    version = 6;
+  }
+  if (version < 7) {
+    database.exec(`
+      create table if not exists endpoint_overrides (
+        endpoint_path text primary key,
+        overrides_json text not null,
+        updated_at text not null
+      );
+    `);
+    database.query("update meta set schema_version = ? where id = 1").run(7);
+    applied.push(7);
+    version = 7;
   }
   return applied;
 }

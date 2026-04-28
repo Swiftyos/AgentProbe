@@ -50,6 +50,7 @@ export type RunRecorderStartOptions = {
   scenarioFilter?: string;
   tags?: string;
   label?: string;
+  notes?: string;
   trigger?: string;
   presetId?: string | null;
   presetSnapshot?: PresetSnapshot | Record<string, JsonValue> | null;
@@ -123,6 +124,26 @@ export const POSTGRES_RUN_RECORDING_UNSUPPORTED_MESSAGE =
   "preset CRUD, and historical reads (comparison, listings).";
 
 /**
+ * Encrypted secret stored at rest. Encryption/decryption is the caller's
+ * responsibility; the repository only holds the ciphertext envelope.
+ */
+export type StoredSecretEnvelope = {
+  ciphertext: string;
+  iv: string;
+  authTag: string;
+};
+
+/**
+ * A persisted set of overrides for a single endpoint YAML file. Applied
+ * automatically whenever that endpoint is used by the dashboard server.
+ */
+export type StoredEndpointOverride = {
+  endpointPath: string;
+  overrides: Record<string, unknown>;
+  updatedAt: string;
+};
+
+/**
  * Read-only repository surface for historical run views and comparisons.
  */
 export interface ReadableRepository {
@@ -163,6 +184,28 @@ export interface PersistenceRepository extends ReadableRepository {
     runId: string,
     options?: { exitCode?: number },
   ): Promise<RunRecord | undefined>;
+
+  // Run metadata edits (label / notes). Pass null to clear a field.
+  updateRunMetadata(
+    runId: string,
+    patch: { label?: string | null; notes?: string | null },
+  ): Promise<RunRecord | undefined>;
+
+  // Encrypted secret storage (e.g., OPEN_ROUTER_API_KEY) keyed by name.
+  getSecret(key: string): Promise<StoredSecretEnvelope | undefined>;
+  putSecret(key: string, secret: StoredSecretEnvelope): Promise<void>;
+  deleteSecret(key: string): Promise<boolean>;
+
+  // Per-endpoint YAML overrides applied at run start.
+  getEndpointOverride(
+    endpointPath: string,
+  ): Promise<StoredEndpointOverride | undefined>;
+  listEndpointOverrides(): Promise<StoredEndpointOverride[]>;
+  putEndpointOverride(
+    endpointPath: string,
+    overrides: Record<string, unknown>,
+  ): Promise<StoredEndpointOverride>;
+  deleteEndpointOverride(endpointPath: string): Promise<boolean>;
 }
 
 /**

@@ -48,6 +48,30 @@ import { generatePersonaStep, resolvePersonaModel } from "./simulator.ts";
 
 const resetsRequiringReinit = new Set(["new", "fresh_agent"]);
 
+function applyConnectionUrlOverride(
+  endpoint: Endpoints,
+  override: string | undefined,
+): void {
+  const trimmed = override?.trim();
+  if (!trimmed) {
+    return;
+  }
+  const connection = endpoint.connection;
+  if (!connection) {
+    throw new AgentProbeConfigError(
+      "Cannot apply base_url override: endpoint has no connection.",
+    );
+  }
+  if ("baseUrl" in connection) {
+    connection.baseUrl = trimmed;
+    return;
+  }
+  if ("url" in connection) {
+    connection.url = trimmed;
+    return;
+  }
+}
+
 export type RunRecorder = {
   recordRunStarted?: (options: {
     endpoint: string;
@@ -57,6 +81,7 @@ export type RunRecorder = {
     scenarioFilter?: string;
     tags?: string;
     label?: string;
+    notes?: string;
     trigger?: string;
     presetId?: string | null;
     presetSnapshot?: PresetSnapshot | Record<string, JsonValue> | null;
@@ -956,6 +981,7 @@ export async function runSuite(options: {
   preparedSelection?: PreparedScenarioSelection;
   signal?: AbortSignal;
   label?: string;
+  notes?: string;
   trigger?: string;
   presetId?: string | null;
   presetSnapshot?: PresetSnapshot | Record<string, JsonValue> | null;
@@ -967,6 +993,7 @@ export async function runSuite(options: {
   parallelLimit?: number;
   dryRun?: boolean;
   repeat?: number;
+  baseUrlOverride?: string;
 }): Promise<RunResult> {
   const runId = options.recorder?.recordRunStarted?.({
     endpoint: options.endpoint,
@@ -976,6 +1003,7 @@ export async function runSuite(options: {
     scenarioFilter: options.scenarioId,
     tags: options.tags,
     label: options.label,
+    notes: options.notes,
     trigger: options.trigger,
     presetId: options.presetId,
     presetSnapshot: options.presetSnapshot,
@@ -983,6 +1011,7 @@ export async function runSuite(options: {
 
   try {
     const endpointConfig = parseEndpointsYaml(options.endpoint);
+    applyConnectionUrlOverride(endpointConfig, options.baseUrlOverride);
     const scenarioCollection =
       options.preparedSelection?.scenarioCollection ??
       parseScenariosInput(options.scenarios);
@@ -1108,6 +1137,7 @@ export async function runSuite(options: {
                     resolveAuth({
                       userId: pinnedUserId,
                       name: pinnedUserName,
+                      backendUrl: options.baseUrlOverride?.trim() || undefined,
                     }),
                 }),
         });

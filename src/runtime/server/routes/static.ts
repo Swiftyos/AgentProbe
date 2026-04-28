@@ -31,7 +31,13 @@ function isDashboardPath(pathname: string): boolean {
   if (pathname === "/" || pathname === "/index.html") {
     return true;
   }
-  if (pathname.startsWith("/runs") || pathname.startsWith("/suites")) {
+  if (
+    pathname.startsWith("/runs") ||
+    pathname.startsWith("/suites") ||
+    pathname.startsWith("/presets") ||
+    pathname === "/start" ||
+    pathname === "/compare"
+  ) {
     return true;
   }
   if (pathname === "/settings") {

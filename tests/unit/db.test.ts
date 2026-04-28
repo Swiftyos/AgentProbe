@@ -215,12 +215,14 @@ describe("sqlite recorder", () => {
         "judge_dimension_scores",
         "presets",
         "preset_scenarios",
+        "app_settings",
+        "endpoint_overrides",
       ]) {
         expect(tableNames.has(name)).toBe(true);
       }
       expect(
         database.query("select schema_version from meta where id = 1").get(),
-      ).toEqual({ schema_version: 4 });
+      ).toEqual({ schema_version: 7 });
     } finally {
       database.close();
     }
@@ -693,6 +695,7 @@ describe("sqlite recorder", () => {
       for (const column of [
         "scenario_harness_failed_count",
         "label",
+        "notes",
         "trigger",
         "cancelled_at",
         "preset_id",
@@ -702,7 +705,7 @@ describe("sqlite recorder", () => {
       }
       expect(
         migrated.query("select schema_version from meta where id = 1").get(),
-      ).toEqual({ schema_version: 4 });
+      ).toEqual({ schema_version: 7 });
     } finally {
       migrated.close();
     }

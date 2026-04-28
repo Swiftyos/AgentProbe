@@ -73,7 +73,7 @@ describe("migration dispatcher", () => {
     const url = `sqlite:///${path}`;
     const report = await runMigrations(url);
     expect(report.currentVersion).toBe(1);
-    expect(report.applied).toEqual([2, 3, 4]);
+    expect(report.applied).toEqual([2, 3, 4, 5, 6, 7]);
     expect(report.targetVersion).toBe(SQLITE_TARGET_VERSION);
   });
 });

@@ -29,7 +29,7 @@ import { redactDbUrl } from "./url.ts";
 
 export const DEFAULT_DB_DIRNAME = ".agentprobe";
 export const DEFAULT_DB_FILENAME = "runs.sqlite3";
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 7;
 const REDACTED_VALUE = "[REDACTED]";
 const sensitiveExactKeys = new Set([
   "access_token",
@@ -265,12 +265,49 @@ function migrateDatabase(database: Database, currentVersion: number): void {
     database.query("update meta set schema_version = ? where id = 1").run(4);
     version = 4;
   }
+  if (version < 5) {
+    ensureColumn(database, "runs", "notes", "text");
+    database.query("update meta set schema_version = ? where id = 1").run(5);
+    version = 5;
+  }
+  if (version < 6) {
+    ensureAppSettingsTable(database);
+    database.query("update meta set schema_version = ? where id = 1").run(6);
+    version = 6;
+  }
+  if (version < 7) {
+    ensureEndpointOverridesTable(database);
+    database.query("update meta set schema_version = ? where id = 1").run(7);
+    version = 7;
+  }
 
   if (version !== SCHEMA_VERSION) {
     throw new AgentProbeRuntimeError(
       `Unsupported run-history schema version ${version}; expected ${SCHEMA_VERSION}.`,
     );
   }
+}
+
+function ensureAppSettingsTable(database: Database): void {
+  database.exec(`
+    create table if not exists app_settings (
+      key text primary key,
+      ciphertext text not null,
+      iv text not null,
+      auth_tag text not null,
+      updated_at text not null
+    );
+  `);
+}
+
+function ensureEndpointOverridesTable(database: Database): void {
+  database.exec(`
+    create table if not exists endpoint_overrides (
+      endpoint_path text primary key,
+      overrides_json text not null,
+      updated_at text not null
+    );
+  `);
 }
 
 function ensurePhase2Schema(database: Database): void {
@@ -339,6 +376,7 @@ export function initDb(dbUrl?: string): void {
         transport text,
         preset text,
         label text,
+        notes text,
         trigger text not null default 'cli',
         cancelled_at text,
         preset_id text,
@@ -461,6 +499,8 @@ export function initDb(dbUrl?: string): void {
       );
     `);
     ensurePhase2Schema(database);
+    ensureAppSettingsTable(database);
+    ensureEndpointOverridesTable(database);
 
     const meta = database
       .query("select schema_version from meta where id = 1")
@@ -574,6 +614,7 @@ export class SqliteRunRecorder {
     scenarioFilter?: string;
     tags?: string;
     label?: string;
+    notes?: string;
     trigger?: string;
     presetId?: string | null;
     presetSnapshot?: PresetSnapshot | Record<string, JsonValue> | null;
@@ -584,16 +625,17 @@ export class SqliteRunRecorder {
       .query(
         `
           insert into runs (
-            id, status, passed, exit_code, label, trigger, preset_id,
+            id, status, passed, exit_code, label, notes, trigger, preset_id,
             preset_snapshot_json, filters_json, selected_scenario_ids_json,
             source_paths_json, scenario_total, scenario_passed_count,
             scenario_failed_count, scenario_errored_count, started_at, updated_at
-          ) values (?, 'running', null, null, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, ?, ?)
+          ) values (?, 'running', null, null, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 0, ?, ?)
         `,
       )
       .run(
         runId,
         options.label ?? null,
+        options.notes ?? null,
         options.trigger ?? "cli",
         options.presetId ?? null,
         encodeJson(redactValue(options.presetSnapshot ?? null)),
@@ -1362,6 +1404,46 @@ export function listRunsForPreset(
   }
 }
 
+export type RunMetadataPatch = {
+  label?: string | null;
+  notes?: string | null;
+};
+
+export function updateRunMetadata(
+  runId: string,
+  patch: RunMetadataPatch,
+  options: { dbUrl?: string } = {},
+): RunRecord | undefined {
+  const database = openDatabase(options.dbUrl);
+  try {
+    const exists = database.query("select 1 from runs where id = ?").get(runId);
+    if (!exists) {
+      return undefined;
+    }
+    const setters: string[] = [];
+    const values: Array<string | null> = [];
+    if (Object.hasOwn(patch, "label")) {
+      setters.push("label = ?");
+      values.push(patch.label ?? null);
+    }
+    if (Object.hasOwn(patch, "notes")) {
+      setters.push("notes = ?");
+      values.push(patch.notes ?? null);
+    }
+    if (setters.length === 0) {
+      return getRun(runId, options);
+    }
+    setters.push("updated_at = ?");
+    values.push(utcNow());
+    database
+      .query(`update runs set ${setters.join(", ")} where id = ?`)
+      .run(...values, runId);
+  } finally {
+    database.close();
+  }
+  return getRun(runId, options);
+}
+
 export function markRunCancelled(
   runId: string,
   options: { dbUrl?: string; exitCode?: number } = {},
@@ -1389,6 +1471,180 @@ export function markRunCancelled(
   return getRun(runId, options);
 }
 
+export type StoredEncryptedSecret = {
+  ciphertext: string;
+  iv: string;
+  authTag: string;
+};
+
+export function getStoredSecret(
+  key: string,
+  options: { dbUrl?: string } = {},
+): StoredEncryptedSecret | undefined {
+  const database = openDatabase(options.dbUrl);
+  try {
+    const row = database
+      .query("select ciphertext, iv, auth_tag from app_settings where key = ?")
+      .get(key) as { ciphertext: string; iv: string; auth_tag: string } | null;
+    if (!row) {
+      return undefined;
+    }
+    return {
+      ciphertext: row.ciphertext,
+      iv: row.iv,
+      authTag: row.auth_tag,
+    };
+  } finally {
+    database.close();
+  }
+}
+
+export function putStoredSecret(
+  key: string,
+  secret: StoredEncryptedSecret,
+  options: { dbUrl?: string } = {},
+): void {
+  const database = openDatabase(options.dbUrl);
+  try {
+    database
+      .query(
+        `
+          insert into app_settings (key, ciphertext, iv, auth_tag, updated_at)
+          values (?, ?, ?, ?, ?)
+          on conflict(key) do update set
+            ciphertext = excluded.ciphertext,
+            iv = excluded.iv,
+            auth_tag = excluded.auth_tag,
+            updated_at = excluded.updated_at
+        `,
+      )
+      .run(key, secret.ciphertext, secret.iv, secret.authTag, utcNow());
+  } finally {
+    database.close();
+  }
+}
+
+export function deleteStoredSecret(
+  key: string,
+  options: { dbUrl?: string } = {},
+): boolean {
+  const database = openDatabase(options.dbUrl);
+  try {
+    const result = database
+      .query("delete from app_settings where key = ?")
+      .run(key);
+    return result.changes > 0;
+  } finally {
+    database.close();
+  }
+}
+
+export type StoredEndpointOverride = {
+  endpointPath: string;
+  overrides: Record<string, unknown>;
+  updatedAt: string;
+};
+
+export function getEndpointOverride(
+  endpointPath: string,
+  options: { dbUrl?: string } = {},
+): StoredEndpointOverride | undefined {
+  const database = openDatabase(options.dbUrl);
+  try {
+    const row = database
+      .query(
+        "select endpoint_path, overrides_json, updated_at from endpoint_overrides where endpoint_path = ?",
+      )
+      .get(endpointPath) as
+      | { endpoint_path: string; overrides_json: string; updated_at: string }
+      | null;
+    if (!row) {
+      return undefined;
+    }
+    return {
+      endpointPath: row.endpoint_path,
+      overrides: parseOverridesJson(row.overrides_json),
+      updatedAt: row.updated_at,
+    };
+  } finally {
+    database.close();
+  }
+}
+
+export function listEndpointOverrides(
+  options: { dbUrl?: string } = {},
+): StoredEndpointOverride[] {
+  const database = openDatabase(options.dbUrl);
+  try {
+    const rows = database
+      .query(
+        "select endpoint_path, overrides_json, updated_at from endpoint_overrides order by endpoint_path",
+      )
+      .all() as Array<{
+      endpoint_path: string;
+      overrides_json: string;
+      updated_at: string;
+    }>;
+    return rows.map((row) => ({
+      endpointPath: row.endpoint_path,
+      overrides: parseOverridesJson(row.overrides_json),
+      updatedAt: row.updated_at,
+    }));
+  } finally {
+    database.close();
+  }
+}
+
+export function putEndpointOverride(
+  endpointPath: string,
+  overrides: Record<string, unknown>,
+  options: { dbUrl?: string } = {},
+): void {
+  const database = openDatabase(options.dbUrl);
+  try {
+    database
+      .query(
+        `
+          insert into endpoint_overrides (endpoint_path, overrides_json, updated_at)
+          values (?, ?, ?)
+          on conflict(endpoint_path) do update set
+            overrides_json = excluded.overrides_json,
+            updated_at = excluded.updated_at
+        `,
+      )
+      .run(endpointPath, JSON.stringify(overrides), utcNow());
+  } finally {
+    database.close();
+  }
+}
+
+export function deleteEndpointOverride(
+  endpointPath: string,
+  options: { dbUrl?: string } = {},
+): boolean {
+  const database = openDatabase(options.dbUrl);
+  try {
+    const result = database
+      .query("delete from endpoint_overrides where endpoint_path = ?")
+      .run(endpointPath);
+    return result.changes > 0;
+  } finally {
+    database.close();
+  }
+}
+
+function parseOverridesJson(raw: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // fall through
+  }
+  return {};
+}
+
 function mapRunSummaryRow(row: Record<string, unknown>): RunSummary {
   return {
     runId: String(row.id),
@@ -1403,6 +1659,7 @@ function mapRunSummaryRow(row: Record<string, unknown>): RunSummary {
         : Number(row.exit_code),
     preset: typeof row.preset === "string" ? row.preset : null,
     label: typeof row.label === "string" ? row.label : null,
+    notes: typeof row.notes === "string" ? row.notes : null,
     trigger: typeof row.trigger === "string" ? row.trigger : null,
     cancelledAt: typeof row.cancelled_at === "string" ? row.cancelled_at : null,
     presetId: typeof row.preset_id === "string" ? row.preset_id : null,

@@ -15,7 +15,12 @@ import {
   POSTGRES_TARGET_VERSION,
 } from "./migrations/index.ts";
 import { createPostgresClient, type SqlTag } from "./postgres-client.ts";
-import type { PersistenceRepository, PresetWriteInput } from "./types.ts";
+import type {
+  PersistenceRepository,
+  PresetWriteInput,
+  StoredEndpointOverride,
+  StoredSecretEnvelope,
+} from "./types.ts";
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -89,6 +94,7 @@ function mapRunSummaryRow(row: UnknownRecord): RunSummary {
     exitCode: asNumberOrNull(row.exit_code),
     preset: asStringOrNull(row.preset),
     label: asStringOrNull(row.label),
+    notes: asStringOrNull(row.notes),
     trigger: asStringOrNull(row.trigger),
     cancelledAt: asIsoTimestampOrNull(row.cancelled_at),
     presetId: asStringOrNull(row.preset_id),
@@ -657,5 +663,95 @@ export class PostgresRepository implements PersistenceRepository {
       `;
       return this.getRun(runId);
     });
+  }
+
+  async updateRunMetadata(
+    runId: string,
+    patch: { label?: string | null; notes?: string | null },
+  ): Promise<RunRecord | undefined> {
+    return this.withSql(async (sql) => {
+      const exists = await sql<UnknownRecord>`
+        select 1 from runs where id = ${runId}
+      `;
+      if (exists.length === 0) {
+        return undefined;
+      }
+      const hasLabel = Object.hasOwn(patch, "label");
+      const hasNotes = Object.hasOwn(patch, "notes");
+      if (!hasLabel && !hasNotes) {
+        return this.getRun(runId);
+      }
+      if (hasLabel && hasNotes) {
+        await sql`
+          update runs set
+            label = ${patch.label ?? null},
+            notes = ${patch.notes ?? null},
+            updated_at = now()
+          where id = ${runId}
+        `;
+      } else if (hasLabel) {
+        await sql`
+          update runs set
+            label = ${patch.label ?? null},
+            updated_at = now()
+          where id = ${runId}
+        `;
+      } else {
+        await sql`
+          update runs set
+            notes = ${patch.notes ?? null},
+            updated_at = now()
+          where id = ${runId}
+        `;
+      }
+      return this.getRun(runId);
+    });
+  }
+
+  async getSecret(_key: string): Promise<StoredSecretEnvelope | undefined> {
+    throw new AgentProbeRuntimeError(
+      "Encrypted secret storage is not supported on the Postgres backend.",
+    );
+  }
+
+  async putSecret(_key: string, _secret: StoredSecretEnvelope): Promise<void> {
+    throw new AgentProbeRuntimeError(
+      "Encrypted secret storage is not supported on the Postgres backend.",
+    );
+  }
+
+  async deleteSecret(_key: string): Promise<boolean> {
+    throw new AgentProbeRuntimeError(
+      "Encrypted secret storage is not supported on the Postgres backend.",
+    );
+  }
+
+  async getEndpointOverride(
+    _endpointPath: string,
+  ): Promise<StoredEndpointOverride | undefined> {
+    throw new AgentProbeRuntimeError(
+      "Endpoint overrides are not supported on the Postgres backend.",
+    );
+  }
+
+  async listEndpointOverrides(): Promise<StoredEndpointOverride[]> {
+    throw new AgentProbeRuntimeError(
+      "Endpoint overrides are not supported on the Postgres backend.",
+    );
+  }
+
+  async putEndpointOverride(
+    _endpointPath: string,
+    _overrides: Record<string, unknown>,
+  ): Promise<StoredEndpointOverride> {
+    throw new AgentProbeRuntimeError(
+      "Endpoint overrides are not supported on the Postgres backend.",
+    );
+  }
+
+  async deleteEndpointOverride(_endpointPath: string): Promise<boolean> {
+    throw new AgentProbeRuntimeError(
+      "Endpoint overrides are not supported on the Postgres backend.",
+    );
   }
 }

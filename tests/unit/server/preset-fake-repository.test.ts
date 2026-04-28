@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import type {
   PersistenceRepository,
   PresetWriteInput,
+  StoredEndpointOverride,
+  StoredSecretEnvelope,
 } from "../../../src/providers/persistence/types.ts";
 import { PresetController } from "../../../src/runtime/server/controllers/preset-controller.ts";
 import type { SuiteController } from "../../../src/runtime/server/controllers/suite-controller.ts";
@@ -78,6 +80,43 @@ class FakeRepository implements PersistenceRepository {
 
   async markRunCancelled(): Promise<RunRecord | undefined> {
     return undefined;
+  }
+
+  async updateRunMetadata(): Promise<RunRecord | undefined> {
+    return undefined;
+  }
+
+  async getSecret(): Promise<StoredSecretEnvelope | undefined> {
+    return undefined;
+  }
+
+  async putSecret(): Promise<void> {}
+
+  async deleteSecret(): Promise<boolean> {
+    return false;
+  }
+
+  async getEndpointOverride(): Promise<StoredEndpointOverride | undefined> {
+    return undefined;
+  }
+
+  async listEndpointOverrides(): Promise<StoredEndpointOverride[]> {
+    return [];
+  }
+
+  async putEndpointOverride(
+    endpointPath: string,
+    overrides: Record<string, unknown>,
+  ): Promise<StoredEndpointOverride> {
+    return {
+      endpointPath,
+      overrides,
+      updatedAt: "2026-04-17T00:00:00.000Z",
+    };
+  }
+
+  async deleteEndpointOverride(): Promise<boolean> {
+    return false;
   }
 }
 

@@ -6,6 +6,11 @@ import type {
 } from "../../../shared/types/contracts.ts";
 import { HttpInputError } from "../validation.ts";
 
+export type CategoryLookup = (
+  scenarioId: string,
+  fileHint: string | null,
+) => string | null;
+
 export const MIN_COMPARISON_RUNS = 2;
 export const MAX_COMPARISON_RUNS = 10;
 const RUN_ID_PATTERN =
@@ -53,6 +58,7 @@ export type ComparisonScenarioRow = {
   file: string | null;
   scenario_id: string;
   scenario_name: string | null;
+  category: string | null;
   present_in: string[];
   entries: Record<string, ComparisonScenarioEntry>;
   delta_score: number | null;
@@ -158,6 +164,26 @@ function runSummary(run: RunRecord): ComparisonRunSummary {
   };
 }
 
+function scenarioCategory(
+  scenario: ScenarioRecord,
+  fileHint: string | null,
+  lookup?: CategoryLookup,
+): string | null {
+  const snapshot = scenario.scenarioSnapshot as
+    | Record<string, JsonValue>
+    | undefined;
+  if (snapshot) {
+    const candidate = snapshot.category;
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+  if (lookup) {
+    return lookup(scenario.scenarioId, fileHint);
+  }
+  return null;
+}
+
 function scenarioFileHint(scenario: ScenarioRecord): string | null {
   const snapshot = scenario.scenarioSnapshot as
     | Record<string, JsonValue>
@@ -238,8 +264,12 @@ function alignmentKey(
   return { key: scenario.scenarioId, file: scenarioFileHint(scenario) };
 }
 
-export function buildComparisonPayload(runs: RunRecord[]): ComparisonPayload {
+export function buildComparisonPayload(
+  runs: RunRecord[],
+  options: { categoryLookup?: CategoryLookup } = {},
+): ComparisonPayload {
   const { alignment } = chooseAlignment(runs);
+  const { categoryLookup } = options;
 
   const runIds = runs.map((run) => run.runId);
   const rowsByKey = new Map<
@@ -248,6 +278,7 @@ export function buildComparisonPayload(runs: RunRecord[]): ComparisonPayload {
       file: string | null;
       scenarioId: string;
       scenarioName: string | null;
+      category: string | null;
       perRun: Map<string, ScenarioRecord>;
     }
   >();
@@ -258,11 +289,15 @@ export function buildComparisonPayload(runs: RunRecord[]): ComparisonPayload {
       const entry = rowsByKey.get(key);
       if (entry) {
         entry.perRun.set(run.runId, scenario);
+        if (!entry.category) {
+          entry.category = scenarioCategory(scenario, file, categoryLookup);
+        }
       } else {
         rowsByKey.set(key, {
           file,
           scenarioId: scenario.scenarioId,
           scenarioName: scenario.scenarioName ?? null,
+          category: scenarioCategory(scenario, file, categoryLookup),
           perRun: new Map([[run.runId, scenario]]),
         });
       }
@@ -367,6 +402,7 @@ export function buildComparisonPayload(runs: RunRecord[]): ComparisonPayload {
       file: info.file,
       scenario_id: info.scenarioId,
       scenario_name: info.scenarioName,
+      category: info.category,
       present_in: presentIn,
       entries,
       delta_score: deltaScore,
@@ -406,8 +442,9 @@ export type ComparisonController = {
 
 export function createComparisonController(options: {
   repository: ReadableRepository;
+  categoryLookup?: CategoryLookup;
 }): ComparisonController {
-  const { repository } = options;
+  const { repository, categoryLookup } = options;
   return {
     async compare(runIds: string[]): Promise<ComparisonPayload> {
       const trimmed = runIds
@@ -459,7 +496,7 @@ export function createComparisonController(options: {
           return record;
         }),
       );
-      return buildComparisonPayload(runs);
+      return buildComparisonPayload(runs, { categoryLookup });
     },
   };
 }

@@ -593,10 +593,12 @@ export function startDashboardServer(
 
   const hostname = options.hostname ?? DEFAULT_DASHBOARD_HOST;
   const state = new LiveDashboardState(options.dbUrl);
+  const liveModeMarker =
+    "<script>window.__AGENTPROBE_LIVE__=true;</script></head>";
   const server = Bun.serve({
     hostname,
     port: options.port ?? 0,
-    fetch: (request) => {
+    fetch: async (request) => {
       const url = new URL(request.url);
       if (url.pathname === "/api/state") {
         return Response.json(state.snapshot());
@@ -605,6 +607,15 @@ export function startDashboardServer(
       const filePath = safeStaticPath(distDir, url.pathname);
       if (!filePath || !existsSync(filePath)) {
         return new Response("Not found", { status: 404 });
+      }
+
+      // Inject a window flag so the React app knows it is in live mode without
+      // having to probe a 404-prone endpoint.
+      if (filePath === entryPath) {
+        const html = await Bun.file(filePath).text();
+        return new Response(html.replace("</head>", liveModeMarker), {
+          headers: { "content-type": "text/html; charset=utf-8" },
+        });
       }
 
       return new Response(Bun.file(filePath));

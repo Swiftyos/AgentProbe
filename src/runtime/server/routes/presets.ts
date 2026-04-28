@@ -148,12 +148,12 @@ export async function handleStartPresetRun(
   params: { presetId: string },
 ): Promise<Response> {
   try {
-    context.runController.assertRunnable();
+    await context.runController.assertRunnable();
     const spec = await context.runController.specFromPresetRunRequest(
       params.presetId,
       request,
     );
-    const result = context.runController.start(spec);
+    const result = await context.runController.start(spec);
     return jsonResponse(
       { run_id: result.runId, status: result.status },
       { status: 202, requestId: context.requestId },

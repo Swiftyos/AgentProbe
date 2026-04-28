@@ -5,7 +5,7 @@ import {
   jsonResponse,
   parsePositiveInt,
 } from "../http-helpers.ts";
-import { HttpInputError } from "../validation.ts";
+import { HttpInputError, readJsonObject } from "../validation.ts";
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
@@ -111,9 +111,9 @@ export async function handleStartRun(
   context: ServerContext,
 ): Promise<Response> {
   try {
-    context.runController.assertRunnable();
+    await context.runController.assertRunnable();
     const spec = await context.runController.specFromRunRequest(request);
-    const result = context.runController.start(spec);
+    const result = await context.runController.start(spec);
     return jsonResponse(
       {
         run_id: result.runId,
@@ -203,6 +203,122 @@ export async function handleGetRun(
       requestId: context.requestId,
     });
   }
+  if (!run) {
+    return errorResponse({
+      status: 404,
+      type: "NotFound",
+      message: `Run \`${params.runId}\` was not found.`,
+      requestId: context.requestId,
+    });
+  }
+  return jsonResponse({ run }, { requestId: context.requestId });
+}
+
+function nullableStringField(
+  body: Record<string, unknown>,
+  key: string,
+  maxLength: number,
+): { present: boolean; value: string | null } {
+  if (!Object.hasOwn(body, key)) {
+    return { present: false, value: null };
+  }
+  const raw = body[key];
+  if (raw === null) {
+    return { present: true, value: null };
+  }
+  if (typeof raw !== "string") {
+    throw new HttpInputError(
+      400,
+      "bad_request",
+      `${key} must be a string or null.`,
+    );
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length > maxLength) {
+    throw new HttpInputError(
+      400,
+      "bad_request",
+      `${key} must be ${maxLength} characters or fewer.`,
+    );
+  }
+  return { present: true, value: trimmed.length === 0 ? null : trimmed };
+}
+
+export async function handlePatchRun(
+  request: Request,
+  context: ServerContext,
+  params: { runId: string },
+): Promise<Response> {
+  if (!context.config.dbUrl) {
+    return errorResponse({
+      status: 404,
+      type: "NotFound",
+      message: `Run \`${params.runId}\` was not found (no database configured).`,
+      requestId: context.requestId,
+    });
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await readJsonObject(request);
+  } catch (error) {
+    if (error instanceof HttpInputError) {
+      return errorResponse({
+        status: error.status,
+        type: error.code,
+        message: error.message,
+        requestId: context.requestId,
+      });
+    }
+    throw error;
+  }
+
+  let label: { present: boolean; value: string | null };
+  let notes: { present: boolean; value: string | null };
+  try {
+    label = nullableStringField(body, "label", 200);
+    notes = nullableStringField(body, "notes", 4000);
+  } catch (error) {
+    if (error instanceof HttpInputError) {
+      return errorResponse({
+        status: error.status,
+        type: error.code,
+        message: error.message,
+        requestId: context.requestId,
+      });
+    }
+    throw error;
+  }
+
+  if (!label.present && !notes.present) {
+    return errorResponse({
+      status: 400,
+      type: "bad_request",
+      message: "Provide at least one of `label` or `notes`.",
+      requestId: context.requestId,
+    });
+  }
+
+  const patch: { label?: string | null; notes?: string | null } = {};
+  if (label.present) {
+    patch.label = label.value;
+  }
+  if (notes.present) {
+    patch.notes = notes.value;
+  }
+
+  let run: RunRecord | undefined;
+  try {
+    run = await context.repository.updateRunMetadata(params.runId, patch);
+  } catch (error) {
+    return errorResponse({
+      status: 500,
+      type: "PersistenceError",
+      message: error instanceof Error ? error.message : String(error),
+      requestId: context.requestId,
+    });
+  }
+
   if (!run) {
     return errorResponse({
       status: 404,

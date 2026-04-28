@@ -6,6 +6,31 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  jsonBody,
+  readStoredToken,
+  useServerRequest,
+  writeStoredToken,
+} from "./api/client.ts";
+import type {
+  HealthResponse,
+  OpenRouterStatusResponse,
+  Preset,
+  PresetResponse,
+  PresetRunsResponse,
+  PresetsResponse,
+  ReadyResponse,
+  RunRecord,
+  RunResponse,
+  RunSummary,
+  RunsResponse,
+  ScenarioResponse,
+  ScenariosResponse,
+  SecretStatus,
+  ServerRequest,
+  ServerScenario,
+  SuitesResponse,
+} from "./api/types.ts";
 import { AveragesTable } from "./components/AveragesTable.tsx";
 import { CompareView } from "./components/CompareView.tsx";
 import { ConversationView } from "./components/ConversationView.tsx";
@@ -14,6 +39,7 @@ import { ProgressBar } from "./components/ProgressBar.tsx";
 import { RubricView } from "./components/RubricView.tsx";
 import { ScenarioTable } from "./components/ScenarioTable.tsx";
 import { StatsBar } from "./components/StatsBar.tsx";
+import { ThemeToggle } from "./components/theme-toggle.tsx";
 import { useDashboard } from "./hooks/useDashboard.ts";
 import type {
   DashboardData,
@@ -21,247 +47,35 @@ import type {
   ScenarioDetail,
   ScenarioState,
 } from "./types.ts";
-
-const SERVER_TOKEN_KEY = "agentprobe:server-token";
+import {
+  Button,
+  Card,
+  Checkbox,
+  EmptyState,
+  ErrorBanner,
+  Field,
+  Loading,
+  PageHeader,
+  SimpleSelect,
+  StatTile,
+  StatusPill,
+  Tag,
+  TextInput,
+} from "./ui/index.tsx";
+import { EndpointsView } from "./views/EndpointsView.tsx";
+import { PresetEditorView } from "./views/PresetEditorView.tsx";
+import { PresetRunHistory } from "./views/PresetRunHistory.tsx";
+import {
+  RunLaunchModal,
+  type RunLaunchOptions,
+} from "./views/RunLaunchModal.tsx";
+import { RunMetaEditor } from "./views/RunMetaEditor.tsx";
+import {
+  ScenarioDetailsModal,
+  type ScenarioDetailsTarget,
+} from "./views/ScenarioDetailsModal.tsx";
 
 type AppMode = "detecting" | "live" | "server";
-
-type AggregateCounts = {
-  scenarioTotal: number;
-  scenarioPassedCount: number;
-  scenarioFailedCount: number;
-  scenarioHarnessFailedCount?: number;
-  scenarioErroredCount: number;
-};
-
-type RunSummary = {
-  runId: string;
-  status: string;
-  passed?: boolean | null;
-  exitCode?: number | null;
-  preset?: string | null;
-  label?: string | null;
-  trigger?: string | null;
-  cancelledAt?: string | null;
-  presetId?: string | null;
-  startedAt: string;
-  completedAt?: string | null;
-  suiteFingerprint?: string | null;
-  aggregateCounts: AggregateCounts;
-};
-
-type ServerScenario = {
-  ordinal: number;
-  scenarioId: string;
-  scenarioName: string;
-  userId?: string | null;
-  status: string;
-  passed?: boolean | null;
-  failureKind?: "agent" | "harness" | null;
-  overallScore?: number | null;
-  passThreshold?: number | null;
-  judge?: {
-    provider?: string | null;
-    model?: string | null;
-    temperature?: number | null;
-    maxTokens?: number | null;
-    overallNotes?: string | null;
-    output?: unknown;
-  };
-  turns?: Array<Record<string, unknown>>;
-  toolCalls?: Array<Record<string, unknown>>;
-  checkpoints?: Array<Record<string, unknown>>;
-  judgeDimensionScores?: Array<Record<string, unknown>>;
-  expectations?: unknown;
-  error?: unknown;
-  counts?: {
-    turnCount: number;
-    assistantTurnCount: number;
-    toolCallCount: number;
-    checkpointCount: number;
-  };
-  startedAt?: string | null;
-  completedAt?: string | null;
-};
-
-type RunRecord = RunSummary & {
-  scenarios: ServerScenario[];
-};
-
-type RunsResponse = {
-  runs: RunSummary[];
-  total: number;
-  limit: number;
-  offset: number;
-  next_cursor: string | null;
-};
-
-type RunResponse = {
-  run: RunRecord;
-};
-
-type ScenarioResponse = {
-  run: Pick<
-    RunSummary,
-    "runId" | "status" | "passed" | "startedAt" | "completedAt"
-  >;
-  scenario: ServerScenario;
-};
-
-type SuiteSummary = {
-  id: string;
-  path: string;
-  relativePath: string;
-  schema: string;
-  objectCount: number;
-  scenarioIds: string[];
-};
-
-type ScenarioSummary = {
-  suiteId: string;
-  id: string;
-  name: string;
-  tags: string[];
-  priority: string | null;
-  persona: string | null;
-  rubric: string | null;
-  sourcePath: string;
-};
-
-type SuitesResponse = {
-  data_path: string;
-  scanned_at: string;
-  suites: SuiteSummary[];
-  errors: Array<{ path: string; message: string }>;
-};
-
-type ScenariosResponse = {
-  scanned_at: string;
-  scenarios: ScenarioSummary[];
-};
-
-type Preset = {
-  id: string;
-  name: string;
-  description: string | null;
-  endpoint: string;
-  personas: string;
-  rubric: string;
-  selection: Array<{ file: string; id: string }>;
-  parallel: { enabled: boolean; limit: number | null };
-  repeat: number;
-  dry_run: boolean;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-  last_run: RunSummary | null;
-};
-
-type PresetsResponse = {
-  presets: Preset[];
-};
-
-type PresetResponse = {
-  preset: Preset;
-  warnings: Array<{ file: string; id: string; message: string }>;
-};
-
-type PresetRunsResponse = {
-  runs: RunSummary[];
-};
-
-type HealthResponse = {
-  status: string;
-  version?: string;
-  uptime_seconds?: number;
-};
-
-type ReadyResponse = {
-  status: string;
-  data_path?: string;
-  db_url?: string | null;
-  reason?: string;
-};
-
-type ServerRequest = <T>(path: string, init?: RequestInit) => Promise<T>;
-
-class ApiError extends Error {
-  readonly status: number;
-
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-  }
-}
-
-function readStoredToken(): string {
-  try {
-    return window.sessionStorage.getItem(SERVER_TOKEN_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function writeStoredToken(token: string): void {
-  try {
-    if (token) {
-      window.sessionStorage.setItem(SERVER_TOKEN_KEY, token);
-    } else {
-      window.sessionStorage.removeItem(SERVER_TOKEN_KEY);
-    }
-  } catch {
-    // Storage can be unavailable in locked-down browser contexts.
-  }
-}
-
-function errorMessageFromBody(body: unknown, fallback: string): string {
-  if (!body || typeof body !== "object") {
-    return fallback;
-  }
-  const error = (body as Record<string, unknown>).error;
-  if (!error || typeof error !== "object") {
-    return fallback;
-  }
-  const message = (error as Record<string, unknown>).message;
-  return typeof message === "string" && message ? message : fallback;
-}
-
-async function api<T>(
-  path: string,
-  token: string,
-  init: RequestInit = {},
-): Promise<T> {
-  const headers: Record<string, string> = {
-    accept: "application/json",
-  };
-  const incomingHeaders = new Headers(init.headers);
-  for (const [key, value] of incomingHeaders.entries()) {
-    headers[key] = value;
-  }
-  if (token) {
-    headers.authorization = `Bearer ${token}`;
-  }
-
-  const response = await fetch(path, { ...init, headers });
-  const text = await response.text();
-  let body: unknown = null;
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      body = text;
-    }
-  }
-
-  if (!response.ok) {
-    throw new ApiError(
-      response.status,
-      errorMessageFromBody(body, `HTTP ${response.status}`),
-    );
-  }
-  return body as T;
-}
 
 function timestampSeconds(value: string | null | undefined): number | null {
   if (!value) {
@@ -467,70 +281,73 @@ function useLocalLinkInterception(navigate: (href: string) => void): void {
   }, [navigate]);
 }
 
-function Loading({ label = "Loading..." }: { label?: string }) {
-  return <div className="server-empty">{label}</div>;
-}
-
-function ErrorBanner({ message }: { message: string }) {
-  return <div className="server-error">{message}</div>;
-}
-
-function StatusPill({ run }: { run: RunSummary }) {
-  const cls =
-    run.status === "running"
-      ? "status-running"
-      : run.passed === true
-        ? "status-pass"
-        : run.passed === false
-          ? "status-fail"
-          : "status-pending";
-  const label =
-    run.status === "completed" && run.passed != null
-      ? run.passed
-        ? "pass"
-        : "fail"
-      : run.status;
-  return (
-    <span className={`${cls} status-badge`}>
-      <span>{label.toUpperCase()}</span>
-    </span>
-  );
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
+  }
 }
 
 function RunsTable({ runs }: { runs: RunSummary[] }) {
   if (runs.length === 0) {
-    return <div className="server-empty">No runs recorded.</div>;
+    return (
+      <EmptyState
+        title="No runs recorded"
+        description="Launch a preset or start an ad-hoc run to populate this table."
+      />
+    );
   }
   return (
-    <table>
-      <thead>
-        <tr>
-          <th>Run</th>
-          <th>Status</th>
-          <th>Preset</th>
-          <th>Started</th>
-          <th style={{ textAlign: "right" }}>Passed</th>
-        </tr>
-      </thead>
-      <tbody>
-        {runs.map((run) => (
-          <tr key={run.runId} className="clickable-row">
-            <td className="id-cell">
-              <a href={`/runs/${encodeURIComponent(run.runId)}`}>{run.runId}</a>
-            </td>
-            <td>
-              <StatusPill run={run} />
-            </td>
-            <td>{run.preset ?? "-"}</td>
-            <td>{run.startedAt}</td>
-            <td className="score-cell">
-              {run.aggregateCounts.scenarioPassedCount}/
-              {run.aggregateCounts.scenarioTotal}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <Card className="overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-secondary">
+            <tr className="text-left text-muted-foreground text-xs uppercase tracking-wider">
+              <th className="px-3 py-2">Name</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Preset</th>
+              <th className="px-3 py-2">Started</th>
+              <th className="px-3 py-2 text-right">Pass / Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {runs.map((run) => (
+              <tr key={run.runId} className="hover:bg-secondary">
+                <td className="px-3 py-2">
+                  <a
+                    href={`/runs/${encodeURIComponent(run.runId)}`}
+                    className="text-foreground hover:text-primary"
+                  >
+                    {run.label ? (
+                      <span className="font-medium">{run.label}</span>
+                    ) : (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {run.runId.slice(0, 12)}…
+                      </span>
+                    )}
+                  </a>
+                </td>
+                <td className="px-3 py-2">
+                  <StatusPill run={run} />
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  {run.preset ?? "—"}
+                </td>
+                <td className="px-3 py-2 text-muted-foreground">
+                  {fmtDate(run.startedAt)}
+                </td>
+                <td className="px-3 py-2 text-right font-mono">
+                  {run.aggregateCounts.scenarioPassedCount}/
+                  {run.aggregateCounts.scenarioTotal}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </Card>
   );
 }
 
@@ -550,52 +367,41 @@ function TokenForm({
   }, [token]);
 
   return (
-    <form
-      className="server-token-form"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onTokenChange(draft.trim());
-      }}
-    >
-      <label htmlFor="server-token">
-        {authRequired ? "Bearer token required" : "Bearer token"}
-      </label>
-      <div className="server-token-row">
-        <input
-          id="server-token"
-          type="password"
-          value={draft}
-          onChange={(event) => setDraft(event.currentTarget.value)}
-          placeholder="token"
-        />
-        <button type="submit">Save</button>
-        {token && (
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => onTokenChange("")}
-          >
-            Clear
-          </button>
-        )}
-      </div>
-    </form>
-  );
-}
-
-function useServerRequest(token: string, onAuthRequired: () => void) {
-  return useCallback(
-    async <T,>(path: string, init?: RequestInit): Promise<T> => {
-      try {
-        return await api<T>(path, token, init);
-      } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          onAuthRequired();
-        }
-        throw error;
-      }
-    },
-    [token, onAuthRequired],
+    <Card className="p-4 mb-4">
+      <form
+        className="flex flex-col gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onTokenChange(draft.trim());
+        }}
+      >
+        <label
+          htmlFor="server-token"
+          className="text-xs uppercase tracking-wider text-muted-foreground font-semibold"
+        >
+          {authRequired ? "Bearer token required" : "Bearer token"}
+        </label>
+        <div className="flex items-center gap-2">
+          <TextInput
+            id="server-token"
+            type="password"
+            value={draft}
+            onChange={(event) => setDraft(event.currentTarget.value)}
+            placeholder="token"
+          />
+          <Button type="submit">Save</Button>
+          {token ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onTokenChange("")}
+            >
+              Clear
+            </Button>
+          ) : null}
+        </div>
+      </form>
+    </Card>
   );
 }
 
@@ -633,31 +439,16 @@ function OverviewView({ request }: { request: ServerRequest }) {
 
   return (
     <>
-      <div className="stats">
-        <div className="stat">
-          <div className="stat-value">{runs.total}</div>
-          <div className="stat-label">Runs</div>
-        </div>
-        <div className="stat">
-          <div className="stat-value" style={{ color: "var(--green)" }}>
-            {passed}
-          </div>
-          <div className="stat-label">Recent Passed</div>
-        </div>
-        <div className="stat">
-          <div className="stat-value" style={{ color: "var(--red)" }}>
-            {failed}
-          </div>
-          <div className="stat-label">Recent Failed</div>
-        </div>
-        <div className="stat">
-          <div className="stat-value" style={{ color: "var(--indigo)" }}>
-            {suites.suites.length}
-          </div>
-          <div className="stat-label">Suites</div>
-        </div>
+      <PageHeader eyebrow="Overview" title="AgentProbe" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <StatTile label="Total Runs" value={runs.total} />
+        <StatTile label="Recent Passed" tone="success" value={passed} />
+        <StatTile label="Recent Failed" tone="danger" value={failed} />
+        <StatTile label="Suites" tone="accent" value={suites.suites.length} />
       </div>
-      <div className="section-title">Latest Runs</div>
+      <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+        Latest Runs
+      </div>
       <RunsTable runs={runs.runs} />
     </>
   );
@@ -689,7 +480,7 @@ function RunsView({ request }: { request: ServerRequest }) {
 
   return (
     <>
-      <div className="section-title">Runs</div>
+      <PageHeader eyebrow="History" title="Runs" meta={`${data.total} total`} />
       <RunsTable runs={data.runs} />
     </>
   );
@@ -805,37 +596,70 @@ export function RunDetailView({
 
   return (
     <>
-      <div className="server-heading-row">
-        <div>
-          <div className="server-eyebrow">Run</div>
-          <h1>{run.runId}</h1>
-        </div>
-        <div className="server-form-actions">
-          {run.status === "running" && (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => void cancelRun()}
-              disabled={cancelling}
+      <PageHeader
+        eyebrow={
+          run.presetId ? (
+            <span>
+              Run from preset{" "}
+              <a
+                href={`/presets/${encodeURIComponent(run.presetId)}`}
+                className="text-primary hover:underline"
+              >
+                {run.preset ?? run.presetId}
+              </a>
+            </span>
+          ) : (
+            "Run"
+          )
+        }
+        title={
+          <span className="font-mono text-base text-muted-foreground break-all">
+            {run.runId}
+          </span>
+        }
+        meta={
+          <span>
+            Started {fmtDate(run.startedAt)} · trigger {run.trigger ?? "—"}
+          </span>
+        }
+        actions={
+          <>
+            {run.status === "running" && (
+              <Button
+                variant="secondary"
+                onClick={() => void cancelRun()}
+                disabled={cancelling}
+              >
+                {cancelling ? "Cancelling…" : "Cancel"}
+              </Button>
+            )}
+            <a
+              href={`/api/runs/${encodeURIComponent(run.runId)}/report.html`}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md font-medium border transition-colors px-3 py-1.5 text-sm bg-secondary text-foreground border-border hover:bg-primary hover:border-border no-underline"
             >
-              {cancelling ? "Cancelling..." : "Cancel"}
-            </button>
-          )}
-          <a href={`/api/runs/${encodeURIComponent(run.runId)}/report.html`}>
-            HTML report
-          </a>
-        </div>
-      </div>
+              HTML report
+            </a>
+          </>
+        }
+      />
+      <RunMetaEditor
+        run={run}
+        request={request}
+        onUpdated={(next) =>
+          setRun((prev) => (prev ? { ...prev, ...next } : prev))
+        }
+      />
       <StatsBar data={dashboardData} />
       <ProgressBar data={dashboardData} />
       <ScenarioTable data={dashboardData} onSelect={setSelectedOrdinal} />
-      <div className="server-link-strip">
+      <div className="flex flex-wrap gap-2 my-4">
         {run.scenarios.map((scenario) => (
           <a
             key={scenario.ordinal}
             href={`/runs/${encodeURIComponent(run.runId)}/scenarios/${
               scenario.ordinal
             }`}
+            className="inline-flex items-center px-2.5 py-1 rounded border border-border bg-secondary text-muted-foreground text-xs hover:text-foreground hover:border-primary no-underline"
           >
             Scenario {scenario.ordinal}
           </a>
@@ -895,38 +719,45 @@ function ScenarioDetailView({
 
   return (
     <>
-      <div className="server-heading-row">
-        <div>
-          <div className="server-eyebrow">
-            <a href={`/runs/${encodeURIComponent(data.run.runId)}`}>
-              {data.run.runId}
-            </a>
+      <PageHeader
+        eyebrow={
+          <a
+            href={`/runs/${encodeURIComponent(data.run.runId)}`}
+            className="text-primary hover:underline font-mono"
+          >
+            ← {data.run.runId.slice(0, 12)}…
+          </a>
+        }
+        title={detail.scenario_name}
+        actions={
+          <StatusPill
+            run={{
+              ...data.run,
+              exitCode: null,
+              preset: null,
+              aggregateCounts: {
+                scenarioTotal: 1,
+                scenarioPassedCount: detail.passed ? 1 : 0,
+                scenarioFailedCount: detail.passed ? 0 : 1,
+                scenarioErroredCount: detail.status === "error" ? 1 : 0,
+              },
+            }}
+          />
+        }
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.65fr)] gap-4">
+        <Card className="p-4">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-3">
+            Conversation
           </div>
-          <h1>{detail.scenario_name}</h1>
-        </div>
-        <StatusPill
-          run={{
-            ...data.run,
-            exitCode: null,
-            preset: null,
-            aggregateCounts: {
-              scenarioTotal: 1,
-              scenarioPassedCount: detail.passed ? 1 : 0,
-              scenarioFailedCount: detail.passed ? 0 : 1,
-              scenarioErroredCount: detail.status === "error" ? 1 : 0,
-            },
-          }}
-        />
-      </div>
-      <div className="server-detail-grid">
-        <section>
-          <div className="section-title">Conversation</div>
           <ConversationView detail={detail} />
-        </section>
-        <section>
-          <div className="section-title">Rubric</div>
+        </Card>
+        <Card className="p-4">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-3">
+            Rubric
+          </div>
           <RubricView detail={detail} />
-        </section>
+        </Card>
       </div>
     </>
   );
@@ -963,71 +794,100 @@ function SuitesView({ request }: { request: ServerRequest }) {
 
   return (
     <>
-      <div className="server-heading-row">
-        <div>
-          <div className="server-eyebrow">Data Root</div>
-          <h1>{suites.data_path}</h1>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Data root"
+        title={
+          <span className="font-mono text-base text-foreground break-all">
+            {suites.data_path}
+          </span>
+        }
+        meta={`${suites.suites.length} suite${suites.suites.length === 1 ? "" : "s"} · ${scenarios.scenarios.length} scenario${scenarios.scenarios.length === 1 ? "" : "s"}`}
+      />
       {suites.errors.length > 0 && (
         <ErrorBanner
           message={`${suites.errors.length} suite files had validation errors.`}
         />
       )}
-      <div className="section-title">Suites</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Suite</th>
-            <th>Schema</th>
-            <th>Path</th>
-            <th style={{ textAlign: "right" }}>Objects</th>
-          </tr>
-        </thead>
-        <tbody>
-          {suites.suites.map((suite) => (
-            <tr key={suite.id}>
-              <td className="id-cell">{suite.id}</td>
-              <td>{suite.schema}</td>
-              <td>{suite.relativePath}</td>
-              <td className="score-cell">{suite.objectCount}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="section-title">Scenarios</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Scenario</th>
-            <th>Name</th>
-            <th>Suite</th>
-            <th>Tags</th>
-            <th>Rubric</th>
-          </tr>
-        </thead>
-        <tbody>
-          {scenarios.scenarios.map((scenario) => (
-            <tr key={`${scenario.suiteId}:${scenario.id}`}>
-              <td className="id-cell">{scenario.id}</td>
-              <td>{scenario.name}</td>
-              <td>{scenario.suiteId}</td>
-              <td>{scenario.tags.join(", ") || "-"}</td>
-              <td>{scenario.rubric ?? "-"}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+        Suites
+      </div>
+      <Card className="overflow-hidden mb-6">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary">
+              <tr className="text-left text-muted-foreground text-xs uppercase tracking-wider">
+                <th className="px-3 py-2">Suite</th>
+                <th className="px-3 py-2">Schema</th>
+                <th className="px-3 py-2">Path</th>
+                <th className="px-3 py-2 text-right">Objects</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {suites.suites.map((suite) => (
+                <tr key={suite.id} className="hover:bg-secondary">
+                  <td className="px-3 py-2 font-mono text-xs">{suite.id}</td>
+                  <td className="px-3 py-2">
+                    <Tag tone="info">{suite.schema}</Tag>
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground break-all">
+                    {suite.relativePath}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono">
+                    {suite.objectCount}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+        Scenarios
+      </div>
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary">
+              <tr className="text-left text-muted-foreground text-xs uppercase tracking-wider">
+                <th className="px-3 py-2">Scenario</th>
+                <th className="px-3 py-2">Name</th>
+                <th className="px-3 py-2">Suite</th>
+                <th className="px-3 py-2">Tags</th>
+                <th className="px-3 py-2">Rubric</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {scenarios.scenarios.map((scenario) => (
+                <tr
+                  key={`${scenario.suiteId}:${scenario.id}`}
+                  className="hover:bg-secondary"
+                >
+                  <td className="px-3 py-2 font-mono text-xs">{scenario.id}</td>
+                  <td className="px-3 py-2">{scenario.name}</td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {scenario.suiteId}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      {scenario.tags.map((tag) => (
+                        <Tag key={tag}>{tag}</Tag>
+                      ))}
+                      {scenario.tags.length === 0 ? (
+                        <span className="text-muted-foreground/70">—</span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2 text-muted-foreground">
+                    {scenario.rubric ?? "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </>
   );
-}
-
-function jsonBody(method: string, body?: unknown): RequestInit {
-  return {
-    method,
-    headers: { "content-type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  };
 }
 
 function StartRunView({
@@ -1054,6 +914,8 @@ function StartRunView({
   const [presetName, setPresetName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [detailsTarget, setDetailsTarget] =
+    useState<ScenarioDetailsTarget | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1159,78 +1021,89 @@ function StartRunView({
 
   return (
     <>
-      <div className="server-heading-row">
-        <div>
-          <div className="server-eyebrow">Start</div>
-          <h1>Run Builder</h1>
-        </div>
-      </div>
-      <form className="server-form" onSubmit={submit}>
-        <label>
-          Preset
-          <select
-            value={presetId}
-            onChange={(e) => setPresetId(e.currentTarget.value)}
+      <PageHeader
+        eyebrow="Start"
+        title="Run builder"
+        meta={
+          presetId
+            ? "Launching from preset — overrides only"
+            : `${selected.size} scenario${selected.size === 1 ? "" : "s"} selected`
+        }
+        actions={
+          <Button
+            onClick={(e) => submit(e as unknown as FormEvent)}
+            disabled={submitting}
           >
-            <option value="">Ad-hoc</option>
-            {presets.presets.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="server-form-grid">
-          <label>
-            Endpoint
-            <select
-              value={endpoint}
-              onChange={(e) => setEndpoint(e.currentTarget.value)}
-              disabled={Boolean(presetId)}
-            >
-              {endpointSuites.map((suite) => (
-                <option key={suite.id} value={suite.relativePath}>
-                  {suite.relativePath}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Personas
-            <select
-              value={personas}
-              onChange={(e) => setPersonas(e.currentTarget.value)}
-              disabled={Boolean(presetId)}
-            >
-              {personaSuites.map((suite) => (
-                <option key={suite.id} value={suite.relativePath}>
-                  {suite.relativePath}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Rubric
-            <select
-              value={rubric}
-              onChange={(e) => setRubric(e.currentTarget.value)}
-              disabled={Boolean(presetId)}
-            >
-              {rubricSuites.map((suite) => (
-                <option key={suite.id} value={suite.relativePath}>
-                  {suite.relativePath}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+            {submitting ? "Starting…" : "Start run"}
+          </Button>
+        }
+      />
+      {error ? <ErrorBanner message={error} /> : null}
+      <form onSubmit={submit} className="flex flex-col gap-4">
+        <Card className="p-4 flex flex-col gap-3">
+          <Field label="Preset">
+            <SimpleSelect
+              value={presetId || "__adhoc__"}
+              onValueChange={(value) =>
+                setPresetId(value === "__adhoc__" ? "" : value)
+              }
+              options={[
+                { value: "__adhoc__", label: "Ad-hoc (build from scratch)" },
+                ...presets.presets.map((preset) => ({
+                  value: preset.id,
+                  label: preset.name,
+                })),
+              ]}
+            />
+          </Field>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Field label="Endpoint">
+              <SimpleSelect
+                value={endpoint}
+                onValueChange={setEndpoint}
+                disabled={Boolean(presetId)}
+                options={endpointSuites.map((suite) => ({
+                  value: suite.relativePath,
+                  label: suite.relativePath,
+                }))}
+                emptyLabel="No endpoint suites found"
+              />
+            </Field>
+            <Field label="Personas">
+              <SimpleSelect
+                value={personas}
+                onValueChange={setPersonas}
+                disabled={Boolean(presetId)}
+                options={personaSuites.map((suite) => ({
+                  value: suite.relativePath,
+                  label: suite.relativePath,
+                }))}
+                emptyLabel="No persona suites found"
+              />
+            </Field>
+            <Field label="Rubric">
+              <SimpleSelect
+                value={rubric}
+                onValueChange={setRubric}
+                disabled={Boolean(presetId)}
+                options={rubricSuites.map((suite) => ({
+                  value: suite.relativePath,
+                  label: suite.relativePath,
+                }))}
+                emptyLabel="No rubric suites found"
+              />
+            </Field>
+          </div>
+        </Card>
         {!presetId && (
-          <div className="scenario-picker">
-            <div className="server-form-actions">
-              <span className="section-label">Scenarios</span>
-              <button
-                type="button"
-                className="secondary"
+          <Card className="overflow-hidden">
+            <div className="p-3 border-b border-border flex items-center justify-between">
+              <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                Scenarios
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
                 onClick={() =>
                   setSelected(
                     new Set(
@@ -1242,105 +1115,175 @@ function StartRunView({
                 }
               >
                 Select all
-              </button>
+              </Button>
             </div>
-            {scenarios.scenarios.slice(0, 80).map((scenario) => {
-              const key = `${scenario.sourcePath}::${scenario.id}`;
-              return (
-                <label className="check-row" key={key}>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(key)}
-                    onChange={(event) => {
-                      const next = new Set(selected);
-                      if (event.currentTarget.checked) {
-                        next.add(key);
-                      } else {
-                        next.delete(key);
+            <div className="max-h-[420px] overflow-y-auto divide-y divide-border">
+              {scenarios.scenarios.slice(0, 200).map((scenario) => {
+                const key = `${scenario.sourcePath}::${scenario.id}`;
+                const checked = selected.has(key);
+                return (
+                  <div
+                    key={key}
+                    className={`flex items-start gap-3 px-3 py-2.5 hover:bg-secondary ${checked ? "bg-primary/5" : ""}`}
+                  >
+                    <label className="flex items-start gap-3 flex-1 min-w-0 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(event) => {
+                          const next = new Set(selected);
+                          if (event.currentTarget.checked) {
+                            next.add(key);
+                          } else {
+                            next.delete(key);
+                          }
+                          setSelected(next);
+                        }}
+                        className="size-4 mt-0.5 accent-primary shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-foreground">
+                            {scenario.name || scenario.id}
+                          </span>
+                          <span className="font-mono text-[11px] text-muted-foreground">
+                            {scenario.id}
+                          </span>
+                          {scenario.priority ? (
+                            <Tag tone="info">{scenario.priority}</Tag>
+                          ) : null}
+                        </div>
+                        {scenario.description ? (
+                          <div className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                            {scenario.description}
+                          </div>
+                        ) : null}
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {scenario.tags.slice(0, 5).map((tag) => (
+                            <Tag key={tag}>{tag}</Tag>
+                          ))}
+                          <span className="font-mono text-[10px] text-muted-foreground/70">
+                            {scenario.sourcePath}
+                          </span>
+                        </div>
+                      </div>
+                    </label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 self-start"
+                      onClick={() =>
+                        setDetailsTarget({
+                          file: scenario.sourcePath,
+                          id: scenario.id,
+                          name: scenario.name,
+                          description: scenario.description,
+                          tags: scenario.tags,
+                          priority: scenario.priority,
+                        })
                       }
-                      setSelected(next);
-                    }}
-                  />
-                  <span>{scenario.id}</span>
-                  <span>{scenario.sourcePath}</span>
-                </label>
-              );
-            })}
-          </div>
+                    >
+                      Details
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
         )}
-        <div className="server-form-grid">
-          <label>
-            Label
-            <input
-              value={label}
-              onChange={(e) => setLabel(e.currentTarget.value)}
-            />
-          </label>
-          <label>
-            Repeat
-            <input
-              type="number"
-              min={1}
-              value={repeat}
-              onChange={(e) => setRepeat(Number(e.currentTarget.value))}
-            />
-          </label>
-          <label>
-            Parallel limit
-            <input
-              type="number"
-              min={1}
-              value={parallelLimit}
-              onChange={(e) => setParallelLimit(Number(e.currentTarget.value))}
-              disabled={!parallelEnabled}
-            />
-          </label>
-        </div>
-        <div className="server-toggle-row">
-          <label>
-            <input
-              type="checkbox"
-              checked={dryRun}
-              onChange={(e) => setDryRun(e.currentTarget.checked)}
-            />
-            Dry run
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={parallelEnabled}
-              onChange={(e) => setParallelEnabled(e.currentTarget.checked)}
-            />
-            Parallel
-          </label>
-          {!presetId && (
-            <label>
-              <input
-                type="checkbox"
-                checked={saveAsPreset}
-                onChange={(e) => setSaveAsPreset(e.currentTarget.checked)}
+        <Card className="p-4 flex flex-col gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Field label="Label" hint="Shown in the run list.">
+              <TextInput
+                value={label}
+                onChange={(e) => setLabel(e.currentTarget.value)}
+                maxLength={200}
               />
-              Save preset
-            </label>
-          )}
-        </div>
-        {saveAsPreset && !presetId && (
-          <label>
-            Preset name
-            <input
-              value={presetName}
-              onChange={(e) => setPresetName(e.currentTarget.value)}
+            </Field>
+            <Field label="Repeat">
+              <TextInput
+                type="number"
+                min={1}
+                value={repeat}
+                onChange={(e) => setRepeat(Number(e.currentTarget.value))}
+              />
+            </Field>
+            <Field label="Parallel limit">
+              <TextInput
+                type="number"
+                min={1}
+                value={parallelLimit}
+                onChange={(e) =>
+                  setParallelLimit(Number(e.currentTarget.value))
+                }
+                disabled={!parallelEnabled}
+              />
+            </Field>
+          </div>
+          <div className="flex flex-wrap gap-4 items-center">
+            <Checkbox checked={dryRun} onChange={setDryRun} label="Dry run" />
+            <Checkbox
+              checked={parallelEnabled}
+              onChange={setParallelEnabled}
+              label="Parallel"
             />
-          </label>
-        )}
-        <div className="server-form-actions">
-          <button type="submit" disabled={submitting}>
-            {submitting ? "Starting..." : "Start run"}
-          </button>
+            {!presetId ? (
+              <Checkbox
+                checked={saveAsPreset}
+                onChange={setSaveAsPreset}
+                label="Save as preset"
+              />
+            ) : null}
+          </div>
+          {saveAsPreset && !presetId ? (
+            <Field label="Preset name">
+              <TextInput
+                value={presetName}
+                onChange={(e) => setPresetName(e.currentTarget.value)}
+                placeholder="e.g. Smoke suite"
+              />
+            </Field>
+          ) : null}
+        </Card>
+        <div className="flex justify-end">
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Starting…" : "Start run"}
+          </Button>
         </div>
       </form>
+      <ScenarioDetailsModal
+        open={detailsTarget != null}
+        target={detailsTarget}
+        request={request}
+        onClose={() => setDetailsTarget(null)}
+      />
     </>
   );
+}
+
+function buildLaunchOptions(preset: Preset): RunLaunchOptions {
+  return {
+    presetId: preset.id,
+    presetName: preset.name,
+    defaults: {
+      endpoint: preset.endpoint,
+      personas: preset.personas,
+      rubric: preset.rubric,
+      parallelEnabled: preset.parallel.enabled,
+      parallelLimit: preset.parallel.limit,
+      repeat: preset.repeat,
+      dryRun: preset.dry_run,
+    },
+  };
+}
+
+function detectTransport(endpoint: string): string {
+  const path = endpoint.toLowerCase();
+  if (path.includes("autogpt")) return "autogpt";
+  if (path.includes("openclaw")) return "openclaw";
+  if (path.includes("opencode")) return "opencode";
+  return "custom";
 }
 
 function PresetsView({
@@ -1351,14 +1294,20 @@ function PresetsView({
   navigate: (href: string) => void;
 }) {
   const [data, setData] = useState<PresetsResponse | null>(null);
+  const [suites, setSuites] = useState<SuitesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [launching, setLaunching] = useState<RunLaunchOptions | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    request<PresetsResponse>("/api/presets")
-      .then((next) => {
+    Promise.all([
+      request<PresetsResponse>("/api/presets"),
+      request<SuitesResponse>("/api/suites"),
+    ])
+      .then(([next, nextSuites]) => {
         if (cancelled) return;
         setData(next);
+        setSuites(nextSuites);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -1369,64 +1318,139 @@ function PresetsView({
     };
   }, [request]);
 
-  const runPreset = async (preset: Preset) => {
-    try {
-      const response = await request<{ run_id: string }>(
-        `/api/presets/${encodeURIComponent(preset.id)}/runs`,
-        jsonBody("POST"),
-      );
-      navigate(`/runs/${encodeURIComponent(response.run_id)}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
   if (error) return <ErrorBanner message={error} />;
   if (!data) return <Loading />;
 
   return (
     <>
-      <div className="server-heading-row">
-        <div>
-          <div className="server-eyebrow">Presets</div>
-          <h1>Saved Runs</h1>
-        </div>
-        <a href="/start">New run</a>
-      </div>
+      <PageHeader
+        eyebrow="Presets"
+        title="Saved Configurations"
+        meta={`${data.presets.length} preset${data.presets.length === 1 ? "" : "s"}`}
+        actions={
+          <a
+            href="/start"
+            className="inline-flex items-center justify-center gap-1.5 rounded-md font-medium border transition-colors px-3 py-1.5 text-sm bg-primary text-background border-primary hover:bg-primary/90 hover:border-primary no-underline"
+          >
+            New preset
+          </a>
+        }
+      />
       {data.presets.length === 0 ? (
-        <div className="server-empty">No presets saved.</div>
+        <EmptyState
+          title="No presets yet"
+          description="Build a run on the Start tab and save it as a preset to make it repeatable."
+          action={
+            <a
+              href="/start"
+              className="inline-flex items-center justify-center gap-1.5 rounded-md font-medium border transition-colors px-3 py-1.5 text-sm bg-primary text-background border-primary hover:bg-primary/90 hover:border-primary no-underline"
+            >
+              Build your first preset
+            </a>
+          }
+        />
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Scenarios</th>
-              <th>Repeat</th>
-              <th>Last run</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.presets.map((preset) => (
-              <tr key={preset.id}>
-                <td className="id-cell">
-                  <a href={`/presets/${encodeURIComponent(preset.id)}`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {data.presets.map((preset) => {
+            const transport = detectTransport(preset.endpoint);
+            return (
+              <Card
+                key={preset.id}
+                className="p-4 hover:border-border transition-colors flex flex-col"
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <a
+                    href={`/presets/${encodeURIComponent(preset.id)}`}
+                    className="text-base font-semibold text-foreground hover:text-primary no-underline truncate"
+                    title={preset.name}
+                  >
                     {preset.name}
                   </a>
-                </td>
-                <td>{preset.selection.length}</td>
-                <td>{preset.repeat}</td>
-                <td>{preset.last_run?.status ?? "-"}</td>
-                <td className="score-cell">
-                  <button type="button" onClick={() => void runPreset(preset)}>
-                    Run
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <Tag tone={transport === "custom" ? "default" : "info"}>
+                    {transport}
+                  </Tag>
+                </div>
+                {preset.description ? (
+                  <div className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                    {preset.description}
+                  </div>
+                ) : null}
+                <div className="grid grid-cols-3 gap-2 mb-3 text-xs">
+                  <div>
+                    <div className="text-muted-foreground/70 uppercase tracking-wider text-[10px]">
+                      Scenarios
+                    </div>
+                    <div className="font-mono text-foreground">
+                      {preset.selection.length}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground/70 uppercase tracking-wider text-[10px]">
+                      Repeat
+                    </div>
+                    <div className="font-mono text-foreground">
+                      {preset.repeat}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground/70 uppercase tracking-wider text-[10px]">
+                      Parallel
+                    </div>
+                    <div className="font-mono text-foreground">
+                      {preset.parallel.enabled
+                        ? `×${preset.parallel.limit ?? "?"}`
+                        : "off"}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground mb-3 flex items-center gap-2 min-h-[1.25rem]">
+                  {preset.last_run ? (
+                    <>
+                      <StatusPill run={preset.last_run} />
+                      <span>{fmtDate(preset.last_run.startedAt)}</span>
+                    </>
+                  ) : (
+                    <span className="italic text-muted-foreground/70">
+                      Never run
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 mt-auto pt-3 border-t border-border">
+                  <Button
+                    size="sm"
+                    onClick={() => setLaunching(buildLaunchOptions(preset))}
+                  >
+                    Launch run
+                  </Button>
+                  <a
+                    href={`/presets/${encodeURIComponent(preset.id)}/edit`}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md font-medium border transition-colors px-2.5 py-1 text-xs bg-secondary text-foreground border-border hover:bg-primary hover:border-border no-underline"
+                  >
+                    Edit
+                  </a>
+                  <a
+                    href={`/presets/${encodeURIComponent(preset.id)}`}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-md font-medium border transition-colors px-2.5 py-1 text-xs bg-transparent text-muted-foreground border-transparent hover:bg-secondary hover:text-foreground no-underline"
+                  >
+                    History
+                  </a>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
       )}
+      <RunLaunchModal
+        open={launching != null}
+        options={launching}
+        request={request}
+        suites={suites}
+        onClose={() => setLaunching(null)}
+        onLaunched={(runId) => {
+          setLaunching(null);
+          navigate(`/runs/${encodeURIComponent(runId)}`);
+        }}
+      />
     </>
   );
 }
@@ -1442,7 +1466,9 @@ function PresetDetailView({
 }) {
   const [preset, setPreset] = useState<PresetResponse | null>(null);
   const [runs, setRuns] = useState<PresetRunsResponse | null>(null);
+  const [suites, setSuites] = useState<SuitesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [launching, setLaunching] = useState<RunLaunchOptions | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1451,11 +1477,13 @@ function PresetDetailView({
       request<PresetRunsResponse>(
         `/api/presets/${encodeURIComponent(presetId)}/runs`,
       ),
+      request<SuitesResponse>("/api/suites"),
     ])
-      .then(([nextPreset, nextRuns]) => {
+      .then(([nextPreset, nextRuns, nextSuites]) => {
         if (cancelled) return;
         setPreset(nextPreset);
         setRuns(nextRuns);
+        setSuites(nextSuites);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -1466,19 +1494,10 @@ function PresetDetailView({
     };
   }, [request, presetId]);
 
-  const runAgain = async () => {
-    try {
-      const response = await request<{ run_id: string }>(
-        `/api/presets/${encodeURIComponent(presetId)}/runs`,
-        jsonBody("POST"),
-      );
-      navigate(`/runs/${encodeURIComponent(response.run_id)}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
   const deletePreset = async () => {
+    if (!confirm("Delete this preset? Past runs will remain in history.")) {
+      return;
+    }
     try {
       await request(`/api/presets/${encodeURIComponent(presetId)}`, {
         method: "DELETE",
@@ -1492,86 +1511,238 @@ function PresetDetailView({
   if (error) return <ErrorBanner message={error} />;
   if (!preset || !runs) return <Loading />;
 
+  const transport = detectTransport(preset.preset.endpoint);
+
   return (
     <>
-      <div className="server-heading-row">
-        <div>
-          <div className="server-eyebrow">Preset</div>
-          <h1>{preset.preset.name}</h1>
-        </div>
-        <div className="server-form-actions">
-          <button type="button" onClick={() => void runAgain()}>
-            Run
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => void deletePreset()}
-          >
-            Delete
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Preset"
+        title={preset.preset.name}
+        meta={preset.preset.description ?? undefined}
+        actions={
+          <>
+            <Button
+              onClick={() => setLaunching(buildLaunchOptions(preset.preset))}
+            >
+              Launch run
+            </Button>
+            <a
+              href={`/presets/${encodeURIComponent(presetId)}/edit`}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md font-medium border transition-colors px-3 py-1.5 text-sm bg-secondary text-foreground border-border hover:bg-primary hover:border-border no-underline"
+            >
+              Edit
+            </a>
+            <Button variant="danger" onClick={() => void deletePreset()}>
+              Delete
+            </Button>
+          </>
+        }
+      />
       {preset.warnings.map((warning) => (
         <ErrorBanner
           key={`${warning.file}:${warning.id}`}
           message={warning.message}
         />
       ))}
-      <div className="server-settings">
-        <div className="stat">
-          <div className="stat-value">{preset.preset.selection.length}</div>
-          <div className="stat-label">Scenarios</div>
-        </div>
-        <div className="stat">
-          <div className="stat-value">{preset.preset.repeat}</div>
-          <div className="stat-label">Repeat</div>
-        </div>
-        <div className="stat">
-          <div className="stat-value">
-            {preset.preset.dry_run ? "on" : "off"}
-          </div>
-          <div className="stat-label">Dry Run</div>
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <StatTile label="Scenarios" value={preset.preset.selection.length} />
+        <StatTile label="Repeat" value={preset.preset.repeat} />
+        <StatTile
+          label="Parallel"
+          value={
+            preset.preset.parallel.enabled
+              ? `×${preset.preset.parallel.limit ?? "?"}`
+              : "off"
+          }
+        />
+        <StatTile
+          label="Endpoint"
+          tone={transport === "custom" ? "default" : "accent"}
+          value={<span className="text-base font-mono">{transport}</span>}
+        />
       </div>
-      <div className="section-title">Selection</div>
-      <table>
-        <thead>
-          <tr>
-            <th>Scenario</th>
-            <th>File</th>
-          </tr>
-        </thead>
-        <tbody>
-          {preset.preset.selection.map((item) => (
-            <tr key={`${item.file}:${item.id}`}>
-              <td className="id-cell">{item.id}</td>
-              <td>{item.file}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="section-title">Runs</div>
-      {runs.runs.length >= 2 && (
-        <p className="compare-cta">
-          <a
-            href={`/compare?run_ids=${encodeURIComponent(runs.runs[0]?.runId ?? "")},${encodeURIComponent(runs.runs[1]?.runId ?? "")}`}
-          >
-            Compare last two runs →
-          </a>
-        </p>
-      )}
-      <RunsTable runs={runs.runs} />
+      <Card className="p-4 mb-6">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+          Configuration
+        </div>
+        <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+          <div>
+            <dt className="text-muted-foreground/70 text-xs">Endpoint</dt>
+            <dd className="font-mono text-foreground break-all">
+              {preset.preset.endpoint}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground/70 text-xs">Personas</dt>
+            <dd className="font-mono text-foreground break-all">
+              {preset.preset.personas}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground/70 text-xs">Rubric</dt>
+            <dd className="font-mono text-foreground break-all">
+              {preset.preset.rubric}
+            </dd>
+          </div>
+        </dl>
+      </Card>
+      <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+        Run history
+      </div>
+      <PresetRunHistory
+        runs={runs.runs}
+        navigate={navigate}
+        presetName={preset.preset.name}
+      />
+      <RunLaunchModal
+        open={launching != null}
+        options={launching}
+        request={request}
+        suites={suites}
+        onClose={() => setLaunching(null)}
+        onLaunched={(runId) => {
+          setLaunching(null);
+          navigate(`/runs/${encodeURIComponent(runId)}`);
+        }}
+      />
     </>
+  );
+}
+
+function describeSecretSource(status: SecretStatus | null): string {
+  if (!status) return "loading…";
+  if (!status.configured) return "not set";
+  if (status.source === "db") return "stored on server";
+  if (status.source === "env") return "from environment variable";
+  return "configured";
+}
+
+function OpenRouterApiKeyForm({ request }: { request: ServerRequest }) {
+  const [status, setStatus] = useState<SecretStatus | null>(null);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const next = await request<OpenRouterStatusResponse>(
+        "/api/settings/secrets/open_router_api_key",
+      );
+      setStatus(next.open_router_api_key);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [request]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      if (!cancelled) {
+        await refresh();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refresh]);
+
+  const onSave = async (event: FormEvent) => {
+    event.preventDefault();
+    const trimmed = draft.trim();
+    if (!trimmed) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const next = await request<OpenRouterStatusResponse>(
+        "/api/settings/secrets/open_router_api_key",
+        jsonBody("PUT", { value: trimmed }),
+      );
+      setStatus(next.open_router_api_key);
+      setDraft("");
+      setError(null);
+      setMessage("Saved.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onClear = async () => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const next = await request<OpenRouterStatusResponse>(
+        "/api/settings/secrets/open_router_api_key",
+        jsonBody("DELETE"),
+      );
+      setStatus(next.open_router_api_key);
+      setDraft("");
+      setError(null);
+      setMessage("Cleared.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const canClear = status?.source === "db";
+
+  return (
+    <Card className="p-4 mb-4">
+      <form className="flex flex-col gap-2" onSubmit={onSave}>
+        <label
+          htmlFor="open-router-api-key"
+          className="text-xs uppercase tracking-wider text-muted-foreground font-semibold"
+        >
+          OpenRouter API key
+        </label>
+        <div className="flex items-center gap-2">
+          <TextInput
+            id="open-router-api-key"
+            type="password"
+            value={draft}
+            onChange={(event) => setDraft(event.currentTarget.value)}
+            placeholder="sk-or-..."
+            autoComplete="off"
+          />
+          <Button type="submit" disabled={busy || !draft.trim()}>
+            Save
+          </Button>
+          {canClear ? (
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                void onClear();
+              }}
+            >
+              Clear
+            </Button>
+          ) : null}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          Status: {describeSecretSource(status)}
+        </div>
+        {message ? <div className="text-xs text-success">{message}</div> : null}
+        {error ? <div className="text-xs text-destructive">{error}</div> : null}
+      </form>
+    </Card>
   );
 }
 
 function SettingsView({
   token,
   onTokenChange,
+  request,
 }: {
   token: string;
   onTokenChange: (token: string) => void;
+  request: ServerRequest;
 }) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [ready, setReady] = useState<ReadyResponse | null>(null);
@@ -1604,26 +1775,42 @@ function SettingsView({
 
   return (
     <>
-      {error && <ErrorBanner message={error} />}
-      <div className="server-settings">
-        <div className="stat">
-          <div className="stat-value">{health?.status ?? "-"}</div>
-          <div className="stat-label">Health</div>
-        </div>
-        <div className="stat">
-          <div className="stat-value">{ready?.status ?? "-"}</div>
-          <div className="stat-label">Readiness</div>
-        </div>
-        <div className="stat">
-          <div className="stat-value">{health?.version ?? "-"}</div>
-          <div className="stat-label">Version</div>
-        </div>
-        <div className="stat">
-          <div className="stat-value">{ready?.db_url ? "sqlite" : "-"}</div>
-          <div className="stat-label">Database</div>
-        </div>
+      <PageHeader eyebrow="Settings" title="Server" />
+      {error ? <ErrorBanner message={error} /> : null}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <StatTile
+          label="Health"
+          tone={health?.status === "ok" ? "success" : "default"}
+          value={
+            <span className="text-base font-mono">{health?.status ?? "—"}</span>
+          }
+        />
+        <StatTile
+          label="Readiness"
+          tone={ready?.status === "ready" ? "success" : "default"}
+          value={
+            <span className="text-base font-mono">{ready?.status ?? "—"}</span>
+          }
+        />
+        <StatTile
+          label="Version"
+          value={
+            <span className="text-base font-mono">
+              {health?.version ?? "—"}
+            </span>
+          }
+        />
+        <StatTile
+          label="Database"
+          value={
+            <span className="text-base font-mono">
+              {ready?.db_url ? "sqlite" : "—"}
+            </span>
+          }
+        />
       </div>
       <TokenForm token={token} onTokenChange={onTokenChange} />
+      <OpenRouterApiKeyForm request={request} />
     </>
   );
 }
@@ -1661,8 +1848,20 @@ function ServerDashboard() {
     if (pathname === "/suites") {
       return <SuitesView request={request} />;
     }
+    if (pathname === "/endpoints") {
+      return <EndpointsView request={request} />;
+    }
     if (pathname === "/settings") {
-      return <SettingsView token={token} onTokenChange={onTokenChange} />;
+      return (
+        <SettingsView
+          token={token}
+          onTokenChange={onTokenChange}
+          request={request}
+        />
+      );
+    }
+    if (pathname === "/compare") {
+      return <CompareView token={token || null} />;
     }
     const scenarioMatch = pathname.match(
       /^\/runs\/([^/]+)\/scenarios\/([0-9]+)$/,
@@ -1686,6 +1885,16 @@ function ServerDashboard() {
         />
       );
     }
+    const presetEditMatch = pathname.match(/^\/presets\/([^/]+)\/edit$/);
+    if (presetEditMatch) {
+      return (
+        <PresetEditorView
+          presetId={decodeURIComponent(presetEditMatch[1] ?? "")}
+          request={request}
+          navigate={navigate}
+        />
+      );
+    }
     const presetMatch = pathname.match(/^\/presets\/([^/]+)$/);
     if (presetMatch) {
       return (
@@ -1699,55 +1908,115 @@ function ServerDashboard() {
     return <ErrorBanner message="Page not found." />;
   })();
 
+  type NavItem = {
+    href: string;
+    label: string;
+    isActive: (p: string) => boolean;
+  };
+  const navItems: NavItem[] = [
+    {
+      href: "/",
+      label: "Overview",
+      isActive: (p) => p === "/" || p === "/index.html",
+    },
+    { href: "/start", label: "Start", isActive: (p) => p === "/start" },
+    {
+      href: "/runs",
+      label: "Runs",
+      isActive: (p) => p === "/runs" || p.startsWith("/runs/"),
+    },
+    {
+      href: "/presets",
+      label: "Presets",
+      isActive: (p) => p === "/presets" || p.startsWith("/presets/"),
+    },
+    {
+      href: "/suites",
+      label: "Suites",
+      isActive: (p) => p.startsWith("/suites"),
+    },
+    {
+      href: "/endpoints",
+      label: "Endpoints",
+      isActive: (p) => p.startsWith("/endpoints"),
+    },
+    {
+      href: "/settings",
+      label: "Settings",
+      isActive: (p) => p === "/settings",
+    },
+  ];
+
   return (
-    <>
-      <div className="header server-header">
-        <div>
-          <h1>AgentProbe</h1>
-          <div className="server-subtitle">Server</div>
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/65">
+        <div className="mx-auto max-w-[1280px] px-6 h-14 flex items-center justify-between gap-6">
+          <a
+            href="/"
+            className="flex items-center gap-2.5 no-underline text-foreground"
+          >
+            <span className="inline-block size-2 rounded-full bg-primary shadow-[0_0_0_4px_hsl(var(--primary)/0.12)]" />
+            <span className="text-sm font-semibold tracking-tight">
+              AgentProbe
+            </span>
+          </a>
+          <div className="flex items-center gap-1">
+            <nav className="hidden md:flex items-center gap-0.5">
+              {navItems.map((item) => {
+                const active = item.isActive(pathname);
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    className={`relative px-3 h-14 inline-flex items-center text-sm transition-colors no-underline ${
+                      active
+                        ? "text-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {item.label}
+                    {active ? (
+                      <span className="absolute bottom-[-1px] left-3 right-3 h-px bg-primary" />
+                    ) : null}
+                  </a>
+                );
+              })}
+            </nav>
+            <nav className="md:hidden flex items-center gap-1 overflow-x-auto">
+              {navItems.map((item) => {
+                const active = item.isActive(pathname);
+                return (
+                  <a
+                    key={item.href}
+                    href={item.href}
+                    className={`px-2.5 h-8 inline-flex items-center rounded-md text-xs transition-colors no-underline ${
+                      active
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {item.label}
+                  </a>
+                );
+              })}
+            </nav>
+            <div className="ml-2 pl-2 border-l border-border">
+              <ThemeToggle />
+            </div>
+          </div>
         </div>
-        <nav className="server-nav">
-          <a className={pathname === "/" ? "active" : ""} href="/">
-            Overview
-          </a>
-          <a className={pathname === "/start" ? "active" : ""} href="/start">
-            Start
-          </a>
-          <a
-            className={pathname.startsWith("/runs") ? "active" : ""}
-            href="/runs"
-          >
-            Runs
-          </a>
-          <a
-            className={pathname.startsWith("/presets") ? "active" : ""}
-            href="/presets"
-          >
-            Presets
-          </a>
-          <a
-            className={pathname.startsWith("/suites") ? "active" : ""}
-            href="/suites"
-          >
-            Suites
-          </a>
-          <a
-            className={pathname === "/settings" ? "active" : ""}
-            href="/settings"
-          >
-            Settings
-          </a>
-        </nav>
-      </div>
-      {authRequired && (
-        <TokenForm
-          token={token}
-          onTokenChange={onTokenChange}
-          authRequired={true}
-        />
-      )}
-      {content}
-    </>
+      </header>
+      <main className="mx-auto max-w-[1280px] px-6 py-8">
+        {authRequired && (
+          <TokenForm
+            token={token}
+            onTokenChange={onTokenChange}
+            authRequired={true}
+          />
+        )}
+        {content}
+      </main>
+    </div>
   );
 }
 
@@ -1811,7 +2080,7 @@ function LiveDashboard() {
 
 export function App() {
   const [mode, setMode] = useState<AppMode>("detecting");
-  const [pathname, setPathname] = useState<string>(
+  const [_pathname, setPathname] = useState<string>(
     typeof window !== "undefined" ? window.location.pathname : "/",
   );
 
@@ -1823,26 +2092,31 @@ export function App() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/state", { headers: { accept: "application/json" } })
-      .then((response) => {
-        if (cancelled) return;
-        setMode(response.ok ? "live" : "server");
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setMode("server");
-      });
+    // Live mode is opt-in via a window flag the CLI live-dashboard server
+    // injects; otherwise default to the agentprobe-server UX. Probing for
+    // /api/state was noisy in DevTools and (worse) caused 502s from a missing
+    // dev-mode proxy backend to flip us into live mode, which then polled
+    // /api/state on a 2s loop.
+    const live = (window as { __AGENTPROBE_LIVE__?: boolean })
+      .__AGENTPROBE_LIVE__;
+    if (live) {
+      setMode("live");
+      return undefined;
+    }
+    // Confirm server-mode HTTP reachability so the auth banner and other
+    // server views don't blank out silently if the API is unreachable.
+    fetch("/api/session", { headers: { accept: "application/json" } }).finally(
+      () => {
+        if (!cancelled) setMode("server");
+      },
+    );
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (pathname === "/compare") {
-    return <CompareView token={readStoredToken() || null} />;
-  }
-
   if (mode === "detecting") {
-    return <Loading label="Starting dashboard..." />;
+    return <Loading label="Starting dashboard…" />;
   }
   return mode === "live" ? <LiveDashboard /> : <ServerDashboard />;
 }

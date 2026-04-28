@@ -5,6 +5,7 @@ name: "Multi-Session Memory Evaluation"
 defaults:
   max_turns: 10
   timeout_seconds: 30
+  category: "Memory"
   persona: smb-founder
   rubric: multi-session-memory
   user_name: "Jordan Rivera"

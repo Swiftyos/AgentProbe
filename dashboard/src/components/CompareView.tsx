@@ -6,6 +6,24 @@ import {
   useMemo,
   useState,
 } from "react";
+import { Badge } from "../components/ui/badge.tsx";
+import {
+  Button,
+  Card,
+  Checkbox,
+  EmptyState,
+  ErrorBanner,
+  Loading,
+  PageHeader,
+  StatTile,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/index.tsx";
+import { CategoryRadar } from "./CategoryRadar.tsx";
 
 type ComparisonScenarioStatus =
   | "pass"
@@ -43,6 +61,7 @@ type ComparisonScenarioRow = {
   file: string | null;
   scenario_id: string;
   scenario_name: string | null;
+  category?: string | null;
   present_in: string[];
   entries: Record<string, ComparisonScenarioEntry>;
   delta_score: number | null;
@@ -101,14 +120,37 @@ function formatDelta(value: number | null): string {
   return value > 0 ? `+${formatted}` : formatted;
 }
 
-function formatStatusLabel(status: ComparisonScenarioStatus): string {
-  if (status === "pass") return "PASS";
-  if (status === "fail") return "FAIL";
-  if (status === "harness_fail") return "HARNESS";
-  if (status === "error") return "ERROR";
-  if (status === "missing") return "—";
-  if (status === "running") return "RUN";
-  return status;
+function statusVariantFor(status: ComparisonScenarioStatus): {
+  variant: "success" | "destructive" | "info" | "warning" | "secondary";
+  label: string;
+} {
+  switch (status) {
+    case "pass":
+      return { variant: "success", label: "Pass" };
+    case "fail":
+      return { variant: "destructive", label: "Fail" };
+    case "harness_fail":
+      return { variant: "warning", label: "Harness" };
+    case "error":
+      return { variant: "destructive", label: "Error" };
+    case "running":
+      return { variant: "info", label: "Running" };
+    default:
+      return { variant: "secondary", label: "—" };
+  }
+}
+
+function changeBadge(change: ComparisonScenarioRow["status_change"]) {
+  if (change === "regressed") {
+    return <Badge variant="destructive">Regressed</Badge>;
+  }
+  if (change === "improved") {
+    return <Badge variant="success">Improved</Badge>;
+  }
+  if (change === "mixed") {
+    return <Badge variant="warning">Mixed</Badge>;
+  }
+  return <Badge variant="secondary">Unchanged</Badge>;
 }
 
 function parseRunIds(search: string): string[] {
@@ -139,6 +181,15 @@ function updateLocation(runIds: string[], onlyChanges: boolean): void {
   const next = `/compare${query}`;
   if (window.location.pathname + window.location.search !== next) {
     window.history.replaceState(null, "", next);
+  }
+}
+
+function fmtDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString();
+  } catch {
+    return iso;
   }
 }
 
@@ -186,7 +237,7 @@ export function CompareView({ token, apiBase = "" }: CompareViewProps) {
   useEffect(() => {
     if (runIds.length < 2) {
       setPayload(null);
-      return;
+      return undefined;
     }
     let cancelled = false;
     setLoading(true);
@@ -265,158 +316,232 @@ export function CompareView({ token, apiBase = "" }: CompareViewProps) {
   }, [payload, onlyChanges]);
 
   return (
-    <div className="compare-view">
-      <header className="compare-header">
-        <h1>Compare Runs</h1>
-        <div className="compare-actions">
-          <button
-            type="button"
-            onClick={() => {
-              setPicker(new Set(runIds));
-              setPickerOpen((previous) => !previous);
-            }}
-          >
-            {pickerOpen ? "Hide picker" : "Choose runs"}
-          </button>
-          <label>
-            <input
-              type="checkbox"
+    <>
+      <PageHeader
+        eyebrow="Comparison"
+        title="Compare runs"
+        meta={
+          payload
+            ? `Aligned by ${payload.alignment.replace("_", " ")} · ${payload.summary.total_scenarios} scenarios`
+            : "Pick 2–10 runs to align scenarios side by side"
+        }
+        actions={
+          <>
+            <Checkbox
               checked={onlyChanges}
-              onChange={(event) => setOnlyChanges(event.target.checked)}
+              onChange={setOnlyChanges}
+              label="Only changes"
             />
-            Only changes
-          </label>
-        </div>
-      </header>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setPicker(new Set(runIds));
+                setPickerOpen((previous) => !previous);
+              }}
+            >
+              {pickerOpen ? "Hide picker" : "Choose runs"}
+            </Button>
+          </>
+        }
+      />
 
-      {error && <div className="compare-error">{error}</div>}
-      {loading && <div className="compare-loading">Loading comparison…</div>}
+      {error ? <ErrorBanner message={error} /> : null}
 
-      {pickerOpen && (
-        <form className="compare-picker" onSubmit={onApplyPicker}>
-          <p>
-            Select 2–10 runs to compare. Currently selected:{" "}
-            <strong>{picker.size}</strong>
-          </p>
-          <ul>
-            {availableRuns.map((run) => (
-              <li key={run.runId}>
-                <label>
-                  <input
-                    type="checkbox"
-                    value={run.runId}
-                    checked={picker.has(run.runId)}
-                    onChange={onTogglePicker}
-                  />
-                  <code>{run.runId}</code>
-                  <span className="compare-run-label">
-                    {run.label ? ` · ${run.label}` : ""} · {run.status} ·{" "}
-                    {new Date(run.startedAt).toLocaleString()}
-                  </span>
-                </label>
-              </li>
-            ))}
-          </ul>
-          <button type="submit" disabled={!pickerCanApply}>
-            Apply
-          </button>
-        </form>
-      )}
+      {pickerOpen ? (
+        <Card className="p-4 mb-6">
+          <form onSubmit={onApplyPicker} className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <span className="text-muted-foreground">
+                  Select 2–10 runs to compare ·
+                </span>{" "}
+                <span className="font-medium">{picker.size} selected</span>
+              </div>
+              <Button type="submit" disabled={!pickerCanApply}>
+                Apply selection
+              </Button>
+            </div>
+            <div className="max-h-[320px] overflow-y-auto rounded-md border border-border divide-y divide-border bg-card">
+              {availableRuns.length === 0 ? (
+                <div className="p-6 text-center text-sm text-muted-foreground">
+                  No runs available.
+                </div>
+              ) : (
+                availableRuns.map((run) => {
+                  const checked = picker.has(run.runId);
+                  return (
+                    <label
+                      key={run.runId}
+                      className={`flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-secondary/50 ${
+                        checked ? "bg-primary/5" : ""
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        value={run.runId}
+                        checked={checked}
+                        onChange={onTogglePicker}
+                        className="size-4 accent-primary"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline gap-2">
+                          {run.label ? (
+                            <span className="font-medium text-foreground truncate">
+                              {run.label}
+                            </span>
+                          ) : (
+                            <span className="font-mono text-xs text-muted-foreground truncate">
+                              {run.runId.slice(0, 12)}…
+                            </span>
+                          )}
+                          <span className="text-xs text-muted-foreground/70">
+                            · {run.status}
+                          </span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {fmtDate(run.startedAt)}
+                        </div>
+                      </div>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </form>
+        </Card>
+      ) : null}
 
-      {payload && (
+      {loading ? <Loading label="Loading comparison…" /> : null}
+
+      {payload ? (
         <>
-          <section className="compare-summary" data-sticky="true">
-            <div>
-              <strong>Alignment:</strong> <code>{payload.alignment}</code>
-            </div>
-            <div>
-              <strong>Total:</strong> {payload.summary.total_scenarios}
-            </div>
-            <div>
-              <strong>Regressed:</strong> {payload.summary.scenarios_regressed}
-            </div>
-            <div>
-              <strong>Improved:</strong> {payload.summary.scenarios_improved}
-            </div>
-            <div>
-              <strong>Mixed/missing:</strong>{" "}
-              {payload.summary.scenarios_missing_in_some}
-            </div>
-            <div>
-              <strong>Δ avg score:</strong>{" "}
-              {formatDelta(payload.summary.average_score_delta)}
-            </div>
-          </section>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+            <StatTile label="Total" value={payload.summary.total_scenarios} />
+            <StatTile
+              label="Regressed"
+              tone="danger"
+              value={payload.summary.scenarios_regressed}
+            />
+            <StatTile
+              label="Improved"
+              tone="success"
+              value={payload.summary.scenarios_improved}
+            />
+            <StatTile
+              label="Mixed / missing"
+              value={payload.summary.scenarios_missing_in_some}
+            />
+            <StatTile
+              label="Δ avg score"
+              tone={
+                payload.summary.average_score_delta != null &&
+                payload.summary.average_score_delta < 0
+                  ? "danger"
+                  : payload.summary.average_score_delta != null &&
+                      payload.summary.average_score_delta > 0
+                    ? "success"
+                    : "default"
+              }
+              value={formatDelta(payload.summary.average_score_delta)}
+            />
+          </div>
 
-          <table className="compare-table">
-            <thead>
-              <tr>
-                <th>Scenario</th>
-                {payload.runs.map((run) => (
-                  <th key={run.run_id}>
-                    <div>
-                      <code>{run.run_id.slice(0, 10)}</code>
-                    </div>
-                    <div className="compare-run-meta">
-                      {run.label ?? run.status}
-                    </div>
-                  </th>
-                ))}
-                <th>Δ score</th>
-                <th>Change</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredScenarios.map((row) => (
-                <tr
-                  key={row.alignment_key}
-                  className={`compare-row compare-row--${row.status_change}`}
-                >
-                  <td>
-                    <div>
-                      <strong>{row.scenario_name ?? row.scenario_id}</strong>
-                    </div>
-                    <div className="compare-scenario-meta">
-                      <code>{row.scenario_id}</code>
-                      {row.file ? ` · ${row.file}` : ""}
-                    </div>
-                  </td>
-                  {payload.runs.map((run) => {
-                    const entry = row.entries[run.run_id];
-                    return (
-                      <td
-                        key={run.run_id}
-                        className={`compare-cell compare-cell--${entry?.status ?? "missing"}`}
-                        title={entry?.reason ?? undefined}
-                      >
-                        <div>
-                          {formatStatusLabel(entry?.status ?? "missing")}
+          <Card className="p-4 mb-6">
+            <div className="text-sm font-medium text-foreground mb-1">
+              Category fingerprint
+            </div>
+            <div className="text-xs text-muted-foreground mb-3">
+              Mean score per task category, one polygon per run.
+            </div>
+            <CategoryRadar
+              runs={payload.runs.map((run) => ({
+                run_id: run.run_id,
+                label: run.label,
+              }))}
+              scenarios={payload.scenarios}
+            />
+          </Card>
+
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="min-w-[200px]">Scenario</TableHead>
+                    {payload.runs.map((run) => (
+                      <TableHead key={run.run_id} className="min-w-[140px]">
+                        <div className="font-mono text-[11px] text-foreground">
+                          {run.run_id.slice(0, 10)}
                         </div>
-                        <div className="compare-score">
-                          {formatScore(entry?.score ?? null)}
+                        <div className="text-[10px] normal-case text-muted-foreground/80 font-normal mt-0.5">
+                          {run.label ?? run.status}
                         </div>
-                      </td>
-                    );
-                  })}
-                  <td>{formatDelta(row.delta_score)}</td>
-                  <td>{row.status_change}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredScenarios.length === 0 && (
-            <p className="compare-hint">
-              No aligned scenario rows match this comparison.
-            </p>
-          )}
+                      </TableHead>
+                    ))}
+                    <TableHead className="text-right">Δ score</TableHead>
+                    <TableHead>Change</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredScenarios.map((row) => (
+                    <TableRow key={row.alignment_key}>
+                      <TableCell>
+                        <div className="font-medium text-foreground">
+                          {row.scenario_name ?? row.scenario_id}
+                        </div>
+                        <div className="text-xs text-muted-foreground font-mono">
+                          {row.scenario_id}
+                          {row.file ? ` · ${row.file}` : ""}
+                        </div>
+                      </TableCell>
+                      {payload.runs.map((run) => {
+                        const entry = row.entries[run.run_id];
+                        const cfg = statusVariantFor(
+                          entry?.status ?? "missing",
+                        );
+                        return (
+                          <TableCell
+                            key={run.run_id}
+                            title={entry?.reason ?? undefined}
+                          >
+                            <div className="flex flex-col items-start gap-1">
+                              <Badge
+                                variant={cfg.variant}
+                                className="text-[10px] uppercase tracking-wider"
+                              >
+                                {cfg.label}
+                              </Badge>
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {formatScore(entry?.score ?? null)}
+                              </span>
+                            </div>
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-right font-mono">
+                        {formatDelta(row.delta_score)}
+                      </TableCell>
+                      <TableCell>{changeBadge(row.status_change)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {filteredScenarios.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                No aligned scenario rows match this comparison.
+              </div>
+            ) : null}
+          </Card>
         </>
-      )}
+      ) : null}
 
-      {!payload && !loading && runIds.length < 2 && (
-        <p className="compare-hint">
-          Select at least two runs above to load a comparison.
-        </p>
-      )}
-    </div>
+      {!payload && !loading && runIds.length < 2 ? (
+        <EmptyState
+          title="Select at least two runs"
+          description="Open the Choose runs picker above and select 2–10 runs from the same preset (or compatible scenario sets) to align them side by side."
+        />
+      ) : null}
+    </>
   );
 }
