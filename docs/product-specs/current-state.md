@@ -32,7 +32,7 @@ Last validated against `platform.md`: 2026-04-17
 - [x] Cancellation cooperatively stops a server-managed run
 - [x] Presets save cross-file scenario selections for one-click rerun
 - [ ] Comparison workspace diffs 2 to 10 historical runs
-- [x] Docker image boots safely with SQLite-on-volume persistence
+- [x] Docker image boots safely with durable persistence
 - [x] Database URL credentials stay redacted in operator-visible output
 - [x] Docker Compose readiness waits for server readiness
 

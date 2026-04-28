@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-04-22T10:24:20.186Z
+Generated: 2026-04-28T13:51:34.547Z
 
 ```text
   AGENTS.md
@@ -19,8 +19,12 @@ dashboard/dist/
   dashboard/package.json
 dashboard/src/
   dashboard/src/App.tsx
+dashboard/src/api/
+  dashboard/src/api/client.ts
+  dashboard/src/api/types.ts
 dashboard/src/components/
   dashboard/src/components/AveragesTable.tsx
+  dashboard/src/components/CategoryRadar.tsx
   dashboard/src/components/CompareView.tsx
   dashboard/src/components/ConversationView.tsx
   dashboard/src/components/DetailPanel.tsx
@@ -28,13 +32,26 @@ dashboard/src/components/
   dashboard/src/components/RubricView.tsx
   dashboard/src/components/ScenarioTable.tsx
   dashboard/src/components/StatsBar.tsx
+  dashboard/src/components/theme-toggle.tsx
+dashboard/src/components/ui/
   dashboard/src/helpers.ts
 dashboard/src/hooks/
   dashboard/src/hooks/useDashboard.ts
   dashboard/src/hooks/useElapsed.ts
+dashboard/src/lib/
+  dashboard/src/lib/utils.ts
   dashboard/src/main.tsx
   dashboard/src/styles.css
   dashboard/src/types.ts
+dashboard/src/ui/
+  dashboard/src/ui/index.tsx
+dashboard/src/views/
+  dashboard/src/views/EndpointsView.tsx
+  dashboard/src/views/PresetEditorView.tsx
+  dashboard/src/views/PresetRunHistory.tsx
+  dashboard/src/views/RunLaunchModal.tsx
+  dashboard/src/views/RunMetaEditor.tsx
+  dashboard/src/views/ScenarioDetailsModal.tsx
   dashboard/src/vite-env.d.ts
   dashboard/tsconfig.json
   dashboard/vite.config.ts
@@ -338,14 +355,20 @@ docs/references/
   docs/references/quality-gates.md
   package.json
 scripts/
+  scripts/build-fixture-manifest.ts
   scripts/check-agents-drift.ts
   scripts/check-behaviour-docs.ts
   scripts/check-doc-links.ts
   scripts/check-generated-docs.sh
   scripts/check-index-docs.ts
   scripts/fast-feedback.sh
+  scripts/generate-fixtures-llm.ts
+  scripts/generate-fixtures.ts
   scripts/generate-index-docs.ts
+  scripts/generate-tasks-100-scenarios.ts
   scripts/generate-workspace-docs.ts
+  scripts/list-required-fixtures.ts
+  scripts/patch-scenario-attachments.ts
   scripts/refresh-quality-score.ts
   scripts/seed-preset.ts
   scripts/validate-repo.sh
@@ -401,6 +424,7 @@ src/shared/utils/
   src/shared/utils/json.ts
   src/shared/utils/logging.ts
   src/shared/utils/safe-static-path.ts
+  src/shared/utils/secret-cipher.ts
   src/shared/utils/template.ts
 tests/
 tests/e2e/
@@ -414,6 +438,7 @@ tests/integration/
 tests/integration/server/
   tests/integration/server/comparisons.test.ts
   tests/integration/server/read-only.test.ts
+  tests/integration/server/settings.test.ts
   tests/integration/server/write-control.test.ts
 tests/unit/
   tests/unit/adapters.test.ts
@@ -441,7 +466,10 @@ tests/unit/server/
   tests/unit/server/inline-dashboard.test.ts
   tests/unit/server/preset-fake-repository.test.ts
   tests/unit/server/selection.test.ts
+  tests/unit/server/settings-controller.test.ts
   tests/unit/server/streams.test.ts
+tests/unit/shared/
+  tests/unit/shared/secret-cipher.test.ts
   tests/unit/simulator.test.ts
   tests/unit/support.ts
   tsconfig.json

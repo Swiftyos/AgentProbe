@@ -49,7 +49,7 @@ src/
 │   └── endpoints/    # Endpoint abstractions and domain-facing contracts
 ├── providers/
 │   ├── sdk/          # OpenAI/OpenRouter and endpoint SDK implementations
-│   ├── persistence/  # SQLite and artifact storage implementations
+│   ├── persistence/  # SQLite/Postgres repositories and artifact storage
 │   └── observability/# Logging, metrics, and span emitters
 └── shared/
     ├── types/        # Shared schemas and identifiers
@@ -58,6 +58,20 @@ src/
 
 The exact directory layout can evolve over time, but the dependency
 direction and boundary rules are mandatory regardless of file names.
+
+## Persistence
+
+AgentProbe selects the persistence backend by database URL scheme. SQLite
+(`sqlite:///...`) is the local default and stores run history, presets,
+encrypted settings, and endpoint overrides beside the developer workspace.
+Postgres (`postgres://...` or `postgresql://...`) implements the same repository
+surface for production `start-server` deploys, including run recording.
+
+Postgres migrations are explicit: operators run `agentprobe db:migrate` before
+booting the server, and boot checks refuse an out-of-date schema. Because
+secrets are encrypted in application code before storage, Postgres deployments
+must provide `AGENTPROBE_ENCRYPTION_KEY`; unlike SQLite, they cannot rely on an
+auto-generated sidecar key file.
 
 ## TypeScript engineering standards
 

@@ -12,10 +12,7 @@ export async function handleListEndpointOverrides(
 ): Promise<Response> {
   try {
     const overrides = await context.endpointOverridesController.list();
-    return jsonResponse(
-      { overrides },
-      { requestId: context.requestId },
-    );
+    return jsonResponse({ overrides }, { requestId: context.requestId });
   } catch (error) {
     return mapError(error, context.requestId);
   }

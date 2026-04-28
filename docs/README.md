@@ -12,6 +12,8 @@ Start here when you need repository truth instead of local guesswork.
 - [RELIABILITY.md](RELIABILITY.md) defines logging, metrics, traces, and the
   latency budgets agents must preserve.
 - [SECURITY.md](SECURITY.md) defines boundary validation and secret rules.
+- [persistence.md](persistence.md) explains SQLite/Postgres backend selection,
+  migrations, and deployment settings.
 
 ## Product and planning
 

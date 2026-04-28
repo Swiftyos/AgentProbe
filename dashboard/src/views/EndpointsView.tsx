@@ -24,9 +24,9 @@ type EndpointRow = {
 
 export function EndpointsView({ request }: { request: ServerRequest }) {
   const [suites, setSuites] = useState<SuitesResponse | null>(null);
-  const [overrideMap, setOverrideMap] = useState<
-    Record<string, string | null>
-  >({});
+  const [overrideMap, setOverrideMap] = useState<Record<string, string | null>>(
+    {},
+  );
   const [error, setError] = useState<string | null>(null);
 
   const loadAll = useCallback(async () => {
@@ -164,9 +164,7 @@ function EndpointOverrideCard({
         jsonBody("PUT", { base_url: trimmed || null }),
       );
       setDetail((prev) =>
-        prev
-          ? { ...prev, override: trimmed ? response.override : null }
-          : prev,
+        prev ? { ...prev, override: trimmed ? response.override : null } : prev,
       );
       setMessage(trimmed ? "Saved." : "Cleared.");
       setError(null);
@@ -239,9 +237,7 @@ function EndpointOverrideCard({
             >
               <TextInput
                 value={draftBaseUrl}
-                onChange={(event) =>
-                  setDraftBaseUrl(event.currentTarget.value)
-                }
+                onChange={(event) => setDraftBaseUrl(event.currentTarget.value)}
                 placeholder={
                   detail?.defaults.base_url_resolved ??
                   "https://staging.example"

@@ -76,12 +76,18 @@ function ensureKeyFile(path: string): Buffer {
  */
 export function resolveMasterKey(options: {
   sqlitePath?: string;
+  backendKind?: "sqlite" | "postgres";
   env?: NodeJS.ProcessEnv;
 }): Buffer {
   const env = options.env ?? process.env;
   const fromEnv = env[ENCRYPTION_KEY_ENV_VAR];
   if (typeof fromEnv === "string" && fromEnv.trim()) {
     return decodeKeyMaterial(fromEnv, ENCRYPTION_KEY_ENV_VAR);
+  }
+  if (options.backendKind === "postgres") {
+    throw new AgentProbeRuntimeError(
+      `${ENCRYPTION_KEY_ENV_VAR} is required when AGENTPROBE_DB_URL uses Postgres.`,
+    );
   }
   if (!options.sqlitePath) {
     throw new AgentProbeRuntimeError(

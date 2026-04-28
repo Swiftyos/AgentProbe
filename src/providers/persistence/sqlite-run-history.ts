@@ -606,7 +606,7 @@ export class SqliteRunRecorder {
     return this.runId;
   }
 
-  recordRunStarted(options: {
+  async recordRunStarted(options: {
     endpoint: string;
     scenarios: string;
     personas: string;
@@ -618,7 +618,7 @@ export class SqliteRunRecorder {
     trigger?: string;
     presetId?: string | null;
     presetSnapshot?: PresetSnapshot | Record<string, JsonValue> | null;
-  }): string {
+  }): Promise<string> {
     const runId = randomUUID().replaceAll("-", "");
     const now = utcNow();
     this.database
@@ -661,7 +661,7 @@ export class SqliteRunRecorder {
     return runId;
   }
 
-  recordRunConfiguration(options: {
+  async recordRunConfiguration(options: {
     endpointConfig: Endpoints;
     scenarioCollection: { scenarios: Scenario[] };
     personaCollection: { personas: Persona[] };
@@ -669,7 +669,7 @@ export class SqliteRunRecorder {
     selectedScenarios: Scenario[];
     scenarioFilter?: string;
     tags?: string;
-  }): void {
+  }): Promise<void> {
     const redactedEndpointSnapshot = redactValue(options.endpointConfig);
     const endpointHash = hashValue(redactedEndpointSnapshot);
     const scenariosHash = hashValue(options.scenarioCollection);
@@ -724,7 +724,7 @@ export class SqliteRunRecorder {
       );
   }
 
-  recordRunFinished(result: RunResult): void {
+  async recordRunFinished(result: RunResult): Promise<void> {
     refreshRunCounts(this.database, this.requireRunId());
     this.database
       .query(
@@ -750,7 +750,7 @@ export class SqliteRunRecorder {
       );
   }
 
-  recordRunCancelled(result?: RunResult): void {
+  async recordRunCancelled(result?: RunResult): Promise<void> {
     refreshRunCounts(this.database, this.requireRunId());
     const now = utcNow();
     this.database
@@ -769,7 +769,10 @@ export class SqliteRunRecorder {
       .run(result?.exitCode ?? 130, now, now, now, this.requireRunId());
   }
 
-  recordRunError(error: Error, options: { exitCode: number }): void {
+  async recordRunError(
+    error: Error,
+    options: { exitCode: number },
+  ): Promise<void> {
     refreshRunCounts(this.database, this.requireRunId());
     this.database
       .query(
@@ -794,13 +797,13 @@ export class SqliteRunRecorder {
       );
   }
 
-  recordScenarioStarted(options: {
+  async recordScenarioStarted(options: {
     scenario: Scenario;
     persona: Persona;
     rubric: Rubric;
     ordinal?: number;
     userId?: string;
-  }): number {
+  }): Promise<number> {
     const now = utcNow();
     this.database
       .query(
@@ -844,7 +847,7 @@ export class SqliteRunRecorder {
     return row.id;
   }
 
-  recordTurn(
+  async recordTurn(
     scenarioRunId: number,
     options: {
       turnIndex: number;
@@ -852,7 +855,7 @@ export class SqliteRunRecorder {
       source: string;
       generatorModel?: string;
     },
-  ): void {
+  ): Promise<void> {
     this.database
       .query(
         `
@@ -883,10 +886,10 @@ export class SqliteRunRecorder {
       .run(options.source === "assistant" ? 1 : 0, utcNow(), scenarioRunId);
   }
 
-  recordAssistantReply(
+  async recordAssistantReply(
     scenarioRunId: number,
     options: { turnIndex: number; reply: AdapterReply },
-  ): void {
+  ): Promise<void> {
     this.database
       .query(
         `
@@ -956,7 +959,7 @@ export class SqliteRunRecorder {
       .run(options.reply.toolCalls.length, utcNow(), scenarioRunId);
   }
 
-  recordCheckpoint(
+  async recordCheckpoint(
     scenarioRunId: number,
     options: {
       checkpointIndex: number;
@@ -964,7 +967,7 @@ export class SqliteRunRecorder {
       assertions: CheckpointAssertion[];
       result: CheckpointResult;
     },
-  ): void {
+  ): Promise<void> {
     this.database
       .query(
         `
@@ -993,14 +996,14 @@ export class SqliteRunRecorder {
       .run(utcNow(), scenarioRunId);
   }
 
-  recordJudgeResult(
+  async recordJudgeResult(
     scenarioRunId: number,
     options: {
       rubric: Rubric;
       score: RubricScore;
       overallScore: number;
     },
-  ): void {
+  ): Promise<void> {
     for (const dimension of options.rubric.dimensions) {
       const dimensionScore = options.score.dimensions[dimension.id];
       if (!dimensionScore) {
@@ -1061,10 +1064,10 @@ export class SqliteRunRecorder {
       );
   }
 
-  recordScenarioFinished(
+  async recordScenarioFinished(
     scenarioRunId: number,
     options: { result: ScenarioRunResult },
-  ): void {
+  ): Promise<void> {
     this.database
       .query(
         `
@@ -1089,7 +1092,10 @@ export class SqliteRunRecorder {
     refreshRunCounts(this.database, this.requireRunId());
   }
 
-  recordScenarioError(scenarioRunId: number, error: Error): void {
+  async recordScenarioError(
+    scenarioRunId: number,
+    error: Error,
+  ): Promise<void> {
     this.database
       .query(
         `
@@ -1555,9 +1561,11 @@ export function getEndpointOverride(
       .query(
         "select endpoint_path, overrides_json, updated_at from endpoint_overrides where endpoint_path = ?",
       )
-      .get(endpointPath) as
-      | { endpoint_path: string; overrides_json: string; updated_at: string }
-      | null;
+      .get(endpointPath) as {
+      endpoint_path: string;
+      overrides_json: string;
+      updated_at: string;
+    } | null;
     if (!row) {
       return undefined;
     }

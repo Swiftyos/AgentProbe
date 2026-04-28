@@ -46,6 +46,7 @@ engineering standards, plans, references, and generated inventories.
 - [README.md](README.md)
 - [RELIABILITY.md](RELIABILITY.md)
 - [SECURITY.md](SECURITY.md)
+- [persistence.md](persistence.md)
 <!-- AUTO-GENERATED FILE LINKS END -->
 
 <!-- AUTO-GENERATED SUBDIR LINKS START -->

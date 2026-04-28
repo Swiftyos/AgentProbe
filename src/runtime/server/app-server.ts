@@ -226,11 +226,7 @@ function buildRoutes(): Route[] {
       "/api/settings/secrets/open_router_api_key",
       handleDeleteOpenRouterApiKey,
     ),
-    compileRoute(
-      "GET",
-      "/api/endpoint-overrides",
-      handleListEndpointOverrides,
-    ),
+    compileRoute("GET", "/api/endpoint-overrides", handleListEndpointOverrides),
     compileRoute(
       "GET",
       "/api/endpoint-overrides/:endpointPath",
@@ -439,7 +435,11 @@ export async function startAgentProbeServer(
   await repository.initialize();
 
   const masterKey = resolveMasterKey({
-    sqlitePath: resolveSqlitePath(config.dbUrl),
+    backendKind: repository.kind,
+    sqlitePath:
+      repository.kind === "sqlite"
+        ? resolveSqlitePath(config.dbUrl)
+        : undefined,
   });
   const cipher = createSecretCipher(masterKey);
   const settingsController = new SettingsController({ repository, cipher });
@@ -580,6 +580,7 @@ export async function startAgentProbeServer(
   const stop = async (): Promise<void> => {
     await runController.cancelAllAndWait(5_000);
     server.stop(true);
+    await repository.close?.();
   };
 
   const hostname = server.hostname ?? config.host;

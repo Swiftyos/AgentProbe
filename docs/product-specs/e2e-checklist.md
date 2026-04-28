@@ -29,6 +29,6 @@ Derived from `platform.md`. Every scenario should have a coverage owner.
 | Cancellation cooperatively stops a server-managed run | `tests/integration/server/write-control.test.ts` | ✅ covered |
 | Presets save cross-file scenario selections for one-click rerun | `tests/integration/server/write-control.test.ts` + `tests/unit/server/selection.test.ts` | ✅ covered |
 | Comparison workspace diffs 2 to 10 historical runs | `tests/integration/server/comparisons.test.ts` + `tests/unit/dashboard/compare-view.test.tsx` | ⏳ integration/unit covered; browser E2E planned |
-| Docker image boots safely with SQLite-on-volume persistence | `Dockerfile` + `docker-compose.yml` + `docs/playbooks/agent-probe-server.md` | ✅ covered |
+| Docker image boots safely with durable persistence | `Dockerfile` + `docker-compose.yml` + `docs/playbooks/agent-probe-server.md` | ✅ covered |
 | Database URL credentials stay redacted in operator-visible output | `tests/unit/persistence/url.test.ts` + `tests/unit/server/config.test.ts` | ✅ covered |
 | Docker Compose readiness waits for server readiness | `docker-compose.yml` + `docs/playbooks/agent-probe-server.md` + `docker compose config` | ✅ covered |

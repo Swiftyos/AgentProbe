@@ -2,7 +2,7 @@ import { createPostgresClient, type SqlTag } from "../postgres-client.ts";
 import type { MigrationRunner } from "./types.ts";
 
 /** Target schema version for Postgres. Bumps whenever a new migration is added. */
-export const POSTGRES_TARGET_VERSION = 2;
+export const POSTGRES_TARGET_VERSION = 3;
 
 const POSTGRES_BASELINE_DDL = `
   create table if not exists meta (
@@ -239,6 +239,28 @@ export function createPostgresMigrationRunner(
             await tx`update meta set schema_version = 2 where id = 1`;
           });
           applied.push(2);
+        }
+        if (from < 3) {
+          await sql.begin(async (tx) => {
+            await tx`
+              create table if not exists app_settings (
+                key text primary key,
+                ciphertext text not null,
+                iv text not null,
+                auth_tag text not null,
+                updated_at timestamptz not null default now()
+              )
+            `;
+            await tx`
+              create table if not exists endpoint_overrides (
+                endpoint_path text primary key,
+                overrides_json jsonb not null,
+                updated_at timestamptz not null default now()
+              )
+            `;
+            await tx`update meta set schema_version = 3 where id = 1`;
+          });
+          applied.push(3);
         }
         return applied;
       } finally {

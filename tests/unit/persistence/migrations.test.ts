@@ -4,10 +4,13 @@ import { join } from "node:path";
 
 import {
   checkSchemaVersion,
+  POSTGRES_TARGET_VERSION,
   runMigrations,
   SQLITE_TARGET_VERSION,
 } from "../../../src/providers/persistence/migrations/index.ts";
+import { createPostgresClient } from "../../../src/providers/persistence/postgres-client.ts";
 import { makeTempDir } from "../support.ts";
+import { withPostgresTestDatabase } from "./postgres-test-utils.ts";
 
 describe("migration dispatcher", () => {
   test("runs SQLite migrations from empty to target version", async () => {
@@ -75,5 +78,27 @@ describe("migration dispatcher", () => {
     expect(report.currentVersion).toBe(1);
     expect(report.applied).toEqual([2, 3, 4, 5, 6, 7]);
     expect(report.targetVersion).toBe(SQLITE_TARGET_VERSION);
+  });
+
+  test("upgrades Postgres v2 schema with settings and overrides tables", async () => {
+    await withPostgresTestDatabase(async (url) => {
+      const sql = createPostgresClient(url);
+      try {
+        await sql.unsafe(`
+          drop table if exists app_settings, endpoint_overrides cascade;
+          update meta set schema_version = 2 where id = 1;
+        `);
+      } finally {
+        await sql.end?.();
+      }
+
+      const report = await runMigrations(url);
+      expect(report.currentVersion).toBe(2);
+      expect(report.applied).toEqual([3]);
+      expect(report.targetVersion).toBe(POSTGRES_TARGET_VERSION);
+
+      const check = await checkSchemaVersion(url);
+      expect(check.currentVersion).toBe(POSTGRES_TARGET_VERSION);
+    });
   });
 });

@@ -200,7 +200,7 @@ export class RunController {
     endpointPathInput: string,
     requestOverride: string | undefined,
   ): Promise<string | undefined> {
-    if (requestOverride && requestOverride.trim()) {
+    if (requestOverride?.trim()) {
       return requestOverride.trim();
     }
     const { relativePath } =
@@ -473,7 +473,7 @@ export class RunController {
       writeRunExecutorErrorLog(runId, failure);
       if (runId) {
         try {
-          options.recorder.recordRunError(failure, {
+          await options.recorder.recordRunError(failure, {
             exitCode: runErrorExitCode(failure),
           });
         } catch (persistError) {

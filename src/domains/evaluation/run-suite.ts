@@ -85,7 +85,7 @@ export type RunRecorder = {
     trigger?: string;
     presetId?: string | null;
     presetSnapshot?: PresetSnapshot | Record<string, JsonValue> | null;
-  }) => string;
+  }) => Promise<string>;
   recordRunConfiguration?: (options: {
     endpointConfig: Endpoints;
     scenarioCollection: ReturnType<typeof parseScenariosInput>;
@@ -94,22 +94,25 @@ export type RunRecorder = {
     selectedScenarios: Scenario[];
     scenarioFilter?: string;
     tags?: string;
-  }) => void;
-  recordRunFinished?: (result: RunResult) => void;
-  recordRunError?: (error: Error, options: { exitCode: number }) => void;
-  recordRunCancelled?: (result?: RunResult) => void;
+  }) => Promise<void>;
+  recordRunFinished?: (result: RunResult) => Promise<void>;
+  recordRunError?: (
+    error: Error,
+    options: { exitCode: number },
+  ) => Promise<void>;
+  recordRunCancelled?: (result?: RunResult) => Promise<void>;
   recordScenarioStarted?: (options: {
     scenario: Scenario;
     persona: Persona;
     rubric: Rubric;
     ordinal?: number;
     userId?: string;
-  }) => number;
+  }) => Promise<number>;
   recordScenarioFinished?: (
     scenarioRunId: number,
     options: { result: ScenarioRunResult },
-  ) => void;
-  recordScenarioError?: (scenarioRunId: number, error: Error) => void;
+  ) => Promise<void>;
+  recordScenarioError?: (scenarioRunId: number, error: Error) => Promise<void>;
   recordTurn?: (
     scenarioRunId: number,
     options: {
@@ -118,14 +121,14 @@ export type RunRecorder = {
       source: string;
       generatorModel?: string;
     },
-  ) => void;
+  ) => Promise<void>;
   recordAssistantReply?: (
     scenarioRunId: number,
     options: {
       turnIndex: number;
       reply: AdapterReply;
     },
-  ) => void;
+  ) => Promise<void>;
   recordCheckpoint?: (
     scenarioRunId: number,
     options: {
@@ -134,7 +137,7 @@ export type RunRecorder = {
       assertions: CheckpointAssertion[];
       result: CheckpointResult;
     },
-  ) => void;
+  ) => Promise<void>;
   recordJudgeResult?: (
     scenarioRunId: number,
     options: {
@@ -142,7 +145,7 @@ export type RunRecorder = {
       score: RubricScore;
       overallScore: number;
     },
-  ) => void;
+  ) => Promise<void>;
 };
 
 export type PreparedScenarioSelection = {
@@ -502,7 +505,7 @@ export async function runScenario(
     copilotMode: scenario.context?.copilotMode,
   };
 
-  const scenarioRunId = options.recorder?.recordScenarioStarted?.({
+  const scenarioRunId = await options.recorder?.recordScenarioStarted?.({
     scenario,
     persona,
     rubric,
@@ -535,7 +538,7 @@ export async function runScenario(
     fullTranscript.push(userTurn);
     const userTurnIndex = fullTranscript.length - 1;
     if (scenarioRunId !== undefined) {
-      options.recorder?.recordTurn?.(scenarioRunId, {
+      await options.recorder?.recordTurn?.(scenarioRunId, {
         turnIndex: userTurnIndex,
         turn: userTurn,
         source: optionsForTurn.source,
@@ -565,12 +568,12 @@ export async function runScenario(
     fullTranscript.push(assistantTurn);
     const assistantTurnIndex = fullTranscript.length - 1;
     if (scenarioRunId !== undefined) {
-      options.recorder?.recordTurn?.(scenarioRunId, {
+      await options.recorder?.recordTurn?.(scenarioRunId, {
         turnIndex: assistantTurnIndex,
         turn: assistantTurn,
         source: "assistant",
       });
-      options.recorder?.recordAssistantReply?.(scenarioRunId, {
+      await options.recorder?.recordAssistantReply?.(scenarioRunId, {
         turnIndex: assistantTurnIndex,
         reply,
       });
@@ -627,7 +630,7 @@ export async function runScenario(
         };
         fullTranscript.push(boundaryTurn);
         if (scenarioRunId !== undefined) {
-          options.recorder?.recordTurn?.(scenarioRunId, {
+          await options.recorder?.recordTurn?.(scenarioRunId, {
             turnIndex: fullTranscript.length - 1,
             turn: boundaryTurn,
             source: "session_boundary",
@@ -655,7 +658,7 @@ export async function runScenario(
           sessionTranscript.push(systemTurn);
           fullTranscript.push(systemTurn);
           if (scenarioRunId !== undefined) {
-            options.recorder?.recordTurn?.(scenarioRunId, {
+            await options.recorder?.recordTurn?.(scenarioRunId, {
               turnIndex: fullTranscript.length - 1,
               turn: systemTurn,
               source: "system_prompt",
@@ -687,7 +690,7 @@ export async function runScenario(
             );
             checkpoints.push(checkpointResult);
             if (scenarioRunId !== undefined) {
-              options.recorder?.recordCheckpoint?.(scenarioRunId, {
+              await options.recorder?.recordCheckpoint?.(scenarioRunId, {
                 checkpointIndex: checkpoints.length - 1,
                 precedingTurnIndex:
                   fullTranscript.length > 0
@@ -714,7 +717,7 @@ export async function runScenario(
               sessionTranscript.push(injectTurn);
               fullTranscript.push(injectTurn);
               if (scenarioRunId !== undefined) {
-                options.recorder?.recordTurn?.(scenarioRunId, {
+                await options.recorder?.recordTurn?.(scenarioRunId, {
                   turnIndex: fullTranscript.length - 1,
                   turn: injectTurn,
                   source: "inject",
@@ -861,7 +864,7 @@ export async function runScenario(
       logWarn(`Harness failure in ${scenario.id}: ${error.message}`);
     } else {
       if (scenarioRunId !== undefined) {
-        options.recorder?.recordScenarioError?.(
+        await options.recorder?.recordScenarioError?.(
           scenarioRunId,
           error instanceof Error ? error : new Error(String(error)),
         );
@@ -902,7 +905,7 @@ export async function runScenario(
       renderedTurns,
     };
     if (scenarioRunId !== undefined) {
-      options.recorder?.recordScenarioFinished?.(scenarioRunId, {
+      await options.recorder?.recordScenarioFinished?.(scenarioRunId, {
         result: harnessResult,
       });
     }
@@ -931,7 +934,7 @@ export async function runScenario(
   );
   const finalScore = overallScore(renderedRubric, score);
   if (scenarioRunId !== undefined) {
-    options.recorder?.recordJudgeResult?.(scenarioRunId, {
+    await options.recorder?.recordJudgeResult?.(scenarioRunId, {
       rubric: renderedRubric,
       score,
       overallScore: finalScore,
@@ -954,7 +957,7 @@ export async function runScenario(
     renderedTurns,
   };
   if (scenarioRunId !== undefined) {
-    options.recorder?.recordScenarioFinished?.(scenarioRunId, { result });
+    await options.recorder?.recordScenarioFinished?.(scenarioRunId, { result });
   }
   return result;
 }
@@ -995,7 +998,7 @@ export async function runSuite(options: {
   repeat?: number;
   baseUrlOverride?: string;
 }): Promise<RunResult> {
-  const runId = options.recorder?.recordRunStarted?.({
+  const runId = await options.recorder?.recordRunStarted?.({
     endpoint: options.endpoint,
     scenarios: options.scenarios,
     personas: options.personas,
@@ -1067,7 +1070,7 @@ export async function runSuite(options: {
       );
     }
 
-    options.recorder?.recordRunConfiguration?.({
+    await options.recorder?.recordRunConfiguration?.({
       endpointConfig,
       scenarioCollection,
       personaCollection,
@@ -1169,7 +1172,7 @@ export async function runSuite(options: {
     const cancellationRequested = (): boolean =>
       options.signal?.aborted === true;
 
-    const cancelledResult = (): RunResult => {
+    const cancelledResult = async (): Promise<RunResult> => {
       const result: RunResult = {
         runId,
         passed: false,
@@ -1177,7 +1180,7 @@ export async function runSuite(options: {
         cancelled: true,
         results,
       };
-      options.recorder?.recordRunCancelled?.(result);
+      await options.recorder?.recordRunCancelled?.(result);
       options.progressCallback?.({
         kind: "run_cancelled",
         runId,
@@ -1294,12 +1297,12 @@ export async function runSuite(options: {
         (item): item is ScenarioRunResult => item !== undefined,
       );
       if (cancellationRequested()) {
-        return cancelledResult();
+        return await cancelledResult();
       }
     } else {
       for (const prepared of preparedRuns) {
         if (cancellationRequested()) {
-          return cancelledResult();
+          return await cancelledResult();
         }
         options.progressCallback?.({
           kind: "scenario_started",
@@ -1339,7 +1342,7 @@ export async function runSuite(options: {
       }
     }
     if (cancellationRequested()) {
-      return cancelledResult();
+      return await cancelledResult();
     }
 
     const passed = results.every((item) => item.passed);
@@ -1349,7 +1352,7 @@ export async function runSuite(options: {
       exitCode: passed ? 0 : 1,
       results,
     };
-    options.recorder?.recordRunFinished?.(result);
+    await options.recorder?.recordRunFinished?.(result);
     options.progressCallback?.({
       kind: "run_finished",
       runId,
@@ -1359,7 +1362,7 @@ export async function runSuite(options: {
   } catch (error) {
     const failure = error instanceof Error ? error : new Error(String(error));
     const exitCode = failure instanceof AgentProbeConfigError ? 2 : 3;
-    options.recorder?.recordRunError?.(failure, { exitCode });
+    await options.recorder?.recordRunError?.(failure, { exitCode });
     throw failure;
   }
 }

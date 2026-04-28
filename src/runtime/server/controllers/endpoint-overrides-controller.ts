@@ -3,6 +3,7 @@ import type {
   PersistenceRepository,
   StoredEndpointOverride,
 } from "../../../providers/persistence/types.ts";
+import type { Endpoints } from "../../../shared/types/contracts.ts";
 import { resolveEnvInValue } from "../../../shared/utils/template.ts";
 import { HttpInputError } from "../validation.ts";
 import type { SuiteController } from "./suite-controller.ts";
@@ -42,7 +43,9 @@ function readBaseUrlFromConnection(connection: unknown): string | undefined {
 
 function toPayload(stored: StoredEndpointOverride): EndpointOverridePayload {
   const baseUrl =
-    typeof stored.overrides.baseUrl === "string" ? stored.overrides.baseUrl : null;
+    typeof stored.overrides.baseUrl === "string"
+      ? stored.overrides.baseUrl
+      : null;
   return {
     endpoint_path: stored.endpointPath,
     base_url: baseUrl,
@@ -50,9 +53,7 @@ function toPayload(stored: StoredEndpointOverride): EndpointOverridePayload {
   };
 }
 
-function pickKnownFields(
-  raw: Record<string, unknown>,
-): EndpointOverrideFields {
+function pickKnownFields(raw: Record<string, unknown>): EndpointOverrideFields {
   const result: EndpointOverrideFields = {};
   if (Object.hasOwn(raw, "base_url")) {
     const value = raw.base_url;
@@ -90,9 +91,7 @@ export class EndpointOverridesController {
    * Load the saved override fields for an endpoint, applying any known
    * normalization. Returns an empty object when no override is stored.
    */
-  async resolveFields(
-    endpointPath: string,
-  ): Promise<EndpointOverrideFields> {
+  async resolveFields(endpointPath: string): Promise<EndpointOverrideFields> {
     const stored =
       await this.options.repository.getEndpointOverride(endpointPath);
     if (!stored) {
@@ -118,7 +117,7 @@ export class EndpointOverridesController {
     const stored = await this.options.repository.getEndpointOverride(
       resolved.relativePath,
     );
-    let endpointConfig;
+    let endpointConfig: Endpoints;
     try {
       endpointConfig = parseEndpointsYaml(resolved.absolutePath);
     } catch (error) {
@@ -131,9 +130,7 @@ export class EndpointOverridesController {
       );
     }
     const rawBaseUrl = readBaseUrlFromConnection(endpointConfig.connection);
-    const resolvedBaseUrl = rawBaseUrl
-      ? safeResolveEnv(rawBaseUrl)
-      : null;
+    const resolvedBaseUrl = rawBaseUrl ? safeResolveEnv(rawBaseUrl) : null;
     return {
       override: stored ? toPayload(stored) : null,
       defaults: {

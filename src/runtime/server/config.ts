@@ -1,10 +1,8 @@
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { POSTGRES_RUN_RECORDING_UNSUPPORTED_MESSAGE } from "../../providers/persistence/types.ts";
 import {
   defaultSqliteDbUrl,
-  isPostgresUrl,
   redactDbUrl,
 } from "../../providers/persistence/url.ts";
 import { AgentProbeConfigError } from "../../shared/utils/errors.ts";
@@ -322,10 +320,6 @@ export function buildServerConfig(source: FlagSource): ServerConfig {
     merge(cli.db, envFlags.db),
     merge(cli.dbUrl, envFlags.dbUrl),
   );
-  if (isPostgresUrl(dbUrl)) {
-    throw new AgentProbeConfigError(POSTGRES_RUN_RECORDING_UNSUPPORTED_MESSAGE);
-  }
-
   if (!isLoopbackHost(host)) {
     if (!unsafeExpose) {
       throw new AgentProbeConfigError(

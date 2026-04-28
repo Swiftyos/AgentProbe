@@ -28,7 +28,7 @@ describe("createRepository factory", () => {
     const repo = createRepository("postgres://u:p@localhost/agentprobe");
     expect(repo).toBeInstanceOf(PostgresRepository);
     expect(repo.kind).toBe("postgres");
-    // @ts-expect-error PostgresRepository is not recording-capable.
+    // @ts-expect-error createRepository returns the non-recording interface.
     void repo.createRecorder;
   });
 
@@ -38,7 +38,7 @@ describe("createRepository factory", () => {
     );
   });
 
-  test("createRecordingRepository returns sqlite and rejects postgres", () => {
+  test("createRecordingRepository returns recording-capable repositories", () => {
     const dir = makeTempDir("factory-recording");
     const url = `sqlite:///${join(dir, "runs.sqlite3")}`;
     initDb(url);
@@ -46,8 +46,10 @@ describe("createRepository factory", () => {
     expect(repo).toBeInstanceOf(SqliteRepository);
     expect(repo.createRecorder()).toBeDefined();
 
-    expect(() =>
-      createRecordingRepository("postgres://localhost/agentprobe"),
-    ).toThrow(/Postgres is read-only for run recording/);
+    const postgres = createRecordingRepository(
+      "postgres://localhost/agentprobe",
+    );
+    expect(postgres).toBeInstanceOf(PostgresRepository);
+    expect(postgres.kind).toBe("postgres");
   });
 });

@@ -70,4 +70,11 @@ describe("resolveMasterKey", () => {
     const second = resolveMasterKey({ sqlitePath, env });
     expect(first.toString("hex")).toBe(second.toString("hex"));
   });
+
+  test("requires an env key for postgres", () => {
+    const env = {} as NodeJS.ProcessEnv;
+    expect(() => resolveMasterKey({ backendKind: "postgres", env })).toThrow(
+      /AGENTPROBE_ENCRYPTION_KEY is required/,
+    );
+  });
 });

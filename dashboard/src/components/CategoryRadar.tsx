@@ -39,7 +39,7 @@ const SERIES_COLORS = [
 ];
 
 function shortLabel(run: CategoryRadarRun): string {
-  if (run.label && run.label.trim()) return run.label.trim();
+  if (run.label?.trim()) return run.label.trim();
   return run.run_id.slice(0, 8);
 }
 

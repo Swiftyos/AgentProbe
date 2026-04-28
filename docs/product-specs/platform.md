@@ -3,7 +3,7 @@
 ## Overview
 
 AgentProbe is a CLI for validating suites, running repeatable agent evaluations,
-recording run artifacts, and rendering reports from local run history.
+recording run artifacts, and rendering reports from persisted run history.
 
 ## Scenarios
 
@@ -20,8 +20,8 @@ processed, and fails fast if the suite contract is invalid
 **Given** valid endpoint, scenario, persona, and rubric YAML files
 **When** the user runs an evaluation suite
 **Then** the CLI executes the selected scenarios, records structured run history
-to SQLite, preserves scenario ordering, and emits a summary that agents and
-humans can use to inspect pass/fail outcomes
+to the configured persistence backend, preserves scenario ordering, and emits a
+summary that agents and humans can use to inspect pass/fail outcomes
 
 ### Scenario filters narrow execution to matching scenarios
 
@@ -266,22 +266,22 @@ entries rather than failing the request; and the request rejects any count
 below 2 or above 10 run IDs, malformed run UUIDs, or duplicate run IDs with a
 structured validation error.
 
-### Docker image boots safely with SQLite-on-volume persistence
+### Docker image boots safely with durable persistence
 
 **Given** the shipped AgentProbe container image and a host that publishes the
 server port through `127.0.0.1`
 **When** the operator runs the image with `AGENTPROBE_SERVER_TOKEN` set and a
-SQLite database mounted at the default volume path
+SQLite database mounted at the default volume path or with
+`AGENTPROBE_DB_URL` pointed at a migrated Postgres database
 **Then** the default container `CMD` binds `0.0.0.0:7878` with `--unsafe-expose`
 and the required token/CORS-origin settings so the in-server non-loopback rules
 still hold, the config loader refuses to boot when
 `AGENTPROBE_SERVER_TOKEN` or `AGENTPROBE_SERVER_CORS_ORIGINS` is missing, the
-server persists runs to the mounted `runs.sqlite` by default, and the
-write-enabled server rejects Postgres database URLs until Postgres run recording
-ships. Postgres remains available for explicit migration work and historical
-read/preset repository operations, but `agentprobe start-server` requires a
-`sqlite:///` URL while `POST /api/runs` and related run write routes are
-enabled.
+server persists runs to the mounted `runs.sqlite` by default, and the same
+write-enabled server supports full run recording, presets, encrypted settings,
+endpoint overrides, and history reads against Postgres when selected by URL
+scheme. Postgres deployments require `AGENTPROBE_ENCRYPTION_KEY` and a
+successful `agentprobe db:migrate` before `start-server` boots.
 
 ### Database URL credentials stay redacted in operator-visible output
 

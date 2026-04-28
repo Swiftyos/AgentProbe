@@ -1,11 +1,7 @@
 import { AgentProbeConfigError } from "../../shared/utils/errors.ts";
 import { PostgresRepository } from "./postgres-backend.ts";
 import { SqliteRepository } from "./sqlite-backend.ts";
-import {
-  type PersistenceRepository,
-  POSTGRES_RUN_RECORDING_UNSUPPORTED_MESSAGE,
-  type RecordingRepository,
-} from "./types.ts";
+import type { PersistenceRepository, RecordingRepository } from "./types.ts";
 import { parseDbUrl } from "./url.ts";
 
 /**
@@ -33,7 +29,12 @@ export function createRecordingRepository(dbUrl: string): RecordingRepository {
   if (parsed.kind === "sqlite") {
     return new SqliteRepository(parsed.rawUrl);
   }
-  throw new AgentProbeConfigError(POSTGRES_RUN_RECORDING_UNSUPPORTED_MESSAGE);
+  if (parsed.kind === "postgres") {
+    return new PostgresRepository(parsed.rawUrl);
+  }
+  throw new AgentProbeConfigError(
+    `Unsupported backend for URL ${parsed.displayUrl}`,
+  );
 }
 
 export { parseDbUrl } from "./url.ts";

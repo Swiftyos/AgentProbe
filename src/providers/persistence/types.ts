@@ -68,18 +68,20 @@ export type RunRecorderConfigurationOptions = {
 
 export interface RunRecorder {
   readonly runId?: string;
-  recordRunStarted(options: RunRecorderStartOptions): string;
-  recordRunConfiguration(options: RunRecorderConfigurationOptions): void;
-  recordRunFinished(result: RunResult): void;
-  recordRunCancelled(result?: RunResult): void;
-  recordRunError(error: Error, options: { exitCode: number }): void;
+  recordRunStarted(options: RunRecorderStartOptions): Promise<string>;
+  recordRunConfiguration(
+    options: RunRecorderConfigurationOptions,
+  ): Promise<void>;
+  recordRunFinished(result: RunResult): Promise<void>;
+  recordRunCancelled(result?: RunResult): Promise<void>;
+  recordRunError(error: Error, options: { exitCode: number }): Promise<void>;
   recordScenarioStarted(options: {
     scenario: Scenario;
     persona: Persona;
     rubric: Rubric;
     ordinal?: number;
     userId?: string;
-  }): number;
+  }): Promise<number>;
   recordTurn(
     scenarioRunId: number,
     options: {
@@ -88,11 +90,11 @@ export interface RunRecorder {
       source: string;
       generatorModel?: string;
     },
-  ): void;
+  ): Promise<void>;
   recordAssistantReply(
     scenarioRunId: number,
     options: { turnIndex: number; reply: AdapterReply },
-  ): void;
+  ): Promise<void>;
   recordCheckpoint(
     scenarioRunId: number,
     options: {
@@ -101,7 +103,7 @@ export interface RunRecorder {
       assertions: CheckpointAssertion[];
       result: CheckpointResult;
     },
-  ): void;
+  ): Promise<void>;
   recordJudgeResult(
     scenarioRunId: number,
     options: {
@@ -109,19 +111,13 @@ export interface RunRecorder {
       score: RubricScore;
       overallScore: number;
     },
-  ): void;
+  ): Promise<void>;
   recordScenarioFinished(
     scenarioRunId: number,
     options: { result: ScenarioRunResult },
-  ): void;
-  recordScenarioError(scenarioRunId: number, error: Error): void;
+  ): Promise<void>;
+  recordScenarioError(scenarioRunId: number, error: Error): Promise<void>;
 }
-
-export const POSTGRES_RUN_RECORDING_UNSUPPORTED_MESSAGE =
-  "Postgres is read-only for run recording in this release. " +
-  "`agentprobe start-server` has run write routes enabled (`POST /api/runs`, preset run starts, cancellation), " +
-  "so it requires a `sqlite:///` URL. Postgres currently supports schema migrations, " +
-  "preset CRUD, and historical reads (comparison, listings).";
 
 /**
  * Encrypted secret stored at rest. Encryption/decryption is the caller's
@@ -151,6 +147,7 @@ export interface ReadableRepository {
   readonly dbUrl: string;
 
   initialize(): Promise<void>;
+  close?(): Promise<void>;
   listRuns(): Promise<RunSummary[]>;
   listRunsForPreset(presetId: string): Promise<RunSummary[]>;
   getRun(runId: string): Promise<RunRecord | undefined>;

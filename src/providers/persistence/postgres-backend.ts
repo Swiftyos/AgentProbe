@@ -15,9 +15,11 @@ import {
   POSTGRES_TARGET_VERSION,
 } from "./migrations/index.ts";
 import { createPostgresClient, type SqlTag } from "./postgres-client.ts";
+import { PostgresRunRecorder } from "./postgres-run-recorder.ts";
 import type {
-  PersistenceRepository,
   PresetWriteInput,
+  RecordingRepository,
+  RunRecorder,
   StoredEndpointOverride,
   StoredSecretEnvelope,
 } from "./types.ts";
@@ -406,13 +408,13 @@ async function fetchPresetById(
 }
 
 /**
- * Postgres-backed repository. Reads and preset CRUD are implemented; run
- * recording is intentionally absent from this type until a buffered async
- * recorder ships.
+ * Postgres-backed repository. Bun.SQL is pool-backed, so each repository owns
+ * one long-lived client and closes it during server shutdown.
  */
-export class PostgresRepository implements PersistenceRepository {
+export class PostgresRepository implements RecordingRepository {
   readonly kind = "postgres" as const;
   readonly dbUrl: string;
+  private sql?: SqlTag;
 
   constructor(dbUrl: string) {
     this.dbUrl = dbUrl;
@@ -426,15 +428,26 @@ export class PostgresRepository implements PersistenceRepository {
           `for ${report.dbUrl}. Run \`agentprobe db:migrate\` before starting the server.`,
       );
     }
+    this.sql ??= createPostgresClient(this.dbUrl);
+  }
+
+  async close(): Promise<void> {
+    const sql = this.sql;
+    this.sql = undefined;
+    await sql?.end?.();
+  }
+
+  createRecorder(): RunRecorder {
+    return new PostgresRunRecorder(this.getSql());
+  }
+
+  private getSql(): SqlTag {
+    this.sql ??= createPostgresClient(this.dbUrl);
+    return this.sql;
   }
 
   private async withSql<T>(fn: (sql: SqlTag) => Promise<T>): Promise<T> {
-    const sql = createPostgresClient(this.dbUrl);
-    try {
-      return await fn(sql);
-    } finally {
-      await sql.end?.();
-    }
+    return await fn(this.getSql());
   }
 
   async createPreset(input: PresetWriteInput): Promise<PresetRecord> {
@@ -708,50 +721,120 @@ export class PostgresRepository implements PersistenceRepository {
     });
   }
 
-  async getSecret(_key: string): Promise<StoredSecretEnvelope | undefined> {
-    throw new AgentProbeRuntimeError(
-      "Encrypted secret storage is not supported on the Postgres backend.",
-    );
+  async getSecret(key: string): Promise<StoredSecretEnvelope | undefined> {
+    return this.withSql(async (sql) => {
+      const rows = await sql<UnknownRecord>`
+        select ciphertext, iv, auth_tag from app_settings where key = ${key}
+      `;
+      const row = rows[0];
+      if (!row) {
+        return undefined;
+      }
+      return {
+        ciphertext: String(row.ciphertext),
+        iv: String(row.iv),
+        authTag: String(row.auth_tag),
+      };
+    });
   }
 
-  async putSecret(_key: string, _secret: StoredSecretEnvelope): Promise<void> {
-    throw new AgentProbeRuntimeError(
-      "Encrypted secret storage is not supported on the Postgres backend.",
-    );
+  async putSecret(key: string, secret: StoredSecretEnvelope): Promise<void> {
+    await this.withSql(async (sql) => {
+      await sql`
+        insert into app_settings (key, ciphertext, iv, auth_tag, updated_at)
+        values (${key}, ${secret.ciphertext}, ${secret.iv}, ${secret.authTag}, now())
+        on conflict (key) do update set
+          ciphertext = excluded.ciphertext,
+          iv = excluded.iv,
+          auth_tag = excluded.auth_tag,
+          updated_at = excluded.updated_at
+      `;
+    });
   }
 
-  async deleteSecret(_key: string): Promise<boolean> {
-    throw new AgentProbeRuntimeError(
-      "Encrypted secret storage is not supported on the Postgres backend.",
-    );
+  async deleteSecret(key: string): Promise<boolean> {
+    return this.withSql(async (sql) => {
+      const rows = await sql<UnknownRecord>`
+        delete from app_settings where key = ${key} returning key
+      `;
+      return rows.length > 0;
+    });
   }
 
   async getEndpointOverride(
-    _endpointPath: string,
+    endpointPath: string,
   ): Promise<StoredEndpointOverride | undefined> {
-    throw new AgentProbeRuntimeError(
-      "Endpoint overrides are not supported on the Postgres backend.",
-    );
+    return this.withSql(async (sql) => {
+      const rows = await sql<UnknownRecord>`
+        select endpoint_path, overrides_json, updated_at
+        from endpoint_overrides
+        where endpoint_path = ${endpointPath}
+      `;
+      const row = rows[0];
+      if (!row) {
+        return undefined;
+      }
+      return {
+        endpointPath: String(row.endpoint_path),
+        overrides: asJson<Record<string, unknown>>(row.overrides_json) ?? {},
+        updatedAt: asIsoTimestamp(row.updated_at),
+      };
+    });
   }
 
   async listEndpointOverrides(): Promise<StoredEndpointOverride[]> {
-    throw new AgentProbeRuntimeError(
-      "Endpoint overrides are not supported on the Postgres backend.",
-    );
+    return this.withSql(async (sql) => {
+      const rows = await sql<UnknownRecord>`
+        select endpoint_path, overrides_json, updated_at
+        from endpoint_overrides
+        order by endpoint_path
+      `;
+      return rows.map((row) => ({
+        endpointPath: String(row.endpoint_path),
+        overrides: asJson<Record<string, unknown>>(row.overrides_json) ?? {},
+        updatedAt: asIsoTimestamp(row.updated_at),
+      }));
+    });
   }
 
   async putEndpointOverride(
-    _endpointPath: string,
-    _overrides: Record<string, unknown>,
+    endpointPath: string,
+    overrides: Record<string, unknown>,
   ): Promise<StoredEndpointOverride> {
-    throw new AgentProbeRuntimeError(
-      "Endpoint overrides are not supported on the Postgres backend.",
-    );
+    return this.withSql(async (sql) => {
+      const rows = await sql<UnknownRecord>`
+        insert into endpoint_overrides (
+          endpoint_path, overrides_json, updated_at
+        ) values (
+          ${endpointPath}, ${JSON.stringify(overrides)}::jsonb, now()
+        )
+        on conflict (endpoint_path) do update set
+          overrides_json = excluded.overrides_json,
+          updated_at = excluded.updated_at
+        returning endpoint_path, overrides_json, updated_at
+      `;
+      const row = rows[0];
+      if (!row) {
+        throw new AgentProbeRuntimeError(
+          "Failed to read back endpoint override.",
+        );
+      }
+      return {
+        endpointPath: String(row.endpoint_path),
+        overrides: asJson<Record<string, unknown>>(row.overrides_json) ?? {},
+        updatedAt: asIsoTimestamp(row.updated_at),
+      };
+    });
   }
 
-  async deleteEndpointOverride(_endpointPath: string): Promise<boolean> {
-    throw new AgentProbeRuntimeError(
-      "Endpoint overrides are not supported on the Postgres backend.",
-    );
+  async deleteEndpointOverride(endpointPath: string): Promise<boolean> {
+    return this.withSql(async (sql) => {
+      const rows = await sql<UnknownRecord>`
+        delete from endpoint_overrides
+        where endpoint_path = ${endpointPath}
+        returning endpoint_path
+      `;
+      return rows.length > 0;
+    });
   }
 }
