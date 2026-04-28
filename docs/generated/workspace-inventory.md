@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-04-28T13:51:34.547Z
+Generated: 2026-04-28T14:07:59.808Z
 
 ```text
   AGENTS.md
@@ -338,6 +338,7 @@ docs/exec-plans/completed/
 docs/generated/
   docs/generated/INDEX.md
   docs/generated/workspace-inventory.md
+  docs/persistence.md
 docs/playbooks/
   docs/playbooks/INDEX.md
   docs/playbooks/agent-probe-server.md
@@ -393,6 +394,7 @@ src/providers/persistence/
 src/providers/persistence/migrations/
   src/providers/persistence/postgres-backend.ts
   src/providers/persistence/postgres-client.ts
+  src/providers/persistence/postgres-run-recorder.ts
   src/providers/persistence/sqlite-backend.ts
   src/providers/persistence/sqlite-connection.ts
   src/providers/persistence/sqlite-run-history.ts
@@ -456,6 +458,9 @@ tests/unit/persistence/
   tests/unit/persistence/factory.test.ts
   tests/unit/persistence/migrations.test.ts
   tests/unit/persistence/postgres-backend.test.ts
+  tests/unit/persistence/postgres-recorder.test.ts
+  tests/unit/persistence/postgres-secrets.test.ts
+  tests/unit/persistence/postgres-test-utils.ts
   tests/unit/persistence/url.test.ts
   tests/unit/report.test.ts
   tests/unit/runner.test.ts
