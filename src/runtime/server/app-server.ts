@@ -34,6 +34,7 @@ import {
 import { handleHealthz, handleReadyz, handleSession } from "./routes/health.ts";
 import {
   handleCreatePreset,
+  handleCreatePresetFromRun,
   handleDeletePreset,
   handleGetPreset,
   handleListPresets,
@@ -181,6 +182,14 @@ function buildRoutes(): Route[] {
     ),
     compileRoute("GET", "/api/presets", handleListPresets),
     compileRoute("POST", "/api/presets", handleCreatePreset),
+    compileRoute(
+      "POST",
+      "/api/runs/:runId/save-as-preset",
+      (request, context, params) =>
+        handleCreatePresetFromRun(request, context, {
+          runId: params.runId ?? "",
+        }),
+    ),
     compileRoute("GET", "/api/presets/:presetId", (request, context, params) =>
       handleGetPreset(request, context, { presetId: params.presetId ?? "" }),
     ),

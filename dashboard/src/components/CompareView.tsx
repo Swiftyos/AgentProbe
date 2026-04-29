@@ -315,6 +315,15 @@ export function CompareView({ token, apiBase = "" }: CompareViewProps) {
     return payload.scenarios.filter((row) => row.status_change !== "unchanged");
   }, [payload, onlyChanges]);
 
+  const visibleAverageDelta = useMemo<number | null>(() => {
+    const deltas = filteredScenarios
+      .map((row) => row.delta_score)
+      .filter((value): value is number => typeof value === "number");
+    if (deltas.length === 0) return null;
+    const total = deltas.reduce((sum, value) => sum + value, 0);
+    return total / deltas.length;
+  }, [filteredScenarios]);
+
   return (
     <>
       <PageHeader
@@ -332,6 +341,16 @@ export function CompareView({ token, apiBase = "" }: CompareViewProps) {
               onChange={setOnlyChanges}
               label="Only changes"
             />
+            <Button
+              variant="secondary"
+              disabled={runIds.length < 2}
+              onClick={() => {
+                setRunIds((previous) => [...previous].reverse());
+              }}
+              title="Swap which run is treated as the baseline"
+            >
+              Reverse order
+            </Button>
             <Button
               variant="secondary"
               onClick={() => {
@@ -432,17 +451,15 @@ export function CompareView({ token, apiBase = "" }: CompareViewProps) {
               value={payload.summary.scenarios_missing_in_some}
             />
             <StatTile
-              label="Δ avg score"
+              label={onlyChanges ? "Δ avg score (changes)" : "Δ avg score"}
               tone={
-                payload.summary.average_score_delta != null &&
-                payload.summary.average_score_delta < 0
+                visibleAverageDelta != null && visibleAverageDelta < 0
                   ? "danger"
-                  : payload.summary.average_score_delta != null &&
-                      payload.summary.average_score_delta > 0
+                  : visibleAverageDelta != null && visibleAverageDelta > 0
                     ? "success"
                     : "default"
               }
-              value={formatDelta(payload.summary.average_score_delta)}
+              value={formatDelta(visibleAverageDelta)}
             />
           </div>
 
@@ -468,16 +485,32 @@ export function CompareView({ token, apiBase = "" }: CompareViewProps) {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[200px]">Scenario</TableHead>
-                    {payload.runs.map((run) => (
-                      <TableHead key={run.run_id} className="min-w-[140px]">
-                        <div className="font-mono text-[11px] text-foreground">
-                          {run.run_id.slice(0, 10)}
-                        </div>
-                        <div className="text-[10px] normal-case text-muted-foreground/80 font-normal mt-0.5">
-                          {run.label ?? run.status}
-                        </div>
-                      </TableHead>
-                    ))}
+                    {payload.runs.map((run, idx) => {
+                      const role =
+                        idx === 0
+                          ? "baseline"
+                          : idx === payload.runs.length - 1
+                            ? "target"
+                            : null;
+                      return (
+                        <TableHead
+                          key={run.run_id}
+                          className="min-w-[140px]"
+                        >
+                          {role ? (
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground/70 font-semibold mb-0.5">
+                              {role}
+                            </div>
+                          ) : null}
+                          <div className="font-mono text-[11px] text-foreground">
+                            {run.run_id.slice(0, 10)}
+                          </div>
+                          <div className="text-[10px] normal-case text-muted-foreground/80 font-normal mt-0.5">
+                            {run.label ?? run.status}
+                          </div>
+                        </TableHead>
+                      );
+                    })}
                     <TableHead className="text-right">Δ score</TableHead>
                     <TableHead>Change</TableHead>
                   </TableRow>

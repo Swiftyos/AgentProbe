@@ -1,6 +1,10 @@
 import type { ServerContext } from "../app-server.ts";
 import { errorResponse, jsonResponse } from "../http-helpers.ts";
-import { HttpInputError, readJsonObject } from "../validation.ts";
+import {
+  HttpInputError,
+  readJsonObject,
+  readOptionalJsonObject,
+} from "../validation.ts";
 
 function routeError(error: unknown, requestId: string): Response {
   if (error instanceof HttpInputError) {
@@ -137,6 +141,26 @@ export async function handlePresetRuns(
       });
     }
     return jsonResponse({ runs }, { requestId: context.requestId });
+  } catch (error) {
+    return routeError(error, context.requestId);
+  }
+}
+
+export async function handleCreatePresetFromRun(
+  request: Request,
+  context: ServerContext,
+  params: { runId: string },
+): Promise<Response> {
+  try {
+    const body = await readOptionalJsonObject(request);
+    const preset = await context.presetController.createFromRun(
+      params.runId,
+      body,
+    );
+    return jsonResponse(
+      { preset },
+      { status: 201, requestId: context.requestId },
+    );
   } catch (error) {
     return routeError(error, context.requestId);
   }

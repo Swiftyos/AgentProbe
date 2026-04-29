@@ -181,4 +181,152 @@ export class PresetController {
     const preset = await this.options.repository.softDeletePreset(id);
     return preset ? this.toPayload(preset) : undefined;
   }
+
+  async createFromRun(
+    runId: string,
+    body: Record<string, unknown>,
+  ): Promise<PresetPayload> {
+    const run = await this.options.repository.getRun(runId);
+    if (!run) {
+      throw new HttpInputError(
+        404,
+        "not_found",
+        `Run \`${runId}\` was not found.`,
+      );
+    }
+    if (!run.sourcePaths) {
+      throw new HttpInputError(
+        400,
+        "bad_request",
+        `Run \`${runId}\` did not record source paths and cannot be cloned into a preset.`,
+      );
+    }
+
+    const rebaseToDataRoot = (raw: string): string => {
+      try {
+        return this.options.suiteController.resolveDataFile(raw).relativePath;
+      } catch (firstError) {
+        const normalized = raw.replaceAll("\\", "/");
+        const marker = "/data/";
+        const markerIndex = normalized.lastIndexOf(marker);
+        const candidates: string[] = [];
+        if (markerIndex !== -1) {
+          candidates.push(normalized.slice(markerIndex + marker.length));
+        }
+        const baseName = normalized.split("/").pop();
+        if (baseName) candidates.push(baseName);
+        for (const candidate of candidates) {
+          if (!candidate) continue;
+          try {
+            return this.options.suiteController.resolveDataFile(candidate)
+              .relativePath;
+          } catch {
+            // try next candidate
+          }
+        }
+        throw firstError;
+      }
+    };
+
+    const tryRebase = (
+      raw: string,
+      label: string,
+    ): { ok: true; value: string } | { ok: false; message: string } => {
+      try {
+        return { ok: true, value: rebaseToDataRoot(raw) };
+      } catch (error) {
+        return {
+          ok: false,
+          message: `${label} (\`${raw}\`): ${error instanceof Error ? error.message : String(error)}`,
+        };
+      }
+    };
+
+    const endpointOutcome = tryRebase(run.sourcePaths.endpoint, "endpoint");
+    const personasOutcome = tryRebase(run.sourcePaths.personas, "personas");
+    const rubricOutcome = tryRebase(run.sourcePaths.rubric, "rubric");
+    const failures = [endpointOutcome, personasOutcome, rubricOutcome].filter(
+      (
+        outcome,
+      ): outcome is { ok: false; message: string } => outcome.ok === false,
+    );
+    if (failures.length > 0) {
+      throw new HttpInputError(
+        400,
+        "bad_request",
+        `Run \`${runId}\` was recorded with source paths that do not exist under this data root. ${failures
+          .map((f) => f.message)
+          .join("; ")}`,
+      );
+    }
+    const resolvedEndpoint = (
+      endpointOutcome as { ok: true; value: string }
+    ).value;
+    const resolvedPersonas = (
+      personasOutcome as { ok: true; value: string }
+    ).value;
+    const resolvedRubric = (rubricOutcome as { ok: true; value: string })
+      .value;
+
+    const inventoryById = new Map<string, string>();
+    for (const summary of this.options.suiteController.scenarios()) {
+      if (!inventoryById.has(summary.id)) {
+        inventoryById.set(summary.id, summary.sourcePath);
+      }
+    }
+
+    const orderedIds: string[] = [];
+    if (run.scenarios.length > 0) {
+      for (const scenario of run.scenarios) {
+        orderedIds.push(scenario.scenarioId);
+      }
+    } else if (run.selectedScenarioIds && run.selectedScenarioIds.length > 0) {
+      for (const id of run.selectedScenarioIds) {
+        orderedIds.push(id);
+      }
+    }
+
+    const selection: ScenarioSelectionRef[] = [];
+    const seen = new Set<string>();
+    const unresolved: string[] = [];
+    for (const id of orderedIds) {
+      const file = inventoryById.get(id);
+      if (!file) {
+        unresolved.push(id);
+        continue;
+      }
+      const key = `${file}::${id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      selection.push({ file, id });
+    }
+
+    if (selection.length === 0) {
+      const reason =
+        orderedIds.length === 0
+          ? "the run has no scenarios recorded"
+          : `none of the run's scenarios (${unresolved.slice(0, 3).join(", ")}${unresolved.length > 3 ? ", …" : ""}) match a current suite file`;
+      throw new HttpInputError(
+        400,
+        "bad_request",
+        `Run \`${runId}\` cannot be cloned into a preset: ${reason}.`,
+      );
+    }
+
+    const fallbackName =
+      typeof body.name === "string" && body.name.trim().length > 0
+        ? body.name
+        : `${run.label ?? run.preset ?? "Run"} (saved ${new Date().toISOString()})`;
+
+    const derivedBody: Record<string, unknown> = {
+      ...body,
+      name: fallbackName,
+      endpoint: resolvedEndpoint,
+      personas: resolvedPersonas,
+      rubric: resolvedRubric,
+      selection,
+    };
+
+    return this.create(derivedBody);
+  }
 }

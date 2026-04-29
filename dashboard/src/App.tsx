@@ -55,6 +55,7 @@ import {
   ErrorBanner,
   Field,
   Loading,
+  Modal,
   PageHeader,
   SimpleSelect,
   StatTile,
@@ -290,7 +291,30 @@ function fmtDate(iso: string | null | undefined): string {
   }
 }
 
-function RunsTable({ runs }: { runs: RunSummary[] }) {
+const MAX_COMPARE_RUNS = 10;
+
+function RunsTable({
+  runs,
+  navigate,
+  selectable = true,
+}: {
+  runs: RunSummary[];
+  navigate?: (href: string) => void;
+  selectable?: boolean;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    setSelected((prev) => {
+      const visible = new Set(runs.map((run) => run.runId));
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (visible.has(id)) next.add(id);
+      });
+      return next.size === prev.size ? prev : next;
+    });
+  }, [runs]);
+
   if (runs.length === 0) {
     return (
       <EmptyState
@@ -299,55 +323,138 @@ function RunsTable({ runs }: { runs: RunSummary[] }) {
       />
     );
   }
+
+  const toggle = (runId: string, next: boolean) => {
+    setSelected((prev) => {
+      const updated = new Set(prev);
+      if (next) {
+        if (updated.size >= MAX_COMPARE_RUNS && !updated.has(runId)) {
+          return prev;
+        }
+        updated.add(runId);
+      } else {
+        updated.delete(runId);
+      }
+      return updated;
+    });
+  };
+
+  const selectedIds = runs
+    .map((run) => run.runId)
+    .filter((id) => selected.has(id));
+  const compareDisabled =
+    selectedIds.length < 2 || selectedIds.length > MAX_COMPARE_RUNS;
+  const compareHint =
+    selectedIds.length === 0
+      ? "Pick 2+ runs to compare"
+      : selectedIds.length === 1
+        ? "Pick at least one more run"
+        : selectedIds.length > MAX_COMPARE_RUNS
+          ? `Maximum ${MAX_COMPARE_RUNS} runs at a time`
+          : `${selectedIds.length} runs selected`;
+
+  const compareHref = `/compare?run_ids=${selectedIds.join(",")}`;
+
+  const onCompare = () => {
+    if (compareDisabled) return;
+    if (navigate) {
+      navigate(compareHref);
+    } else {
+      window.history.pushState({}, "", compareHref);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    }
+  };
+
   return (
-    <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-secondary">
-            <tr className="text-left text-muted-foreground text-xs uppercase tracking-wider">
-              <th className="px-3 py-2">Name</th>
-              <th className="px-3 py-2">Status</th>
-              <th className="px-3 py-2">Preset</th>
-              <th className="px-3 py-2">Started</th>
-              <th className="px-3 py-2 text-right">Pass / Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {runs.map((run) => (
-              <tr key={run.runId} className="hover:bg-secondary">
-                <td className="px-3 py-2">
-                  <a
-                    href={`/runs/${encodeURIComponent(run.runId)}`}
-                    className="text-foreground hover:text-primary"
-                  >
-                    {run.label ? (
-                      <span className="font-medium">{run.label}</span>
-                    ) : (
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {run.runId.slice(0, 12)}…
-                      </span>
-                    )}
-                  </a>
-                </td>
-                <td className="px-3 py-2">
-                  <StatusPill run={run} />
-                </td>
-                <td className="px-3 py-2 text-muted-foreground">
-                  {run.preset ?? "—"}
-                </td>
-                <td className="px-3 py-2 text-muted-foreground">
-                  {fmtDate(run.startedAt)}
-                </td>
-                <td className="px-3 py-2 text-right font-mono">
-                  {run.aggregateCounts.scenarioPassedCount}/
-                  {run.aggregateCounts.scenarioTotal}
-                </td>
+    <>
+      {selectable ? (
+        <div className="flex items-center gap-3 mb-3">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onCompare}
+            disabled={compareDisabled}
+          >
+            Compare selected
+          </Button>
+          <span className="text-xs text-muted-foreground">{compareHint}</span>
+          {selectedIds.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSelected(new Set())}
+            >
+              Clear
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary">
+              <tr className="text-left text-muted-foreground text-xs uppercase tracking-wider">
+                {selectable ? <th className="px-3 py-2 w-8" /> : null}
+                <th className="px-3 py-2">Name</th>
+                <th className="px-3 py-2">Status</th>
+                <th className="px-3 py-2">Preset</th>
+                <th className="px-3 py-2">Started</th>
+                <th className="px-3 py-2 text-right">Pass / Total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {runs.map((run) => {
+                const isSelected = selected.has(run.runId);
+                const atCap =
+                  !isSelected && selectedIds.length >= MAX_COMPARE_RUNS;
+                return (
+                  <tr key={run.runId} className="hover:bg-secondary">
+                    {selectable ? (
+                      <td className="px-3 py-2 align-middle">
+                        <Checkbox
+                          checked={isSelected}
+                          onChange={(next) => {
+                            if (atCap && next) return;
+                            toggle(run.runId, next);
+                          }}
+                        />
+                      </td>
+                    ) : null}
+                    <td className="px-3 py-2">
+                      <a
+                        href={`/runs/${encodeURIComponent(run.runId)}`}
+                        className="text-foreground hover:text-primary"
+                      >
+                        {run.label ? (
+                          <span className="font-medium">{run.label}</span>
+                        ) : (
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {run.runId.slice(0, 12)}…
+                          </span>
+                        )}
+                      </a>
+                    </td>
+                    <td className="px-3 py-2">
+                      <StatusPill run={run} />
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {run.preset ?? "—"}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {fmtDate(run.startedAt)}
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono">
+                      {run.aggregateCounts.scenarioPassedCount}/
+                      {run.aggregateCounts.scenarioTotal}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </>
   );
 }
 
@@ -405,7 +512,13 @@ function TokenForm({
   );
 }
 
-function OverviewView({ request }: { request: ServerRequest }) {
+function OverviewView({
+  request,
+  navigate,
+}: {
+  request: ServerRequest;
+  navigate: (href: string) => void;
+}) {
   const [runs, setRuns] = useState<RunsResponse | null>(null);
   const [suites, setSuites] = useState<SuitesResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -449,12 +562,18 @@ function OverviewView({ request }: { request: ServerRequest }) {
       <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
         Latest Runs
       </div>
-      <RunsTable runs={runs.runs} />
+      <RunsTable runs={runs.runs} navigate={navigate} />
     </>
   );
 }
 
-function RunsView({ request }: { request: ServerRequest }) {
+function RunsView({
+  request,
+  navigate,
+}: {
+  request: ServerRequest;
+  navigate: (href: string) => void;
+}) {
   const [data, setData] = useState<RunsResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -481,7 +600,7 @@ function RunsView({ request }: { request: ServerRequest }) {
   return (
     <>
       <PageHeader eyebrow="History" title="Runs" meta={`${data.total} total`} />
-      <RunsTable runs={data.runs} />
+      <RunsTable runs={data.runs} navigate={navigate} />
     </>
   );
 }
@@ -490,15 +609,22 @@ export function RunDetailView({
   runId,
   request,
   token,
+  navigate,
 }: {
   runId: string;
   request: ServerRequest;
   token: string;
+  navigate?: (href: string) => void;
 }) {
   const [run, setRun] = useState<RunRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedOrdinal, setSelectedOrdinal] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [presetModalOpen, setPresetModalOpen] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const [presetDescription, setPresetDescription] = useState("");
+  const [savingPreset, setSavingPreset] = useState(false);
+  const [presetError, setPresetError] = useState<string | null>(null);
   const requestRef = useRef(request);
   const activeRunIdRef = useRef(runId);
   const mountedRef = useRef(true);
@@ -591,6 +717,49 @@ export function RunDetailView({
       ? (dashboardData.details[selectedOrdinal] ?? null)
       : null;
 
+  const openPresetModal = () => {
+    setPresetError(null);
+    const fallback =
+      run?.label ??
+      run?.preset ??
+      `Run ${run?.runId.slice(0, 8) ?? ""}`.trim();
+    setPresetName(fallback);
+    setPresetDescription("");
+    setPresetModalOpen(true);
+  };
+
+  const submitPreset = async () => {
+    if (!run) return;
+    const trimmedName = presetName.trim();
+    if (trimmedName.length === 0) {
+      setPresetError("Name is required.");
+      return;
+    }
+    setSavingPreset(true);
+    setPresetError(null);
+    try {
+      const response = await request<{ preset: { id: string } }>(
+        `/api/runs/${encodeURIComponent(run.runId)}/save-as-preset`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name: trimmedName,
+            description: presetDescription.trim() || null,
+          }),
+        },
+      );
+      setPresetModalOpen(false);
+      if (navigate && response?.preset?.id) {
+        navigate(`/presets/${encodeURIComponent(response.preset.id)}`);
+      }
+    } catch (err) {
+      setPresetError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSavingPreset(false);
+    }
+  };
+
   if (error) return <ErrorBanner message={error} />;
   if (!run || !dashboardData) return <Loading />;
 
@@ -633,6 +802,14 @@ export function RunDetailView({
                 {cancelling ? "Cancelling…" : "Cancel"}
               </Button>
             )}
+            <Button
+              variant="secondary"
+              onClick={openPresetModal}
+              disabled={!run.scenarios || run.scenarios.length === 0}
+              title="Create a preset that reuses this run's endpoint, personas, rubric, and scenarios"
+            >
+              Save as preset
+            </Button>
             <a
               href={`/api/runs/${encodeURIComponent(run.runId)}/report.html`}
               className="inline-flex items-center justify-center gap-1.5 rounded-md font-medium border transition-colors px-3 py-1.5 text-sm bg-secondary text-foreground border-border hover:bg-primary hover:border-border no-underline"
@@ -642,6 +819,54 @@ export function RunDetailView({
           </>
         }
       />
+      <Modal
+        open={presetModalOpen}
+        onClose={() => {
+          if (!savingPreset) setPresetModalOpen(false);
+        }}
+        title="Save as preset"
+        description="Captures this run's endpoint, personas, rubric, and the exact scenario selection so you can re-run it later."
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setPresetModalOpen(false)}
+              disabled={savingPreset}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => void submitPreset()}
+              disabled={savingPreset || presetName.trim().length === 0}
+            >
+              {savingPreset ? "Saving…" : "Save preset"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4 py-2">
+          {presetError ? <ErrorBanner message={presetError} /> : null}
+          <Field label="Name" htmlFor="preset-from-run-name">
+            <TextInput
+              id="preset-from-run-name"
+              value={presetName}
+              onChange={(event) => setPresetName(event.target.value)}
+              placeholder="e.g. Nightly smoke (gpt-4o)"
+              autoFocus
+            />
+          </Field>
+          <Field label="Description" htmlFor="preset-from-run-description">
+            <TextInput
+              id="preset-from-run-description"
+              value={presetDescription}
+              onChange={(event) => setPresetDescription(event.target.value)}
+              placeholder="Optional"
+            />
+          </Field>
+        </div>
+      </Modal>
       <RunMetaEditor
         run={run}
         request={request}
@@ -1834,10 +2059,10 @@ function ServerDashboard() {
 
   const content = (() => {
     if (pathname === "/" || pathname === "/index.html") {
-      return <OverviewView request={request} />;
+      return <OverviewView request={request} navigate={navigate} />;
     }
     if (pathname === "/runs") {
-      return <RunsView request={request} />;
+      return <RunsView request={request} navigate={navigate} />;
     }
     if (pathname === "/start") {
       return <StartRunView request={request} navigate={navigate} />;
@@ -1882,6 +2107,7 @@ function ServerDashboard() {
           runId={decodeURIComponent(runMatch[1] ?? "")}
           request={request}
           token={token}
+          navigate={navigate}
         />
       );
     }

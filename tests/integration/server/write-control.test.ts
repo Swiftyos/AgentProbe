@@ -377,6 +377,56 @@ describe("server write control", () => {
     );
   });
 
+  test("save-as-preset clones a completed run into a preset", async () => {
+    const { server } = await start();
+    const started = await json<RunStartResponse>(`${server.url}/api/runs`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        endpoint: "endpoint.yaml",
+        personas: "personas.yaml",
+        rubric: "rubric.yaml",
+        selection: [{ file: "scenarios.yaml", id: "smoke" }],
+        dry_run: true,
+        label: "for-cloning",
+      }),
+    });
+    await waitForRun(server, started.run_id);
+
+    const cloned = await json<PresetResponse>(
+      `${server.url}/api/runs/${started.run_id}/save-as-preset`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "cloned-from-run",
+          description: "Cloned from a dry run",
+        }),
+      },
+    );
+    expect(cloned.preset.name).toBe("cloned-from-run");
+    expect(cloned.preset.selection).toEqual([
+      { file: "scenarios.yaml", id: "smoke" },
+    ]);
+
+    const fetched = await json<{ preset: PresetResponse["preset"] }>(
+      `${server.url}/api/presets/${cloned.preset.id}`,
+    );
+    expect(fetched.preset.selection).toEqual([
+      { file: "scenarios.yaml", id: "smoke" },
+    ]);
+
+    const missing = await fetch(
+      `${server.url}/api/runs/00000000000000000000000000000000/save-as-preset`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "ghost" }),
+      },
+    );
+    expect(missing.status).toBe(404);
+  });
+
   test("protects write routes and rejects paths outside the data root", async () => {
     const { server } = await start({ token: "server-token" });
     const denied = await fetch(`${server.url}/api/runs`, {
