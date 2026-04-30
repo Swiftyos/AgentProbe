@@ -24,7 +24,7 @@ export async function handleSession(
   return jsonResponse(
     {
       version: context.version,
-      auth_required: Boolean(context.config.token),
+      auth_required: false,
       db: {
         backend: context.repository.kind,
         url: context.config.dbUrl ? redactDbUrl(context.config.dbUrl) : null,

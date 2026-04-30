@@ -12,7 +12,6 @@ import {
   createSecretCipher,
   resolveMasterKey,
 } from "../../shared/utils/secret-cipher.ts";
-import { verifyBearerToken } from "./auth/token.ts";
 import type { ServerConfig } from "./config.ts";
 import {
   type ComparisonController,
@@ -520,29 +519,11 @@ export async function startAgentProbeServer(
       } else {
         const matched = matchRoute(routes, request.method, url.pathname);
         if (matched) {
-          if (matched.route.requiresAuth && config.token) {
-            if (!verifyBearerToken(request, config.token)) {
-              response = errorResponse({
-                status: 401,
-                type: "Unauthorized",
-                message: "Missing or invalid bearer token.",
-                requestId,
-                headers: { "www-authenticate": 'Bearer realm="agentprobe"' },
-              });
-            } else {
-              response = await matched.route.handler(
-                request,
-                context,
-                matched.params,
-              );
-            }
-          } else {
-            response = await matched.route.handler(
-              request,
-              context,
-              matched.params,
-            );
-          }
+          response = await matched.route.handler(
+            request,
+            context,
+            matched.params,
+          );
         } else {
           response = await handleStatic(request, context);
         }

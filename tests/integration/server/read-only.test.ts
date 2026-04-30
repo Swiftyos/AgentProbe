@@ -320,21 +320,19 @@ describe("read-only AgentProbe server", () => {
     expect(text).toContain(`"run_id":"${runId}"`);
   });
 
-  test("protects API routes with bearer auth while health and static stay public", async () => {
+  test("API routes are reachable without a bearer token", async () => {
     const { server } = await start({ token: "server-token" });
 
     expect((await fetch(`${server.url}/healthz`)).status).toBe(200);
     expect((await fetch(`${server.url}/`)).status).toBe(200);
 
-    const denied = await fetch(`${server.url}/api/runs`);
-    expect(denied.status).toBe(401);
-    const body = (await denied.json()) as { error: { code: string } };
-    expect(body.error.code).toBe("Unauthorized");
+    const noToken = await fetch(`${server.url}/api/runs`);
+    expect(noToken.status).toBe(200);
 
-    const allowed = await fetch(`${server.url}/api/runs`, {
+    const withToken = await fetch(`${server.url}/api/runs`, {
       headers: { authorization: "Bearer server-token" },
     });
-    expect(allowed.status).toBe(200);
+    expect(withToken.status).toBe(200);
   });
 
   test("allows same-origin API CORS by default and rejects other preflights", async () => {
