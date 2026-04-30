@@ -536,7 +536,32 @@ const META_CORRECTION_NOTE = [
   "Return exactly one natural-language user message in the persona's first-person voice. No role labels, no planning, no meta commentary.",
 ].join("\n");
 
+const REQUIRED_RESPONSE_STATUS_CORRECTION_NOTE = [
+  "",
+  'IMPORTANT: your previous reply was invalid for a required scripted turn.',
+  'Return `{"message":"..."}` with one non-empty natural-language user message.',
+  'Do not return `completed`, `stalled`, or an empty message for this turn.',
+].join("\n");
+
+const CONTINUE_MESSAGE_CORRECTION_NOTE = [
+  "",
+  "IMPORTANT: when status is `continue`, the `message` field must be a non-empty natural-language user message.",
+  "Return one complete message with actual user wording. No blanks, nulls, placeholders, or meta commentary.",
+].join("\n");
+
 const MAX_PERSONA_ATTEMPTS = 3;
+
+function correctionNoteForPersonaError(
+  error: AgentProbeRuntimeError,
+): string | undefined {
+  if (error.message.includes("must return `continue`")) {
+    return REQUIRED_RESPONSE_STATUS_CORRECTION_NOTE;
+  }
+  if (error.message.includes("non-empty `message`")) {
+    return CONTINUE_MESSAGE_CORRECTION_NOTE;
+  }
+  return undefined;
+}
 
 export async function generatePersonaStep(
   persona: Persona,
@@ -571,12 +596,27 @@ export async function generatePersonaStep(
   };
 
   let lastStep: PersonaStep | undefined;
+  let lastError: AgentProbeRuntimeError | undefined;
   for (let attempt = 1; attempt <= MAX_PERSONA_ATTEMPTS; attempt += 1) {
     const response = await client.create(request);
-    const step = validatePersonaStep(
-      parsePersonaPayload(response.outputText, requireResponse),
-      requireResponse,
-    );
+    let step: PersonaStep;
+    try {
+      step = validatePersonaStep(
+        parsePersonaPayload(response.outputText, requireResponse),
+        requireResponse,
+      );
+    } catch (error) {
+      if (!(error instanceof AgentProbeRuntimeError)) {
+        throw error;
+      }
+      lastError = error;
+      const correctionNote = correctionNoteForPersonaError(error);
+      if (!correctionNote || attempt === MAX_PERSONA_ATTEMPTS) {
+        throw error;
+      }
+      request.input = `${baseInput}${correctionNote}`;
+      continue;
+    }
     lastStep = step;
     if (
       step.status !== "continue" ||
@@ -590,6 +630,9 @@ export async function generatePersonaStep(
 
   if (lastStep && (!requireResponse || lastStep.status === "continue")) {
     return lastStep;
+  }
+  if (lastError) {
+    throw lastError;
   }
   throw new AgentProbeRuntimeError(
     "Persona simulator kept returning meta commentary instead of a natural user message.",

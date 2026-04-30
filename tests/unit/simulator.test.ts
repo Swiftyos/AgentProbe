@@ -185,7 +185,7 @@ describe("simulator", () => {
     });
   });
 
-  test("coerces required response payloads and rejects invalid required turns", async () => {
+  test("coerces required response payloads and recovers from invalid required turns", async () => {
     const acceptableClient = new FakeResponsesClient([
       buildPersonaStep("completed", "I need the CRM record for Sarah."),
     ]);
@@ -200,7 +200,51 @@ describe("simulator", () => {
       message: "I need the CRM record for Sarah.",
     });
 
+    const recoveredStatusClient = new FakeResponsesClient([
+      buildPersonaStep("completed"),
+      { message: "Please check the CRM record for Sarah." },
+    ]);
+    await expect(
+      generatePersonaStep(
+        buildPersona(),
+        [{ role: "user", content: "Hello" }],
+        asResponsesClient(recoveredStatusClient) as never,
+        { requireResponse: true },
+      ),
+    ).resolves.toEqual({
+      status: "continue",
+      message: "Please check the CRM record for Sarah.",
+    });
+    expect(recoveredStatusClient.calls).toHaveLength(2);
+    expect(recoveredStatusClient.calls[1]?.input).toContain(
+      'Return `{"message":"..."}` with one non-empty natural-language user message.',
+    );
+
+    const recoveredEmptyMessageClient = new FakeResponsesClient([
+      buildPersonaStep("continue", "   "),
+      buildPersonaStep("continue", "Yes, please double-check the timeline."),
+    ]);
+    await expect(
+      generatePersonaStep(
+        buildPersona(),
+        [{ role: "user", content: "Hello" }],
+        asResponsesClient(recoveredEmptyMessageClient) as never,
+        { requireResponse: true },
+      ),
+    ).resolves.toEqual({
+      status: "continue",
+      message: "Yes, please double-check the timeline.",
+    });
+    expect(recoveredEmptyMessageClient.calls).toHaveLength(2);
+    expect(recoveredEmptyMessageClient.calls[1]?.input).toContain(
+      "when status is `continue`, the `message` field must be a non-empty natural-language user message.",
+    );
+  });
+
+  test("still fails after repeated invalid required-turn payloads", async () => {
     const invalidStatusClient = new FakeResponsesClient([
+      buildPersonaStep("completed"),
+      buildPersonaStep("completed"),
       buildPersonaStep("completed"),
     ]);
     await expect(
@@ -213,6 +257,8 @@ describe("simulator", () => {
     ).rejects.toThrow(/must return `continue`/);
 
     const emptyMessageClient = new FakeResponsesClient([
+      buildPersonaStep("continue", "   "),
+      buildPersonaStep("continue", "   "),
       buildPersonaStep("continue", "   "),
     ]);
     await expect(
