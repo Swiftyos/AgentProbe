@@ -4,17 +4,21 @@ name: Build & Deploy
 # and rolls out infra/k8s/manifest.yaml against a GKE cluster.
 #
 # This workflow is **opt-in**. It does nothing on a fresh fork until the GitHub
-# Environment variables below are configured.
+# Environment secrets below are configured.
 #
 # Setup
 # =====
 # Create a GitHub Environment named "dev" at Settings → Environments and set
-# the variables below on it. Pushes to `main` auto-deploy to dev. A "prod"
+# the secrets below on it. Pushes to `main` auto-deploy to dev. A "prod"
 # environment can be added later and targeted manually via workflow_dispatch.
 #
-# Required:
+# All values are stored as Environment **secrets** (not variables) so that
+# infrastructure topology never appears unmasked in workflow logs of this
+# public repo.
+#
+# Required secrets (Settings → Environments → <env> → Environment secrets):
 #   GCP_PROJECT_ID                  e.g. my-project
-#   GCP_REGION                      e.g. us-east1
+#   GCP_REGION                      e.g. us-central1
 #   GCP_ARTIFACT_REPOSITORY         e.g. agentprobe
 #   GCP_WORKLOAD_IDENTITY_PROVIDER  full provider resource name
 #   GCP_DEPLOY_SERVICE_ACCOUNT      SA email impersonated via WIF
@@ -25,15 +29,17 @@ name: Build & Deploy
 #                                   in-cluster ServiceAccount (used by the
 #                                   Cloud SQL Proxy sidecar to authenticate)
 #   CLOUD_SQL_INSTANCE              project:region:instance string
+#   AGENTPROBE_SERVER_TOKEN         bearer token issued to API clients
+#   AGENTPROBE_ENCRYPTION_KEY       at-rest encryption key
+#   DB_PASSWORD                     password for the `evals` Postgres user;
+#                                   the workflow constructs AGENTPROBE_DB_URL
+#                                   from this as
+#                                   postgresql://evals:<password>@127.0.0.1:5432/evals
+#   OPEN_ROUTER_API_KEY             OpenRouter API key
 #
-# Optional:
+# Optional secrets:
 #   IMAGE_NAME      defaults to "agentprobe"
 #   DEPLOY_BRANCH   branch that auto-deploys; defaults to "main"
-#
-# No secrets are required by the workflow itself; runtime secrets such as
-# AGENTPROBE_SERVER_TOKEN, OPEN_ROUTER_API_KEY, AGENTPROBE_DB_URL, and
-# AGENTPROBE_ENCRYPTION_KEY must already exist in a Kubernetes Secret named
-# "evals-secrets" in the target namespace (see infra/README.md).
 
 on:
   push:
@@ -76,18 +82,18 @@ jobs:
       - name: Verify deploy configuration
         id: check
         env:
-          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
-          GCP_REGION: ${{ vars.GCP_REGION }}
-          GCP_ARTIFACT_REPOSITORY: ${{ vars.GCP_ARTIFACT_REPOSITORY }}
-          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          GCP_DEPLOY_SERVICE_ACCOUNT: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
-          GKE_CLUSTER: ${{ vars.GKE_CLUSTER }}
-          GKE_LOCATION: ${{ vars.GKE_LOCATION }}
-          K8S_NAMESPACE: ${{ vars.K8S_NAMESPACE }}
-          GSA_EMAIL: ${{ vars.GSA_EMAIL }}
-          CLOUD_SQL_INSTANCE: ${{ vars.CLOUD_SQL_INSTANCE }}
-          IMAGE_NAME: ${{ vars.IMAGE_NAME }}
-          DEPLOY_BRANCH: ${{ vars.DEPLOY_BRANCH }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION: ${{ secrets.GCP_REGION }}
+          GCP_ARTIFACT_REPOSITORY: ${{ secrets.GCP_ARTIFACT_REPOSITORY }}
+          GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          GCP_DEPLOY_SERVICE_ACCOUNT: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          GKE_CLUSTER: ${{ secrets.GKE_CLUSTER }}
+          GKE_LOCATION: ${{ secrets.GKE_LOCATION }}
+          K8S_NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
+          GSA_EMAIL: ${{ secrets.GSA_EMAIL }}
+          CLOUD_SQL_INSTANCE: ${{ secrets.CLOUD_SQL_INSTANCE }}
+          IMAGE_NAME: ${{ secrets.IMAGE_NAME }}
+          DEPLOY_BRANCH: ${{ secrets.DEPLOY_BRANCH }}
         run: |
           set -euo pipefail
           missing=()
@@ -104,7 +110,7 @@ jobs:
           echo "deploy_branch=$deploy_branch" >> "$GITHUB_OUTPUT"
 
           if [[ ${#missing[@]} -gt 0 ]]; then
-            echo "::warning::Skipping build/deploy. Missing variables in environment '${{ inputs.environment || 'dev' }}': ${missing[*]}"
+            echo "::warning::Skipping build/deploy. Missing secrets in environment '${{ inputs.environment || 'dev' }}': ${missing[*]}"
             echo "::warning::See .github/workflows/build-deploy.yml header for setup instructions."
             echo "configured=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -138,13 +144,13 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
           token_format: access_token
           create_credentials_file: true
 
       - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+        run: gcloud auth configure-docker ${{ secrets.GCP_REGION }}-docker.pkg.dev --quiet
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -174,8 +180,8 @@ jobs:
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
 
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
@@ -186,27 +192,62 @@ jobs:
       - name: Get GKE credentials
         uses: google-github-actions/get-gke-credentials@v2
         with:
-          cluster_name: ${{ vars.GKE_CLUSTER }}
-          location: ${{ vars.GKE_LOCATION }}
+          cluster_name: ${{ secrets.GKE_CLUSTER }}
+          location: ${{ secrets.GKE_LOCATION }}
 
       - name: Ensure namespace exists
+        env:
+          NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
         run: |
-          kubectl get namespace "${{ vars.K8S_NAMESPACE }}" >/dev/null 2>&1 \
-            || kubectl create namespace "${{ vars.K8S_NAMESPACE }}"
+          kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 \
+            || kubectl create namespace "$NAMESPACE"
+
+      - name: Apply runtime Secret
+        env:
+          NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
+          AGENTPROBE_SERVER_TOKEN: ${{ secrets.AGENTPROBE_SERVER_TOKEN }}
+          AGENTPROBE_ENCRYPTION_KEY: ${{ secrets.AGENTPROBE_ENCRYPTION_KEY }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          OPEN_ROUTER_API_KEY: ${{ secrets.OPEN_ROUTER_API_KEY }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for var in AGENTPROBE_SERVER_TOKEN AGENTPROBE_ENCRYPTION_KEY \
+                    DB_PASSWORD OPEN_ROUTER_API_KEY; do
+            if [[ -z "${!var:-}" ]]; then
+              missing+=("$var")
+            fi
+          done
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::error::Missing secrets in GitHub Environment: ${missing[*]}"
+            exit 1
+          fi
+          # Cloud SQL Proxy sidecar listens on 127.0.0.1:5432; the database
+          # name and user are fixed by the Terraform module (`evals`/`evals`).
+          AGENTPROBE_DB_URL="postgresql://evals:${DB_PASSWORD}@127.0.0.1:5432/evals"
+          kubectl create secret generic evals-secrets \
+            --namespace "$NAMESPACE" \
+            --from-literal=AGENTPROBE_SERVER_TOKEN="$AGENTPROBE_SERVER_TOKEN" \
+            --from-literal=AGENTPROBE_ENCRYPTION_KEY="$AGENTPROBE_ENCRYPTION_KEY" \
+            --from-literal=AGENTPROBE_DB_URL="$AGENTPROBE_DB_URL" \
+            --from-literal=OPEN_ROUTER_API_KEY="$OPEN_ROUTER_API_KEY" \
+            --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Apply manifest
         env:
-          NAMESPACE: ${{ vars.K8S_NAMESPACE }}
-          GSA_EMAIL: ${{ vars.GSA_EMAIL }}
-          CLOUD_SQL_INSTANCE: ${{ vars.CLOUD_SQL_INSTANCE }}
+          NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
+          GSA_EMAIL: ${{ secrets.GSA_EMAIL }}
+          CLOUD_SQL_INSTANCE: ${{ secrets.CLOUD_SQL_INSTANCE }}
           IMAGE: ${{ needs.build-and-push.outputs.image }}
           TAG: ${{ needs.build-and-push.outputs.sha }}
         run: |
           set -euo pipefail
-          envsubst < infra/k8s/manifest.yaml | tee /tmp/rendered.yaml
+          envsubst < infra/k8s/manifest.yaml > /tmp/rendered.yaml
           kubectl apply -f /tmp/rendered.yaml
 
       - name: Wait for rollout
+        env:
+          NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
         run: |
-          kubectl --namespace "${{ vars.K8S_NAMESPACE }}" rollout status \
+          kubectl --namespace "$NAMESPACE" rollout status \
             deployment/evals --timeout=5m
