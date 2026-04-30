@@ -1,30 +1,27 @@
 # Deploying AgentProbe to GKE
 
-AgentProbe ships an opt-in build-and-deploy pipeline:
+A single prod deployment with a Cloud SQL Proxy sidecar. No Helm, no ingress, no static IPs — access is via `kubectl port-forward`. Pods reach Postgres through the sidecar at `127.0.0.1:5432` and any other in-cluster service through normal cluster DNS.
+
+Pieces:
 
 - [`Dockerfile`](../Dockerfile) — multi-stage Bun build, exposes `:7878`.
-- [`infra/helm/agentprobe`](helm/agentprobe) — generic Helm chart.
-- [`.github/workflows/build-deploy.yml`](../.github/workflows/build-deploy.yml) — builds, pushes to Google Artifact Registry, and runs `helm upgrade --install` against a GKE cluster.
+- [`infra/k8s/manifest.yaml`](k8s/manifest.yaml) — `ServiceAccount` + `Service` + `Deployment` (with `cloud-sql-proxy` sidecar). Placeholders are filled in at deploy time.
+- [`.github/workflows/build-deploy.yml`](../.github/workflows/build-deploy.yml) — builds, pushes to Google Artifact Registry, runs `envsubst | kubectl apply`.
 
-The repository is public, so nothing here is tied to a specific GCP project, cluster, or domain. Environment-specific config (hostnames, GCP project IDs, etc.) lives exclusively in **GitHub Environment variables** — nothing environment-specific is ever committed.
+The repository is public, so nothing here is tied to a specific GCP project, cluster, or domain. All environment-specific config lives in **GitHub Environment variables**.
 
-## How environments work
+## How it works
 
-Create one GitHub Environment per deployment target at **Settings → Environments** (e.g. `dev` and `prod`). Each environment has its own variable set. The workflow reads all config from `vars.*` scoped to the active environment, so:
-
-- push to `main` → deploys to the `prod` environment automatically
-- manual `workflow_dispatch` → choose `dev` or `prod` at run time
-- a fork that hasn't configured any environment just sees a preflight warning and exits cleanly
+Push to `main` → builds the image, tags it with the short SHA, pushes to Artifact Registry, then renders [`manifest.yaml`](k8s/manifest.yaml) with `envsubst` and applies it. `workflow_dispatch` lets you pick a different environment by name (must match a GitHub Environment).
 
 ## One-time GCP setup
-
-Run these against the project that will host the cluster. Replace the placeholders with your own values.
 
 ```bash
 PROJECT_ID=my-project
 REGION=us-east1
 REPO=agentprobe
-SA=agentprobe-deploy
+DEPLOY_SA=agentprobe-deploy
+RUNTIME_SA=evals-runtime          # used by the in-cluster ServiceAccount via WI
 POOL=github-actions
 PROVIDER=github
 GH_OWNER=<your-github-org-or-user>
@@ -36,19 +33,19 @@ gcloud artifacts repositories create "$REPO" \
     --location="$REGION" \
     --project="$PROJECT_ID"
 
-# Service account that GitHub Actions will impersonate
-gcloud iam service-accounts create "$SA" \
-    --project="$PROJECT_ID"
-
-SA_EMAIL="${SA}@${PROJECT_ID}.iam.gserviceaccount.com"
-
-# Push to Artifact Registry + deploy to GKE
+# GitHub Actions deploy SA
+gcloud iam service-accounts create "$DEPLOY_SA" --project="$PROJECT_ID"
+DEPLOY_EMAIL="${DEPLOY_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="roles/artifactregistry.writer"
+    --member="serviceAccount:${DEPLOY_EMAIL}" --role="roles/artifactregistry.writer"
 gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="roles/container.developer"
+    --member="serviceAccount:${DEPLOY_EMAIL}" --role="roles/container.developer"
+
+# Runtime SA — Cloud SQL Proxy authenticates as this via Workload Identity
+gcloud iam service-accounts create "$RUNTIME_SA" --project="$PROJECT_ID"
+RUNTIME_EMAIL="${RUNTIME_SA}@${PROJECT_ID}.iam.gserviceaccount.com"
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:${RUNTIME_EMAIL}" --role="roles/cloudsql.client"
 
 # Workload Identity Pool + Provider locked to this repo
 gcloud iam workload-identity-pools create "$POOL" \
@@ -63,18 +60,26 @@ gcloud iam workload-identity-pools providers create-oidc "$PROVIDER" \
 
 PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
 
-gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
+# Allow GitHub Actions to impersonate the deploy SA
+gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_EMAIL" \
     --project="$PROJECT_ID" \
     --role="roles/iam.workloadIdentityUser" \
     --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/attribute.repository/${GH_OWNER}/${GH_REPO}"
 
+# Allow the in-cluster k8s SA "evals" in namespace "evals" to impersonate the runtime SA
+gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_EMAIL" \
+    --project="$PROJECT_ID" \
+    --role="roles/iam.workloadIdentityUser" \
+    --member="serviceAccount:${PROJECT_ID}.svc.id.goog[evals/evals]"
+
 echo "WORKLOAD_IDENTITY_PROVIDER=projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/providers/${PROVIDER}"
-echo "DEPLOY_SERVICE_ACCOUNT=${SA_EMAIL}"
+echo "DEPLOY_SERVICE_ACCOUNT=${DEPLOY_EMAIL}"
+echo "GSA_EMAIL=${RUNTIME_EMAIL}"
 ```
 
 ## Configure GitHub Environment variables
 
-Go to **Settings → Environments**, open the target environment (e.g. `prod`), and set these variables:
+Settings → Environments → `prod` (create the environment first) → set variables:
 
 ### Required
 
@@ -87,71 +92,50 @@ Go to **Settings → Environments**, open the target environment (e.g. `prod`), 
 | `GCP_DEPLOY_SERVICE_ACCOUNT` | `agentprobe-deploy@my-project.iam.gserviceaccount.com` |
 | `GKE_CLUSTER` | `my-gke-cluster` |
 | `GKE_LOCATION` | `us-east1-b` |
-| `K8S_NAMESPACE` | `agentprobe` |
+| `K8S_NAMESPACE` | `evals` |
+| `GSA_EMAIL` | `evals-runtime@my-project.iam.gserviceaccount.com` |
+| `CLOUD_SQL_INSTANCE` | `my-project:us-central1:my-instance` |
 
-### Optional — release config
+### Optional
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `IMAGE_NAME` | `agentprobe` | Image name in Artifact Registry |
-| `HELM_RELEASE` | `agentprobe` | Helm release name |
-| `DEPLOY_BRANCH` | `main` | Branch that triggers auto-deploy |
-
-### Optional — Helm overlay
-
-These are assembled into a temporary values file at deploy time. Nothing environment-specific is committed to the repo.
-
-| Variable | Description |
+| Variable | Default |
 | --- | --- |
-| `HELM_WI_GSA` | GSA email for the in-cluster ServiceAccount annotation (`iam.gke.io/gcp-service-account`) |
-| `HELM_INGRESS_ENABLED` | `"true"` to create an Ingress resource |
-| `HELM_INGRESS_HOST` | Hostname, e.g. `agentprobe.example.com` |
-| `HELM_INGRESS_CLASS` | Ingress class (default: `gce`) |
-| `HELM_INGRESS_TLS_SECRET` | TLS Secret name; omit to skip the TLS section |
-| `HELM_CORS_ORIGINS` | `AGENTPROBE_SERVER_CORS_ORIGINS` value |
-| `HELM_EXISTING_SECRET` | Name of the pre-created k8s Secret with runtime credentials (see below) |
-| `HELM_AUTOSCALING_ENABLED` | `"true"` to enable HPA |
-| `HELM_AUTOSCALING_MAX` | Max replicas (default: `3`) |
-| `HELM_PDB_ENABLED` | `"true"` to enable PodDisruptionBudget |
-| `HELM_PERSISTENCE_SIZE` | PVC size override, e.g. `5Gi` |
-| `INGRESS_STATIC_IP_NAME` | Reserved Google global static IP name |
-| `CLOUD_SQL_INSTANCE_CONNECTION_NAME` | Cloud SQL instance, e.g. `my-project:us-central1:my-instance` |
-| `CLOUD_SQL_PROXY_IMAGE` | Override the Cloud SQL Proxy image |
+| `IMAGE_NAME` | `agentprobe` |
+| `DEPLOY_BRANCH` | `main` |
 
-No GitHub Actions secrets are required — the workflow uses Workload Identity Federation.
+No GitHub Actions secrets are required — Workload Identity Federation handles auth.
 
 ## Pre-create the runtime Secret
 
-The chart never creates Secrets. Supply the credentials out of band before the first deploy:
+The manifest reads everything sensitive from a Secret named `evals-secrets` via `envFrom`. Create it once before the first deploy:
 
 ```bash
-kubectl create namespace agentprobe
-kubectl create secret generic agentprobe-secrets \
-    --namespace agentprobe \
+kubectl create namespace evals
+kubectl create secret generic evals-secrets \
+    --namespace evals \
     --from-literal=AGENTPROBE_SERVER_TOKEN="$(openssl rand -hex 32)" \
-    --from-literal=OPEN_ROUTER_API_KEY='sk-or-...'
+    --from-literal=OPEN_ROUTER_API_KEY='sk-or-...' \
+    --from-literal=AGENTPROBE_DB_URL='postgresql://USER:PASS@127.0.0.1:5432/DBNAME' \
+    --from-literal=AGENTPROBE_ENCRYPTION_KEY="$(openssl rand -hex 32)"
 ```
 
-Then set `HELM_EXISTING_SECRET=agentprobe-secrets` in the GitHub Environment. For Postgres, also include `AGENTPROBE_DB_URL` and `AGENTPROBE_ENCRYPTION_KEY` keys in the Secret.
+`AGENTPROBE_DB_URL` points at `127.0.0.1:5432` because the Cloud SQL Proxy sidecar listens on the loopback interface inside the pod.
 
-Reserve the static IP once before deploying (the workflow attaches it but does not create it):
+## Access the UI
 
 ```bash
-gcloud compute addresses create agentprobe-prod-ip --global --project=$PROJECT_ID
+kubectl port-forward -n evals svc/evals 7878:7878
 ```
 
-Point your DNS A record at the address shown by `gcloud compute addresses describe agentprobe-prod-ip --global`.
+Then open <http://localhost:7878>.
 
 ## Deploy from your laptop
 
-For one-off local deploys, pass overrides directly with `--set` or a local file you do **not** commit:
-
 ```bash
-helm upgrade --install agentprobe ./infra/helm/agentprobe \
-    --namespace agentprobe --create-namespace \
-    --set image.repository=us-east1-docker.pkg.dev/my-project/agentprobe/agentprobe \
-    --set image.tag=latest \
-    --set ingress.enabled=true \
-    --set "ingress.hosts[0].host=agentprobe.example.com" \
-    --set secrets.existingSecretName=agentprobe-secrets
+NAMESPACE=evals \
+IMAGE=us-east1-docker.pkg.dev/my-project/agentprobe/agentprobe \
+TAG=latest \
+GSA_EMAIL=evals-runtime@my-project.iam.gserviceaccount.com \
+CLOUD_SQL_INSTANCE=my-project:us-central1:my-instance \
+envsubst < infra/k8s/manifest.yaml | kubectl apply -f -
 ```

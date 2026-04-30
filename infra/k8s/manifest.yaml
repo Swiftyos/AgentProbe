@@ -1,0 +1,132 @@
+# AgentProbe evals deployment.
+#
+# Placeholders are filled in at deploy time by the build-deploy workflow
+# (see .github/workflows/build-deploy.yml). For local apply, run:
+#
+#   IMAGE=...    TAG=...    NAMESPACE=evals \
+#   GSA_EMAIL=...    CLOUD_SQL_INSTANCE=project:region:instance \
+#   envsubst < infra/k8s/manifest.yaml | kubectl apply -f -
+#
+# Required out-of-band setup:
+#   - kubectl create namespace ${NAMESPACE}
+#   - kubectl create secret generic evals-secrets -n ${NAMESPACE} \
+#       --from-literal=AGENTPROBE_SERVER_TOKEN=...
+#       --from-literal=OPEN_ROUTER_API_KEY=...
+#       --from-literal=AGENTPROBE_DB_URL='postgresql://USER:PASS@127.0.0.1:5432/DB'
+#       --from-literal=AGENTPROBE_ENCRYPTION_KEY=...
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: evals
+  namespace: ${NAMESPACE}
+  annotations:
+    iam.gke.io/gcp-service-account: ${GSA_EMAIL}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: evals
+  namespace: ${NAMESPACE}
+  labels:
+    app: evals
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 7878
+      targetPort: http
+      protocol: TCP
+  selector:
+    app: evals
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evals
+  namespace: ${NAMESPACE}
+  labels:
+    app: evals
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: evals
+  template:
+    metadata:
+      labels:
+        app: evals
+    spec:
+      serviceAccountName: evals
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: evals
+          image: ${IMAGE}:${TAG}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 7878
+              protocol: TCP
+          env:
+            - name: AGENTPROBE_SERVER_HOST
+              value: "0.0.0.0"
+            - name: AGENTPROBE_SERVER_PORT
+              value: "7878"
+            - name: AGENTPROBE_SERVER_LOG_FORMAT
+              value: "json"
+          envFrom:
+            - secretRef:
+                name: evals-secrets
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.15.2
+          args:
+            - "--structured-logs"
+            - "--port=5432"
+            - "${CLOUD_SQL_INSTANCE}"
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi

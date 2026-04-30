@@ -1,55 +1,39 @@
 name: Build & Deploy
 
 # Builds the AgentProbe container image, pushes it to Google Artifact Registry,
-# and rolls out the chart in `infra/helm/agentprobe` via `helm upgrade --install`.
+# and rolls out infra/k8s/manifest.yaml against a GKE cluster.
 #
-# This workflow is **opt-in**. It does nothing on a fresh fork until you configure
-# the GitHub Environments described below.
+# This workflow is **opt-in**. It does nothing on a fresh fork until the GitHub
+# Environment variables below are configured.
 #
-# MULTI-ENVIRONMENT SETUP
-# =======================
-# Create one GitHub Environment per deployment target (e.g. "dev", "prod") at
-# Settings → Environments. Each environment holds its own variable set so no
-# environment-specific config is ever committed to this public repo.
+# Setup
+# =====
+# Create a GitHub Environment named "prod" at Settings → Environments and set
+# these variables on it. (Add more environments only if you need them — the
+# default deploy targets "prod".)
 #
-# Required variables (set per environment):
+# Required:
 #   GCP_PROJECT_ID                  e.g. my-project
 #   GCP_REGION                      e.g. us-east1
 #   GCP_ARTIFACT_REPOSITORY         e.g. agentprobe
 #   GCP_WORKLOAD_IDENTITY_PROVIDER  full provider resource name
-#                                   (projects/<num>/locations/global/workloadIdentityPools/<pool>/providers/<provider>)
 #   GCP_DEPLOY_SERVICE_ACCOUNT      SA email impersonated via WIF
 #   GKE_CLUSTER                     cluster name
 #   GKE_LOCATION                    cluster zone or region
 #   K8S_NAMESPACE                   target namespace (created if missing)
+#   GSA_EMAIL                       Workload Identity GSA email bound to the
+#                                   in-cluster ServiceAccount (used by the
+#                                   Cloud SQL Proxy sidecar to authenticate)
+#   CLOUD_SQL_INSTANCE              project:region:instance string
 #
-# Optional variables (set per environment):
-#   IMAGE_NAME                          defaults to "agentprobe"
-#   HELM_RELEASE                        defaults to "agentprobe"
-#   DEPLOY_BRANCH                       branch that auto-deploys; defaults to "main"
-#
-#   HELM_WI_GSA                         Workload Identity GSA email for the
-#                                       in-cluster ServiceAccount annotation
-#                                       (iam.gke.io/gcp-service-account)
-#   HELM_INGRESS_ENABLED                "true" to enable the Ingress resource
-#   HELM_INGRESS_HOST                   hostname, e.g. agentprobe.example.com
-#   HELM_INGRESS_CLASS                  ingress class (default: gce)
-#   HELM_INGRESS_TLS_SECRET             TLS secret name; omit to skip TLS section
-#   HELM_CORS_ORIGINS                   AGENTPROBE_SERVER_CORS_ORIGINS override
-#   HELM_EXISTING_SECRET                name of the pre-existing k8s Secret that
-#                                       holds AGENTPROBE_SERVER_TOKEN and
-#                                       OPEN_ROUTER_API_KEY (see infra/README.md)
-#   HELM_AUTOSCALING_ENABLED            "true" to enable HPA
-#   HELM_AUTOSCALING_MAX                max replicas (default: 3)
-#   HELM_PDB_ENABLED                    "true" to enable PodDisruptionBudget
-#   HELM_PERSISTENCE_SIZE               PVC size override, e.g. "5Gi"
-#   INGRESS_STATIC_IP_NAME              reserved Google global static IP name
-#   CLOUD_SQL_INSTANCE_CONNECTION_NAME  e.g. my-project:us-central1:my-instance
-#   CLOUD_SQL_PROXY_IMAGE               override the proxy image (optional)
+# Optional:
+#   IMAGE_NAME      defaults to "agentprobe"
+#   DEPLOY_BRANCH   branch that auto-deploys; defaults to "main"
 #
 # No secrets are required by the workflow itself; runtime secrets such as
-# AGENTPROBE_SERVER_TOKEN must already exist as a Kubernetes Secret in the
-# target namespace and be referenced via HELM_EXISTING_SECRET.
+# AGENTPROBE_SERVER_TOKEN, OPEN_ROUTER_API_KEY, AGENTPROBE_DB_URL, and
+# AGENTPROBE_ENCRYPTION_KEY must already exist in a Kubernetes Secret named
+# "evals-secrets" in the target namespace (see infra/README.md).
 
 on:
   push:
@@ -61,7 +45,7 @@ on:
       - "Dockerfile"
       - "package.json"
       - "bun.lock"
-      - "infra/helm/agentprobe/**"
+      - "infra/k8s/**"
       - ".github/workflows/build-deploy.yml"
   workflow_dispatch:
     inputs:
@@ -87,8 +71,6 @@ jobs:
     outputs:
       configured: ${{ steps.check.outputs.configured }}
       image: ${{ steps.check.outputs.image }}
-      image_name: ${{ steps.check.outputs.image_name }}
-      release: ${{ steps.check.outputs.release }}
       deploy_branch: ${{ steps.check.outputs.deploy_branch }}
     steps:
       - name: Verify deploy configuration
@@ -102,15 +84,17 @@ jobs:
           GKE_CLUSTER: ${{ vars.GKE_CLUSTER }}
           GKE_LOCATION: ${{ vars.GKE_LOCATION }}
           K8S_NAMESPACE: ${{ vars.K8S_NAMESPACE }}
+          GSA_EMAIL: ${{ vars.GSA_EMAIL }}
+          CLOUD_SQL_INSTANCE: ${{ vars.CLOUD_SQL_INSTANCE }}
           IMAGE_NAME: ${{ vars.IMAGE_NAME }}
-          HELM_RELEASE: ${{ vars.HELM_RELEASE }}
           DEPLOY_BRANCH: ${{ vars.DEPLOY_BRANCH }}
         run: |
           set -euo pipefail
           missing=()
           for var in GCP_PROJECT_ID GCP_REGION GCP_ARTIFACT_REPOSITORY \
                     GCP_WORKLOAD_IDENTITY_PROVIDER GCP_DEPLOY_SERVICE_ACCOUNT \
-                    GKE_CLUSTER GKE_LOCATION K8S_NAMESPACE; do
+                    GKE_CLUSTER GKE_LOCATION K8S_NAMESPACE \
+                    GSA_EMAIL CLOUD_SQL_INSTANCE; do
             if [[ -z "${!var:-}" ]]; then
               missing+=("$var")
             fi
@@ -127,13 +111,10 @@ jobs:
           fi
 
           image_name="${IMAGE_NAME:-agentprobe}"
-          release="${HELM_RELEASE:-agentprobe}"
           image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_ARTIFACT_REPOSITORY}/${image_name}"
 
           echo "configured=true" >> "$GITHUB_OUTPUT"
           echo "image=$image" >> "$GITHUB_OUTPUT"
-          echo "image_name=$image_name" >> "$GITHUB_OUTPUT"
-          echo "release=$release" >> "$GITHUB_OUTPUT"
 
   build-and-push:
     needs: preflight
@@ -178,8 +159,8 @@ jobs:
           tags: |
             ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.sha }}
             ${{ steps.meta.outputs.image }}:latest
-          cache-from: type=gha,scope=agentprobe-${{ inputs.environment || 'prod' }}
-          cache-to: type=gha,scope=agentprobe-${{ inputs.environment || 'prod' }},mode=max
+          cache-from: type=gha,scope=evals-${{ inputs.environment || 'prod' }}
+          cache-to: type=gha,scope=evals-${{ inputs.environment || 'prod' }},mode=max
 
   deploy:
     needs: [preflight, build-and-push]
@@ -208,111 +189,24 @@ jobs:
           cluster_name: ${{ vars.GKE_CLUSTER }}
           location: ${{ vars.GKE_LOCATION }}
 
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: v3.16.2
-
       - name: Ensure namespace exists
         run: |
           kubectl get namespace "${{ vars.K8S_NAMESPACE }}" >/dev/null 2>&1 \
             || kubectl create namespace "${{ vars.K8S_NAMESPACE }}"
 
-      - name: Generate values overlay
+      - name: Apply manifest
         env:
-          HELM_WI_GSA: ${{ vars.HELM_WI_GSA }}
-          HELM_INGRESS_ENABLED: ${{ vars.HELM_INGRESS_ENABLED }}
-          HELM_INGRESS_HOST: ${{ vars.HELM_INGRESS_HOST }}
-          HELM_INGRESS_CLASS: ${{ vars.HELM_INGRESS_CLASS }}
-          HELM_INGRESS_TLS_SECRET: ${{ vars.HELM_INGRESS_TLS_SECRET }}
-          HELM_CORS_ORIGINS: ${{ vars.HELM_CORS_ORIGINS }}
-          HELM_EXISTING_SECRET: ${{ vars.HELM_EXISTING_SECRET }}
-          HELM_AUTOSCALING_ENABLED: ${{ vars.HELM_AUTOSCALING_ENABLED }}
-          HELM_AUTOSCALING_MAX: ${{ vars.HELM_AUTOSCALING_MAX }}
-          HELM_PDB_ENABLED: ${{ vars.HELM_PDB_ENABLED }}
-          HELM_PERSISTENCE_SIZE: ${{ vars.HELM_PERSISTENCE_SIZE }}
-          INGRESS_STATIC_IP_NAME: ${{ vars.INGRESS_STATIC_IP_NAME }}
-        run: |
-          set -euo pipefail
-          out=/tmp/generated-values.yaml
-          printf '# Generated from GitHub Actions environment variables. Not committed to source.\n' > "$out"
-
-          if [[ -n "${HELM_WI_GSA:-}" ]]; then
-            printf 'serviceAccount:\n  annotations:\n    iam.gke.io/gcp-service-account: "%s"\n' \
-              "$HELM_WI_GSA" >> "$out"
-          fi
-
-          if [[ "${HELM_INGRESS_ENABLED:-false}" == "true" && -n "${HELM_INGRESS_HOST:-}" ]]; then
-            cls="${HELM_INGRESS_CLASS:-gce}"
-            printf 'ingress:\n  enabled: true\n  className: "%s"\n  annotations:\n    kubernetes.io/ingress.class: "%s"\n    kubernetes.io/ingress.allow-http: "false"\n' \
-              "$cls" "$cls" >> "$out"
-            if [[ -n "${INGRESS_STATIC_IP_NAME:-}" ]]; then
-              printf '    kubernetes.io/ingress.global-static-ip-name: "%s"\n' \
-                "$INGRESS_STATIC_IP_NAME" >> "$out"
-            fi
-            printf '  hosts:\n    - host: "%s"\n      paths:\n        - path: /\n          pathType: Prefix\n' \
-              "$HELM_INGRESS_HOST" >> "$out"
-            if [[ -n "${HELM_INGRESS_TLS_SECRET:-}" ]]; then
-              printf '  tls:\n    - hosts:\n        - "%s"\n      secretName: "%s"\n' \
-                "$HELM_INGRESS_HOST" "$HELM_INGRESS_TLS_SECRET" >> "$out"
-            fi
-          fi
-
-          if [[ "${HELM_AUTOSCALING_ENABLED:-false}" == "true" ]]; then
-            printf 'autoscaling:\n  enabled: true\n  maxReplicas: %s\n' \
-              "${HELM_AUTOSCALING_MAX:-3}" >> "$out"
-          fi
-
-          if [[ "${HELM_PDB_ENABLED:-false}" == "true" ]]; then
-            printf 'podDisruptionBudget:\n  enabled: true\n' >> "$out"
-          fi
-
-          if [[ -n "${HELM_PERSISTENCE_SIZE:-}" ]]; then
-            printf 'persistence:\n  size: "%s"\n' "$HELM_PERSISTENCE_SIZE" >> "$out"
-          fi
-
-          if [[ -n "${HELM_CORS_ORIGINS:-}" ]]; then
-            printf 'env:\n  AGENTPROBE_SERVER_CORS_ORIGINS: "%s"\n' "$HELM_CORS_ORIGINS" >> "$out"
-          fi
-
-          if [[ -n "${HELM_EXISTING_SECRET:-}" ]]; then
-            printf 'secrets:\n  existingSecretName: "%s"\n' "$HELM_EXISTING_SECRET" >> "$out"
-          fi
-
-          echo "--- Generated values overlay ---"
-          cat "$out"
-
-      - name: Helm upgrade --install
-        env:
+          NAMESPACE: ${{ vars.K8S_NAMESPACE }}
+          GSA_EMAIL: ${{ vars.GSA_EMAIL }}
+          CLOUD_SQL_INSTANCE: ${{ vars.CLOUD_SQL_INSTANCE }}
           IMAGE: ${{ needs.build-and-push.outputs.image }}
           TAG: ${{ needs.build-and-push.outputs.sha }}
-          RELEASE: ${{ needs.preflight.outputs.release }}
-          NAMESPACE: ${{ vars.K8S_NAMESPACE }}
-          CLOUD_SQL_INSTANCE: ${{ vars.CLOUD_SQL_INSTANCE_CONNECTION_NAME }}
-          CLOUD_SQL_PROXY_IMAGE: ${{ vars.CLOUD_SQL_PROXY_IMAGE }}
         run: |
           set -euo pipefail
-          args=(
-            upgrade --install "$RELEASE" infra/helm/agentprobe
-            --namespace "$NAMESPACE"
-            --values /tmp/generated-values.yaml
-            --set "image.repository=$IMAGE"
-            --set "image.tag=$TAG"
-            --atomic
-            --timeout 5m
-          )
-          if [[ -n "${CLOUD_SQL_INSTANCE:-}" ]]; then
-            args+=(
-              --set "cloudSqlProxy.enabled=true"
-              --set-string "cloudSqlProxy.instanceConnectionName=$CLOUD_SQL_INSTANCE"
-            )
-            if [[ -n "${CLOUD_SQL_PROXY_IMAGE:-}" ]]; then
-              args+=(--set-string "cloudSqlProxy.image=$CLOUD_SQL_PROXY_IMAGE")
-            fi
-          fi
-          helm "${args[@]}"
+          envsubst < infra/k8s/manifest.yaml | tee /tmp/rendered.yaml
+          kubectl apply -f /tmp/rendered.yaml
 
       - name: Wait for rollout
         run: |
           kubectl --namespace "${{ vars.K8S_NAMESPACE }}" rollout status \
-            "deployment/${{ needs.preflight.outputs.release }}" --timeout=5m
+            deployment/evals --timeout=5m
