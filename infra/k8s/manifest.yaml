@@ -85,10 +85,20 @@ spec:
           args:
             - "--structured-logs"
             - "--port=5432"
+            # The platform Cloud SQL instances (dev-agpt, prod-agpt) are
+            # private-IP only — the proxy's default public IP path returns
+            # "instance does not have IP of type PUBLIC".
+            - "--private-ip"
+            # Bind the HTTP health endpoints on 0.0.0.0 so kubelet can reach
+            # them via the pod IP (the SQL listener stays on loopback only).
+            - "--http-address=0.0.0.0"
+            - "--http-port=9090"
+            - "--health-check"
             - "${CLOUD_SQL_INSTANCE}"
           startupProbe:
-            tcpSocket:
-              port: 5432
+            httpGet:
+              path: /startup
+              port: 9090
             periodSeconds: 2
             failureThreshold: 30
           securityContext:
