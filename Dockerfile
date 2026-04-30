@@ -14,6 +14,8 @@ FROM oven/bun:1.3.12-slim AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production \
+    AGENTPROBE_SERVER_HOST=0.0.0.0 \
+    AGENTPROBE_SERVER_PORT=7878 \
     AGENTPROBE_SERVER_DATA=/app/data \
     AGENTPROBE_SERVER_DB=/app/.agentprobe/runs.sqlite3 \
     AGENTPROBE_SERVER_DASHBOARD_DIST=/app/dashboard/dist \
@@ -29,4 +31,7 @@ COPY --from=build /app/dashboard/dist ./dashboard/dist
 
 EXPOSE 7878
 
-CMD ["bun", "run", "./src/cli/main.ts", "start-server", "--host", "0.0.0.0", "--port", "7878", "--unsafe-expose"]
+# Runtime config is supplied via AGENTPROBE_SERVER_* env vars (see infra/helm
+# values.yaml). Binding to 0.0.0.0 requires AGENTPROBE_SERVER_TOKEN and
+# AGENTPROBE_SERVER_CORS_ORIGINS to be set; the CLI enforces this.
+CMD ["bun", "run", "./src/cli/main.ts", "start-server", "--unsafe-expose"]
