@@ -76,7 +76,6 @@ jobs:
     environment: ${{ inputs.environment || 'dev' }}
     outputs:
       configured: ${{ steps.check.outputs.configured }}
-      image: ${{ steps.check.outputs.image }}
       deploy_branch: ${{ steps.check.outputs.deploy_branch }}
     steps:
       - name: Verify deploy configuration
@@ -115,31 +114,34 @@ jobs:
             echo "configured=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
-          image_name="${IMAGE_NAME:-agentprobe}"
-          image="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_ARTIFACT_REPOSITORY}/${image_name}"
-
           echo "configured=true" >> "$GITHUB_OUTPUT"
-          echo "image=$image" >> "$GITHUB_OUTPUT"
 
   build-and-push:
     needs: preflight
     if: needs.preflight.outputs.configured == 'true' && (github.event_name == 'workflow_dispatch' || github.ref_name == needs.preflight.outputs.deploy_branch)
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment || 'dev' }}
-    outputs:
-      sha: ${{ steps.meta.outputs.sha }}
-      image: ${{ steps.meta.outputs.image }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Compute build metadata
-        id: meta
+        # Image URL is composed from secrets, so it cannot pass through job
+        # outputs (GitHub strips outputs containing secret values). We write
+        # IMAGE and TAG to $GITHUB_ENV instead — same job, all subsequent
+        # steps see them via env.
+        env:
+          GCP_REGION: ${{ secrets.GCP_REGION }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_ARTIFACT_REPOSITORY: ${{ secrets.GCP_ARTIFACT_REPOSITORY }}
+          IMAGE_NAME_OVERRIDE: ${{ secrets.IMAGE_NAME }}
         run: |
-          short_sha=$(git rev-parse --short HEAD)
-          echo "sha=$short_sha" >> "$GITHUB_OUTPUT"
-          echo "image=${{ needs.preflight.outputs.image }}" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          image_name="${IMAGE_NAME_OVERRIDE:-agentprobe}"
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_ARTIFACT_REPOSITORY}/${image_name}"
+          TAG=$(git rev-parse --short HEAD)
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -163,8 +165,8 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.sha }}
-            ${{ steps.meta.outputs.image }}:latest
+            ${{ env.IMAGE }}:${{ env.TAG }}
+            ${{ env.IMAGE }}:latest
           cache-from: type=gha,scope=evals-${{ inputs.environment || 'dev' }}
           cache-to: type=gha,scope=evals-${{ inputs.environment || 'dev' }},mode=max
 
@@ -234,14 +236,21 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Apply manifest
+        # IMAGE is recomposed from secrets here for the same reason as in
+        # build-and-push: it cannot pass through job outputs.
         env:
           NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
           GSA_EMAIL: ${{ secrets.GSA_EMAIL }}
           CLOUD_SQL_INSTANCE: ${{ secrets.CLOUD_SQL_INSTANCE }}
-          IMAGE: ${{ needs.build-and-push.outputs.image }}
-          TAG: ${{ needs.build-and-push.outputs.sha }}
+          GCP_REGION: ${{ secrets.GCP_REGION }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_ARTIFACT_REPOSITORY: ${{ secrets.GCP_ARTIFACT_REPOSITORY }}
+          IMAGE_NAME_OVERRIDE: ${{ secrets.IMAGE_NAME }}
         run: |
           set -euo pipefail
+          image_name="${IMAGE_NAME_OVERRIDE:-agentprobe}"
+          export IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_ARTIFACT_REPOSITORY}/${image_name}"
+          export TAG=$(git rev-parse --short HEAD)
           envsubst < infra/k8s/manifest.yaml > /tmp/rendered.yaml
           kubectl apply -f /tmp/rendered.yaml
 
