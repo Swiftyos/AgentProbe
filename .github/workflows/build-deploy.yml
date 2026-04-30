@@ -8,9 +8,9 @@ name: Build & Deploy
 #
 # Setup
 # =====
-# Create a GitHub Environment named "prod" at Settings → Environments and set
-# these variables on it. (Add more environments only if you need them — the
-# default deploy targets "prod".)
+# Create a GitHub Environment named "dev" at Settings → Environments and set
+# the variables below on it. Pushes to `main` auto-deploy to dev. A "prod"
+# environment can be added later and targeted manually via workflow_dispatch.
 #
 # Required:
 #   GCP_PROJECT_ID                  e.g. my-project
@@ -52,12 +52,12 @@ on:
       environment:
         description: "Deployment environment (must match a GitHub Environment name)"
         required: false
-        default: "prod"
+        default: "dev"
         type: choice
         options: [dev, prod]
 
 concurrency:
-  group: build-deploy-${{ inputs.environment || 'prod' }}-${{ github.ref_name }}
+  group: build-deploy-${{ inputs.environment || 'dev' }}-${{ github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -67,7 +67,7 @@ permissions:
 jobs:
   preflight:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'prod' }}
+    environment: ${{ inputs.environment || 'dev' }}
     outputs:
       configured: ${{ steps.check.outputs.configured }}
       image: ${{ steps.check.outputs.image }}
@@ -104,7 +104,7 @@ jobs:
           echo "deploy_branch=$deploy_branch" >> "$GITHUB_OUTPUT"
 
           if [[ ${#missing[@]} -gt 0 ]]; then
-            echo "::warning::Skipping build/deploy. Missing variables in environment '${{ inputs.environment || 'prod' }}': ${missing[*]}"
+            echo "::warning::Skipping build/deploy. Missing variables in environment '${{ inputs.environment || 'dev' }}': ${missing[*]}"
             echo "::warning::See .github/workflows/build-deploy.yml header for setup instructions."
             echo "configured=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -120,7 +120,7 @@ jobs:
     needs: preflight
     if: needs.preflight.outputs.configured == 'true' && (github.event_name == 'workflow_dispatch' || github.ref_name == needs.preflight.outputs.deploy_branch)
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'prod' }}
+    environment: ${{ inputs.environment || 'dev' }}
     outputs:
       sha: ${{ steps.meta.outputs.sha }}
       image: ${{ steps.meta.outputs.image }}
@@ -159,14 +159,14 @@ jobs:
           tags: |
             ${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.sha }}
             ${{ steps.meta.outputs.image }}:latest
-          cache-from: type=gha,scope=evals-${{ inputs.environment || 'prod' }}
-          cache-to: type=gha,scope=evals-${{ inputs.environment || 'prod' }},mode=max
+          cache-from: type=gha,scope=evals-${{ inputs.environment || 'dev' }}
+          cache-to: type=gha,scope=evals-${{ inputs.environment || 'dev' }},mode=max
 
   deploy:
     needs: [preflight, build-and-push]
     if: needs.preflight.outputs.configured == 'true'
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'prod' }}
+    environment: ${{ inputs.environment || 'dev' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
