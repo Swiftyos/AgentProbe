@@ -538,9 +538,9 @@ const META_CORRECTION_NOTE = [
 
 const REQUIRED_RESPONSE_STATUS_CORRECTION_NOTE = [
   "",
-  'IMPORTANT: your previous reply was invalid for a required scripted turn.',
+  "IMPORTANT: your previous reply was invalid for a required scripted turn.",
   'Return `{"message":"..."}` with one non-empty natural-language user message.',
-  'Do not return `completed`, `stalled`, or an empty message for this turn.',
+  "Do not return `completed`, `stalled`, or an empty message for this turn.",
 ].join("\n");
 
 const CONTINUE_MESSAGE_CORRECTION_NOTE = [

@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-04-30T09:04:05.581Z
+Generated: 2026-04-30T12:57:18.428Z
 
 ```text
   AGENTS.md
@@ -356,11 +356,8 @@ docs/references/
   docs/references/quality-gates.md
 infra/
   infra/README.md
-infra/helm/
-infra/helm/agentprobe/
-  infra/helm/agentprobe/Chart.yaml
-infra/helm/agentprobe/templates/
-  infra/helm/agentprobe/values.yaml
+infra/k8s/
+  infra/k8s/manifest.yaml
   package.json
 scripts/
   scripts/build-fixture-manifest.ts
