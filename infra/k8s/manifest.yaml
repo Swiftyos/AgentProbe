@@ -3,7 +3,7 @@
 # Placeholders are filled in at deploy time by the build-deploy workflow
 # (see .github/workflows/build-deploy.yml). For local apply, run:
 #
-#   IMAGE=...    TAG=...    NAMESPACE=evals \
+#   IMAGE=...    TAG=...    NAMESPACE=dev-agpt \
 #   GSA_EMAIL=...    CLOUD_SQL_INSTANCE=project:region:instance \
 #   envsubst < infra/k8s/manifest.yaml | kubectl apply -f -
 #
@@ -14,6 +14,15 @@
 #       --from-literal=OPEN_ROUTER_API_KEY=...
 #       --from-literal=AGENTPROBE_DB_URL='postgresql://USER:PASS@127.0.0.1:5432/DB'
 #       --from-literal=AGENTPROBE_ENCRYPTION_KEY=...
+#
+# Pod layout (Kubernetes 1.29+ native sidecar):
+#   initContainers:
+#     1. cloud-sql-proxy  — restartPolicy: Always (native sidecar, stays
+#                          running for the lifetime of the pod)
+#     2. db-migrate       — runs `db:migrate` against Postgres via the
+#                          proxy on 127.0.0.1:5432 and exits
+#   containers:
+#     - evals             — the API/UI server
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -67,6 +76,51 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
         fsGroup: 1000
+      initContainers:
+        - name: cloud-sql-proxy
+          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.15.2
+          # Native sidecar (k8s 1.29+): runs alongside subsequent init
+          # containers and the main container, stays up for the pod's life.
+          restartPolicy: Always
+          args:
+            - "--structured-logs"
+            - "--port=5432"
+            - "${CLOUD_SQL_INSTANCE}"
+          startupProbe:
+            tcpSocket:
+              port: 5432
+            periodSeconds: 2
+            failureThreshold: 30
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+        - name: db-migrate
+          image: ${IMAGE}:${TAG}
+          imagePullPolicy: IfNotPresent
+          command: ["bun", "run", "./src/cli/main.ts", "db:migrate"]
+          envFrom:
+            - secretRef:
+                name: evals-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
       containers:
         - name: evals
           image: ${IMAGE}:${TAG}
@@ -82,6 +136,11 @@ spec:
               value: "7878"
             - name: AGENTPROBE_SERVER_LOG_FORMAT
               value: "json"
+            # `--unsafe-expose` (set in the Dockerfile CMD) requires explicit
+            # CORS origins. Browser access is via `kubectl port-forward`, so
+            # only loopback origins are needed.
+            - name: AGENTPROBE_SERVER_CORS_ORIGINS
+              value: "http://localhost:7878,http://127.0.0.1:7878"
           envFrom:
             - secretRef:
                 name: evals-secrets
@@ -112,21 +171,3 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
-        - name: cloud-sql-proxy
-          image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.15.2
-          args:
-            - "--structured-logs"
-            - "--port=5432"
-            - "${CLOUD_SQL_INSTANCE}"
-          securityContext:
-            runAsNonRoot: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-          resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
-              memory: 256Mi
