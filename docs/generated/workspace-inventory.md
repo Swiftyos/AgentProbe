@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-04-30T12:57:18.428Z
+Generated: 2026-05-04T08:09:50.840Z
 
 ```text
   AGENTS.md
@@ -455,6 +455,7 @@ tests/unit/dashboard/
   tests/unit/dashboard/compare-view.test.tsx
   tests/unit/db.test.ts
   tests/unit/endpoint-config.test.ts
+  tests/unit/endpoint-overrides-controller.test.ts
   tests/unit/judge.test.ts
   tests/unit/load-suite.test.ts
   tests/unit/openclaw.test.ts
