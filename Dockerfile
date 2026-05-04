@@ -32,6 +32,6 @@ COPY --from=build /app/dashboard/dist ./dashboard/dist
 EXPOSE 7878
 
 # Runtime config is supplied via AGENTPROBE_SERVER_* env vars (see infra/helm
-# values.yaml). Binding to 0.0.0.0 requires AGENTPROBE_SERVER_TOKEN and
-# AGENTPROBE_SERVER_CORS_ORIGINS to be set; the CLI enforces this.
+# values.yaml). Binding to 0.0.0.0 only requires the explicit --unsafe-expose
+# opt-in below; bearer-token API auth and CORS gates are not enforced.
 CMD ["bun", "run", "./src/cli/main.ts", "start-server", "--unsafe-expose"]

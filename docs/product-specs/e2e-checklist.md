@@ -20,8 +20,7 @@ Derived from `platform.md`. Every scenario should have a coverage owner.
 | Dashboard mode serves live run state from a Bun HTTP server | `tests/unit/dashboard.test.ts` + `tests/e2e/cli.e2e.test.ts` | ⏳ planned |
 | Reliability signals exist for critical command paths | `docs/RELIABILITY.md` + future performance checks | ⏳ planned |
 | Default start-server boot binds loopback with read-only history browsing | `tests/e2e/start-server.e2e.test.ts` + `tests/unit/server/config.test.ts` | ✅ covered |
-| Non-loopback exposure requires unsafe flag, token, and CORS origins | `tests/unit/server/config.test.ts` + Docker Compose token/CORS guards | ✅ covered |
-| API CORS allows only same-origin loopback by default | `tests/integration/server/read-only.test.ts` + `tests/unit/server/config.test.ts` | ✅ covered |
+| Non-loopback exposure requires unsafe flag only | `tests/unit/server/config.test.ts` + Docker Compose boot config | ✅ covered |
 | Read-only HTTP and UI surfaces browse persisted run history | `tests/integration/server/read-only.test.ts` + dashboard build/typecheck | ✅ covered |
 | Live run events stream through Server-Sent Events with replay support | `tests/integration/server/write-control.test.ts` + `tests/unit/server/streams.test.ts` | ✅ covered |
 | Run executor failures are logged and persisted | `tests/integration/server/write-control.test.ts` | ✅ covered |

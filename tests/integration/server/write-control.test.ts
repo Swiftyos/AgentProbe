@@ -184,7 +184,6 @@ describe("server write control", () => {
 
   async function start(
     options: {
-      token?: string;
       targetUrl?: string;
       scenarioPersona?: string;
     } = {},
@@ -205,9 +204,6 @@ describe("server write control", () => {
       "--db",
       join(root, "runs.sqlite3"),
     ];
-    if (options.token) {
-      args.push("--token", options.token);
-    }
     const server = await startAgentProbeServer(
       buildServerConfig({ args, env: {} }),
     );
@@ -427,20 +423,12 @@ describe("server write control", () => {
     expect(missing.status).toBe(404);
   });
 
-  test("protects write routes and rejects paths outside the data root", async () => {
-    const { server } = await start({ token: "server-token" });
-    const denied = await fetch(`${server.url}/api/runs`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "{}",
-    });
-    expect(denied.status).toBe(401);
-
+  test("write routes reject paths outside the data root", async () => {
+    const { server } = await start();
     const badPath = await fetch(`${server.url}/api/runs`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: "Bearer server-token",
       },
       body: JSON.stringify({
         endpoint: "../endpoint.yaml",

@@ -547,11 +547,7 @@ async function handleStartServer(
   console.error(
     `  db_url:    ${config.dbUrl ? redactDbUrl(config.dbUrl) : "(none)"}`,
   );
-  console.error(
-    `  token:     ${config.token ? "set" : "(none)"}${
-      config.unsafeExpose ? " (unsafe-expose)" : ""
-    }`,
-  );
+  console.error(`  expose:    ${config.unsafeExpose ? "unsafe" : "loopback/default"}`);
   if (config.openBrowser) {
     void bestEffortOpenBrowser(server.url);
   }

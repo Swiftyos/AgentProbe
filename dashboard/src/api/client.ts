@@ -1,8 +1,6 @@
 import { useCallback } from "react";
 import type { ServerRequest } from "./types.ts";
 
-export const SERVER_TOKEN_KEY = "agentprobe:server-token";
-
 export class ApiError extends Error {
   readonly status: number;
 
@@ -10,26 +8,6 @@ export class ApiError extends Error {
     super(message);
     this.name = "ApiError";
     this.status = status;
-  }
-}
-
-export function readStoredToken(): string {
-  try {
-    return window.sessionStorage.getItem(SERVER_TOKEN_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-export function writeStoredToken(token: string): void {
-  try {
-    if (token) {
-      window.sessionStorage.setItem(SERVER_TOKEN_KEY, token);
-    } else {
-      window.sessionStorage.removeItem(SERVER_TOKEN_KEY);
-    }
-  } catch {
-    // Storage can be unavailable in locked-down browser contexts.
   }
 }
 
@@ -43,7 +21,6 @@ function errorMessageFromBody(body: unknown, fallback: string): string {
 
 export async function api<T>(
   path: string,
-  token: string,
   init: RequestInit = {},
 ): Promise<T> {
   const headers: Record<string, string> = { accept: "application/json" };
@@ -51,7 +28,6 @@ export async function api<T>(
   for (const [key, value] of incomingHeaders.entries()) {
     headers[key] = value;
   }
-  if (token) headers.authorization = `Bearer ${token}`;
 
   const response = await fetch(path, { ...init, headers });
   const text = await response.text();
@@ -80,21 +56,15 @@ export function jsonBody(method: string, body?: unknown): RequestInit {
   };
 }
 
-export function useServerRequest(
-  token: string,
-  onAuthRequired: () => void,
-): ServerRequest {
+export function useServerRequest(): ServerRequest {
   return useCallback(
     async <T>(path: string, init?: RequestInit): Promise<T> => {
       try {
-        return await api<T>(path, token, init);
+        return await api<T>(path, init);
       } catch (error) {
-        if (error instanceof ApiError && error.status === 401) {
-          onAuthRequired();
-        }
         throw error;
       }
     },
-    [token, onAuthRequired],
+    [],
   );
 }

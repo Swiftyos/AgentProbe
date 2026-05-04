@@ -10,7 +10,6 @@
 # Required out-of-band setup:
 #   - kubectl create namespace ${NAMESPACE}
 #   - kubectl create secret generic evals-secrets -n ${NAMESPACE} \
-#       --from-literal=AGENTPROBE_SERVER_TOKEN=...
 #       --from-literal=OPEN_ROUTER_API_KEY=...
 #       --from-literal=AGENTPROBE_DB_URL='postgresql://USER:PASS@127.0.0.1:5432/DB'
 #       --from-literal=AGENTPROBE_ENCRYPTION_KEY=...
@@ -146,11 +145,6 @@ spec:
               value: "7878"
             - name: AGENTPROBE_SERVER_LOG_FORMAT
               value: "json"
-            # `--unsafe-expose` (set in the Dockerfile CMD) requires explicit
-            # CORS origins. Browser access is via `kubectl port-forward`, so
-            # only loopback origins are needed.
-            - name: AGENTPROBE_SERVER_CORS_ORIGINS
-              value: "http://localhost:7878,http://127.0.0.1:7878"
           envFrom:
             - secretRef:
                 name: evals-secrets

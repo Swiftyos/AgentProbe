@@ -156,26 +156,15 @@ read-only history and suite discovery, and blocks the shell until `SIGINT` or
 `SIGTERM` triggers graceful shutdown. `OPEN_ROUTER_API_KEY` is not required for
 read-only history browsing.
 
-### Non-loopback exposure requires unsafe flag, token, and CORS origins
+### Non-loopback exposure requires unsafe flag only
 
 **Given** a `--host` value outside the loopback range (`127.0.0.0/8` or `::1`)
 **When** the operator runs `agentprobe start-server`
-**Then** the server refuses to start unless both `--unsafe-expose` is supplied
-and a non-empty token is provided via `--token` or `AGENTPROBE_SERVER_TOKEN`,
-and an explicit comma-separated `AGENTPROBE_SERVER_CORS_ORIGINS` allow-list is
-set. Missing or mismatched flags fail before the listener opens with an error
-that names the unsafe setting and the missing requirement.
-
-### API CORS allows only same-origin loopback by default
-
-**Given** an `agentprobe start-server` instance serving `/api/*`
-**When** a browser sends an API request or OPTIONS preflight with an `Origin`
-header
-**Then** loopback servers allow only the server's own loopback origin by
-default, configured `AGENTPROBE_SERVER_CORS_ORIGINS` entries are echoed exactly
-when matched, OPTIONS preflights from allowed origins return `204` with
-allow-methods, allow-headers, allow-credentials, and max-age headers, and
-unlisted preflight origins return `403`.
+**Then** the server refuses to start unless `--unsafe-expose` is supplied.
+Bearer-token API authentication and CORS allow-list enforcement are not required
+or enforced in any server mode. API responses do not inject
+`Access-Control-Allow-*` headers, and OPTIONS requests follow the normal route
+resolution path instead of a dedicated CORS preflight path.
 
 ### Read-only HTTP and UI surfaces browse persisted run history
 
@@ -273,13 +262,11 @@ structured validation error.
 
 **Given** the shipped AgentProbe container image and a host that publishes the
 server port through `127.0.0.1`
-**When** the operator runs the image with `AGENTPROBE_SERVER_TOKEN` set and a
-SQLite database mounted at the default volume path or with
-`AGENTPROBE_DB_URL` pointed at a migrated Postgres database
+**When** the operator runs the image with a SQLite database mounted at the
+default volume path or with `AGENTPROBE_DB_URL` pointed at a migrated Postgres
+database
 **Then** the default container `CMD` binds `0.0.0.0:7878` with `--unsafe-expose`
-and the required token/CORS-origin settings so the in-server non-loopback rules
-still hold, the config loader refuses to boot when
-`AGENTPROBE_SERVER_TOKEN` or `AGENTPROBE_SERVER_CORS_ORIGINS` is missing, the
+without requiring server bearer-token or CORS-origin environment variables, the
 server persists runs to the mounted `runs.sqlite` by default, and the same
 write-enabled server supports full run recording, presets, encrypted settings,
 endpoint overrides, and history reads against Postgres when selected by URL

@@ -6,13 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import {
-  jsonBody,
-  readStoredToken,
-  useServerRequest,
-  writeStoredToken,
-} from "./api/client.ts";
-import type {
+import { jsonBody, useServerRequest } from "./api/client.ts";import type {
   HealthResponse,
   OpenRouterStatusResponse,
   Preset,
@@ -458,60 +452,6 @@ function RunsTable({
   );
 }
 
-function TokenForm({
-  token,
-  onTokenChange,
-  authRequired,
-}: {
-  token: string;
-  onTokenChange: (token: string) => void;
-  authRequired?: boolean;
-}) {
-  const [draft, setDraft] = useState(token);
-
-  useEffect(() => {
-    setDraft(token);
-  }, [token]);
-
-  return (
-    <Card className="p-4 mb-4">
-      <form
-        className="flex flex-col gap-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onTokenChange(draft.trim());
-        }}
-      >
-        <label
-          htmlFor="server-token"
-          className="text-xs uppercase tracking-wider text-muted-foreground font-semibold"
-        >
-          {authRequired ? "Bearer token required" : "Bearer token"}
-        </label>
-        <div className="flex items-center gap-2">
-          <TextInput
-            id="server-token"
-            type="password"
-            value={draft}
-            onChange={(event) => setDraft(event.currentTarget.value)}
-            placeholder="token"
-          />
-          <Button type="submit">Save</Button>
-          {token ? (
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onTokenChange("")}
-            >
-              Clear
-            </Button>
-          ) : null}
-        </div>
-      </form>
-    </Card>
-  );
-}
-
 function OverviewView({
   request,
   navigate,
@@ -608,12 +548,10 @@ function RunsView({
 export function RunDetailView({
   runId,
   request,
-  token,
   navigate,
 }: {
   runId: string;
   request: ServerRequest;
-  token: string;
   navigate?: (href: string) => void;
 }) {
   const [run, setRun] = useState<RunRecord | null>(null);
@@ -669,11 +607,8 @@ export function RunDetailView({
   }, [loadRun]);
 
   useEffect(() => {
-    const tokenQuery = token
-      ? `?access_token=${encodeURIComponent(token)}`
-      : "";
     const events = new EventSource(
-      `/api/runs/${encodeURIComponent(runId)}/events${tokenQuery}`,
+      `/api/runs/${encodeURIComponent(runId)}/events`,
     );
     const refetch = () => {
       void loadRunRef.current();
@@ -691,7 +626,7 @@ export function RunDetailView({
     events.addEventListener("run_cancelled", refetchAndClose);
     events.addEventListener("run_error", refetchAndClose);
     return () => events.close();
-  }, [runId, token]);
+  }, [runId]);
 
   const cancelRun = async () => {
     setCancelling(true);
@@ -1959,12 +1894,8 @@ function OpenRouterApiKeyForm({ request }: { request: ServerRequest }) {
 }
 
 function SettingsView({
-  token,
-  onTokenChange,
   request,
 }: {
-  token: string;
-  onTokenChange: (token: string) => void;
   request: ServerRequest;
 }) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -2032,7 +1963,6 @@ function SettingsView({
           }
         />
       </div>
-      <TokenForm token={token} onTokenChange={onTokenChange} />
       <OpenRouterApiKeyForm request={request} />
     </>
   );
@@ -2040,20 +1970,9 @@ function SettingsView({
 
 function ServerDashboard() {
   const { pathname, navigate } = usePathname();
-  const [token, setToken] = useState(readStoredToken);
-  const [authRequired, setAuthRequired] = useState(false);
-  const request = useServerRequest(
-    token,
-    useCallback(() => setAuthRequired(true), []),
-  );
+  const request = useServerRequest();
 
   useLocalLinkInterception(navigate);
-
-  const onTokenChange = useCallback((nextToken: string) => {
-    writeStoredToken(nextToken);
-    setToken(nextToken);
-    setAuthRequired(false);
-  }, []);
 
   const content = (() => {
     if (pathname === "/" || pathname === "/index.html") {
@@ -2076,15 +1995,11 @@ function ServerDashboard() {
     }
     if (pathname === "/settings") {
       return (
-        <SettingsView
-          token={token}
-          onTokenChange={onTokenChange}
-          request={request}
-        />
+        <SettingsView request={request} />
       );
     }
     if (pathname === "/compare") {
-      return <CompareView token={token || null} />;
+      return <CompareView />;
     }
     const scenarioMatch = pathname.match(
       /^\/runs\/([^/]+)\/scenarios\/([0-9]+)$/,
@@ -2104,7 +2019,6 @@ function ServerDashboard() {
         <RunDetailView
           runId={decodeURIComponent(runMatch[1] ?? "")}
           request={request}
-          token={token}
           navigate={navigate}
         />
       );
@@ -2231,13 +2145,6 @@ function ServerDashboard() {
         </div>
       </header>
       <main className="mx-auto max-w-[1280px] px-6 py-8">
-        {authRequired && (
-          <TokenForm
-            token={token}
-            onTokenChange={onTokenChange}
-            authRequired={true}
-          />
-        )}
         {content}
       </main>
     </div>

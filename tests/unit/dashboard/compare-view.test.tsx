@@ -83,7 +83,7 @@ async function renderCompare(
   installFetch(responder);
   await act(async () => {
     root = createRoot(container);
-    root.render(<CompareView token={null} />);
+    root.render(<CompareView />);
   });
   await flushAsync();
 }

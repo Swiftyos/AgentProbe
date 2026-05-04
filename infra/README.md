@@ -113,7 +113,6 @@ The manifest reads everything sensitive from a Secret named `evals-secrets` via 
 kubectl create namespace evals
 kubectl create secret generic evals-secrets \
     --namespace evals \
-    --from-literal=AGENTPROBE_SERVER_TOKEN="$(openssl rand -hex 32)" \
     --from-literal=OPEN_ROUTER_API_KEY='sk-or-...' \
     --from-literal=AGENTPROBE_DB_URL='postgresql://USER:PASS@127.0.0.1:5432/DBNAME' \
     --from-literal=AGENTPROBE_ENCRYPTION_KEY="$(openssl rand -hex 32)"

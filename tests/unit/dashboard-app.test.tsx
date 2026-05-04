@@ -220,16 +220,13 @@ describe("RunDetailView SSE subscription", () => {
         React.createElement(RunDetailView, {
           runId: "run-a",
           request,
-          token: "token-a",
         }),
       );
       await flushReact();
     });
 
     expect(MockEventSource.instances).toHaveLength(1);
-    expect(MockEventSource.instances[0]?.url).toBe(
-      "/api/runs/run-a/events?access_token=token-a",
-    );
+    expect(MockEventSource.instances[0]?.url).toBe("/api/runs/run-a/events");
 
     for (let i = 0; i < 5; i += 1) {
       await act(async () => {
@@ -255,7 +252,6 @@ describe("RunDetailView SSE subscription", () => {
         React.createElement(RunDetailView, {
           runId: "run-a",
           request,
-          token: "",
         }),
       );
       await flushReact();
@@ -269,7 +265,6 @@ describe("RunDetailView SSE subscription", () => {
         React.createElement(RunDetailView, {
           runId: "run-b",
           request,
-          token: "",
         }),
       );
       await flushReact();

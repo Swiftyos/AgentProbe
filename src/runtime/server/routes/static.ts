@@ -48,7 +48,7 @@ function isDashboardPath(pathname: string): boolean {
 
 function serveInlineDashboard(context: ServerContext): Response {
   return new Response(
-    dashboardHtml({ hasToken: Boolean(context.config.token) }),
+    dashboardHtml(),
     {
       status: 200,
       headers: {

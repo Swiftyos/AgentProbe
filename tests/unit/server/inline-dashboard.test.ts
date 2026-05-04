@@ -109,7 +109,7 @@ describe("inline dashboard", () => {
       },
     });
 
-    const script = extractInlineScript(dashboardHtml({ hasToken: false }));
+    const script = extractInlineScript(dashboardHtml());
     new Function(script)();
     await new Promise((resolve) => setTimeout(resolve, 0));
 

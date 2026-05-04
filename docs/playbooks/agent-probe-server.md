@@ -2,8 +2,8 @@
 
 ## Trigger
 
-Use this playbook when bringing up `agentprobe start-server` locally, exposing
-it with bearer-token protection, or running the Docker-packaged SQLite server.
+Use this playbook when bringing up `agentprobe start-server` locally, binding
+it to an external interface, or running the Docker-packaged SQLite server.
 
 ## Local Bring-Up
 
@@ -30,20 +30,12 @@ it with bearer-token protection, or running the Docker-packaged SQLite server.
    curl -fsS http://127.0.0.1:7878/api/suites
    ```
 
-## Token-Protected External Bind
+## External Bind
 
-1. Set a non-empty token and keep it out of shell history where possible:
-
-   ```bash
-   export AGENTPROBE_SERVER_TOKEN="$(openssl rand -hex 24)"
-   ```
-
-2. Start the server on an external interface:
+1. Start the server on an external interface:
 
    ```bash
    OPEN_ROUTER_API_KEY="$OPEN_ROUTER_API_KEY" \
-   AGENTPROBE_SERVER_TOKEN="$AGENTPROBE_SERVER_TOKEN" \
-   AGENTPROBE_SERVER_CORS_ORIGINS="https://dashboard.example" \
      bun run agentprobe start-server \
        --host 0.0.0.0 \
        --port 7878 \
@@ -52,41 +44,23 @@ it with bearer-token protection, or running the Docker-packaged SQLite server.
        --db .agentprobe/runs.sqlite3
    ```
 
-3. Call protected APIs with a bearer token:
+2. Call APIs without bearer authentication:
 
    ```bash
-   curl -fsS \
-     -H "Authorization: Bearer $AGENTPROBE_SERVER_TOKEN" \
-      http://127.0.0.1:7878/api/runs
+   curl -fsS http://127.0.0.1:7878/api/runs
    ```
 
-## API CORS
+## API Access
 
-`/api/*` routes answer browser CORS preflights and attach
-`Access-Control-Allow-Origin` to allowed API responses. Loopback servers default
-to same-origin only: requests from the server's own `http://127.0.0.1:7878`,
-`http://localhost:7878`, or `[::1]` origin are allowed, while dashboard origins
-on other hosts or ports are rejected until explicitly configured.
-
-Set `AGENTPROBE_SERVER_CORS_ORIGINS` to a comma-separated list of exact
-`http://` or `https://` origins when the dashboard is served from a CDN,
-different hostname, or local dev proxy:
-
-```bash
-export AGENTPROBE_SERVER_CORS_ORIGINS="https://dashboard.example,http://localhost:5173"
-```
-
-When `--unsafe-expose` or `AGENTPROBE_SERVER_UNSAFE_EXPOSE=true` is used, the
-server refuses to boot unless `AGENTPROBE_SERVER_CORS_ORIGINS` is set. This keeps
-external binds from silently granting API access to arbitrary web origins.
+`/api/*` routes do not require bearer-token authentication and do not perform
+CORS allow-list enforcement. OPTIONS requests follow the normal route resolver
+instead of a dedicated preflight path.
 
 ## Docker With SQLite On Volume
 
 1. Export required environment variables:
 
    ```bash
-   export AGENTPROBE_SERVER_TOKEN="$(openssl rand -hex 24)"
-   export AGENTPROBE_SERVER_CORS_ORIGINS="http://127.0.0.1:7878"
    export OPEN_ROUTER_API_KEY="$OPEN_ROUTER_API_KEY"
    ```
 
@@ -101,16 +75,13 @@ external binds from silently granting API access to arbitrary web origins.
    ```bash
    curl -fsS http://127.0.0.1:7878/healthz
    curl -fsS http://127.0.0.1:7878/readyz
-   curl -fsS \
-     -H "Authorization: Bearer $AGENTPROBE_SERVER_TOKEN" \
-     http://127.0.0.1:7878/api/presets
+   curl -fsS http://127.0.0.1:7878/api/presets
    ```
 
 4. Trigger a dry-run through the API:
 
    ```bash
    curl -fsS \
-     -H "Authorization: Bearer $AGENTPROBE_SERVER_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{
        "endpoint": "autogpt-endpoint.yaml",
@@ -173,10 +144,6 @@ bun run fast-feedback
 - Missing `OPEN_ROUTER_API_KEY`: run-start requests return
   `open_router_not_configured`. Set the env var and retry. Read-only browsing
   still works without it.
-- Missing token with Docker or `--unsafe-expose`: boot fails because
-  non-loopback binds require `AGENTPROBE_SERVER_TOKEN`.
-- Missing CORS origins with `--unsafe-expose`: boot fails until
-  `AGENTPROBE_SERVER_CORS_ORIGINS` names the dashboard origin(s).
 - Missing dashboard bundle: run `bun run dashboard:build`, or set
   `AGENTPROBE_SERVER_DASHBOARD_DIST` to a valid built bundle.
 - SQLite lock errors: keep one server process per SQLite volume, prefer the

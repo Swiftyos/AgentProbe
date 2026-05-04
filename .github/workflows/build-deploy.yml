@@ -29,7 +29,6 @@ name: Build & Deploy
 #                                   in-cluster ServiceAccount (used by the
 #                                   Cloud SQL Proxy sidecar to authenticate)
 #   CLOUD_SQL_INSTANCE              project:region:instance string
-#   AGENTPROBE_SERVER_TOKEN         bearer token issued to API clients
 #   AGENTPROBE_ENCRYPTION_KEY       at-rest encryption key
 #   DB_PASSWORD                     password for the `evals` Postgres user;
 #                                   the workflow constructs AGENTPROBE_DB_URL
@@ -207,15 +206,13 @@ jobs:
       - name: Apply runtime Secret
         env:
           NAMESPACE: ${{ secrets.K8S_NAMESPACE }}
-          AGENTPROBE_SERVER_TOKEN: ${{ secrets.AGENTPROBE_SERVER_TOKEN }}
           AGENTPROBE_ENCRYPTION_KEY: ${{ secrets.AGENTPROBE_ENCRYPTION_KEY }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           OPEN_ROUTER_API_KEY: ${{ secrets.OPEN_ROUTER_API_KEY }}
         run: |
           set -euo pipefail
           missing=()
-          for var in AGENTPROBE_SERVER_TOKEN AGENTPROBE_ENCRYPTION_KEY \
-                    DB_PASSWORD OPEN_ROUTER_API_KEY; do
+          for var in AGENTPROBE_ENCRYPTION_KEY DB_PASSWORD OPEN_ROUTER_API_KEY; do
             if [[ -z "${!var:-}" ]]; then
               missing+=("$var")
             fi
@@ -229,7 +226,6 @@ jobs:
           AGENTPROBE_DB_URL="postgresql://evals:${DB_PASSWORD}@127.0.0.1:5432/evals"
           kubectl create secret generic evals-secrets \
             --namespace "$NAMESPACE" \
-            --from-literal=AGENTPROBE_SERVER_TOKEN="$AGENTPROBE_SERVER_TOKEN" \
             --from-literal=AGENTPROBE_ENCRYPTION_KEY="$AGENTPROBE_ENCRYPTION_KEY" \
             --from-literal=AGENTPROBE_DB_URL="$AGENTPROBE_DB_URL" \
             --from-literal=OPEN_ROUTER_API_KEY="$OPEN_ROUTER_API_KEY" \

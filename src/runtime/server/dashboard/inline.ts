@@ -208,22 +208,8 @@ const DASHBOARD_HTML = `<!doctype html>
     </main>
     <script>
       (function () {
-        const TOKEN_KEY = "agentprobe:token";
-        const HAS_TOKEN = __HAS_TOKEN__;
         const content = document.getElementById("content");
         const errorBox = document.getElementById("error");
-
-        function currentToken() {
-          return window.localStorage.getItem(TOKEN_KEY) || "";
-        }
-
-        function setToken(value) {
-          if (!value) {
-            window.localStorage.removeItem(TOKEN_KEY);
-          } else {
-            window.localStorage.setItem(TOKEN_KEY, value);
-          }
-        }
 
         function setActiveNav(pathname) {
           const links = document.querySelectorAll("header nav a");
@@ -238,12 +224,7 @@ const DASHBOARD_HTML = `<!doctype html>
         }
 
         async function api(path) {
-          const headers = {};
-          const token = currentToken();
-          if (token) {
-            headers.authorization = "Bearer " + token;
-          }
-          const response = await fetch(path, { headers: headers });
+          const response = await fetch(path);
           const text = await response.text();
           let body = null;
           try {
@@ -740,25 +721,9 @@ const DASHBOARD_HTML = `<!doctype html>
         }
 
         function renderSettings() {
-          const token = currentToken();
           content.innerHTML =
             '<div class="card"><h2>Settings</h2>' +
-            "<p>Token required: <strong>" +
-            (HAS_TOKEN ? "yes" : "no") +
-            "</strong></p>" +
-            '<label for="token">Bearer token</label>' +
-            '<input id="token" type="password" value="' +
-            escapeHtml(token) +
-            '" placeholder="paste token" />' +
-            " <button id=\\"save-token\\">Save</button></div>";
-          const input = document.getElementById("token");
-          document
-            .getElementById("save-token")
-            .addEventListener("click", function () {
-              setToken(input.value.trim());
-              errorBox.style.display = "none";
-              errorBox.textContent = "";
-            });
+            "<p>Server API routes do not require bearer-token authentication or CORS configuration.</p></div>";
         }
 
         function showError(error) {
@@ -846,9 +811,6 @@ const DASHBOARD_HTML = `<!doctype html>
 </html>
 `;
 
-export function dashboardHtml(options: { hasToken: boolean }): string {
-  return DASHBOARD_HTML.replace(
-    "__HAS_TOKEN__",
-    options.hasToken ? "true" : "false",
-  );
+export function dashboardHtml(): string {
+  return DASHBOARD_HTML;
 }

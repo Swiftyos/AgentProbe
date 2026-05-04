@@ -101,13 +101,8 @@ type RunsResponse = {
 type ApiError = { error?: { code?: string; message?: string } };
 
 type CompareViewProps = {
-  token: string | null;
   apiBase?: string;
 };
-
-function buildHeaders(token: string | null): HeadersInit {
-  return token ? { authorization: `Bearer ${token}` } : {};
-}
 
 function formatScore(value: number | null): string {
   if (value === null) return "—";
@@ -193,7 +188,7 @@ function fmtDate(iso: string | null | undefined): string {
   }
 }
 
-export function CompareView({ token, apiBase = "" }: CompareViewProps) {
+export function CompareView({ apiBase = "" }: CompareViewProps) {
   const [runIds, setRunIds] = useState<string[]>(() =>
     parseRunIds(window.location.search),
   );
@@ -210,9 +205,7 @@ export function CompareView({ token, apiBase = "" }: CompareViewProps) {
 
   const fetchRuns = useCallback(async () => {
     try {
-      const response = await fetch(`${apiBase}/api/runs?limit=100`, {
-        headers: buildHeaders(token),
-      });
+      const response = await fetch(`${apiBase}/api/runs?limit=100`);
       if (!response.ok) {
         throw new Error(`/api/runs returned ${response.status}`);
       }
@@ -228,7 +221,7 @@ export function CompareView({ token, apiBase = "" }: CompareViewProps) {
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     }
-  }, [apiBase, token]);
+  }, [apiBase]);
 
   useEffect(() => {
     void fetchRuns();
@@ -243,9 +236,7 @@ export function CompareView({ token, apiBase = "" }: CompareViewProps) {
     setLoading(true);
     setError(null);
     const query = new URLSearchParams({ run_ids: runIds.join(",") });
-    fetch(`${apiBase}/api/comparisons?${query.toString()}`, {
-      headers: buildHeaders(token),
-    })
+    fetch(`${apiBase}/api/comparisons?${query.toString()}`)
       .then(async (response) => {
         if (!response.ok) {
           const body = (await response.json()) as ApiError;
@@ -271,7 +262,7 @@ export function CompareView({ token, apiBase = "" }: CompareViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [apiBase, runIds, token]);
+  }, [apiBase, runIds]);
 
   useEffect(() => {
     updateLocation(runIds, onlyChanges);

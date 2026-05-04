@@ -19,8 +19,6 @@ export type ServerConfig = {
   dataPath: string;
   dbUrl: string;
   dashboardDist?: string;
-  token?: string;
-  corsOrigins: string[];
   unsafeExpose: boolean;
   openBrowser: boolean;
   logFormat: LogFormat;
@@ -33,8 +31,6 @@ type ParsedFlags = {
   db?: string;
   dbUrl?: string;
   dashboardDist?: string;
-  token?: string;
-  corsOrigins?: string[];
   unsafeExpose?: boolean;
   open?: boolean;
   logFormat?: LogFormat;
@@ -106,38 +102,6 @@ function parseLogFormat(
   );
 }
 
-function parseCorsOrigins(raw: string | undefined): string[] | undefined {
-  if (raw === undefined) {
-    return undefined;
-  }
-  const origins = raw
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean);
-  const normalized = origins.map((origin) => {
-    let parsed: URL;
-    try {
-      parsed = new URL(origin);
-    } catch {
-      throw new AgentProbeConfigError(
-        `AGENTPROBE_SERVER_CORS_ORIGINS contains an invalid origin: ${origin}.`,
-      );
-    }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-      throw new AgentProbeConfigError(
-        `AGENTPROBE_SERVER_CORS_ORIGINS origins must use http or https (got \`${origin}\`).`,
-      );
-    }
-    if (parsed.pathname !== "/" || parsed.search !== "" || parsed.hash !== "") {
-      throw new AgentProbeConfigError(
-        `AGENTPROBE_SERVER_CORS_ORIGINS entries must be origins without paths, queries, or fragments (got \`${origin}\`).`,
-      );
-    }
-    return parsed.origin;
-  });
-  return [...new Set(normalized)];
-}
-
 function parseDbFlag(args: string[]): {
   dbPath?: string;
   dbUrl?: string;
@@ -161,7 +125,6 @@ function readCliFlags(args: string[]): ParsedFlags {
   const unsafeExpose = parseFlag(args, "--unsafe-expose");
   const openBrowser = parseFlag(args, "--open");
   const { dbPath, dbUrl } = parseDbFlag(args);
-  const token = parseOption(args, "--token");
   const logFormat = parseLogFormat(
     parseOption(args, "--log-format"),
     "--log-format",
@@ -173,7 +136,6 @@ function readCliFlags(args: string[]): ParsedFlags {
     db: dbPath,
     dbUrl,
     dashboardDist: parseOption(args, "--dashboard-dist"),
-    token,
     unsafeExpose: unsafeExpose ? true : undefined,
     open: openBrowser ? true : undefined,
     logFormat,
@@ -187,7 +149,6 @@ function readEnvFlags(env: Record<string, string | undefined>): ParsedFlags {
     "AGENTPROBE_SERVER_LOG_FORMAT",
   );
   const unsafeExpose = parseBoolean(env.AGENTPROBE_SERVER_UNSAFE_EXPOSE);
-  const corsOrigins = parseCorsOrigins(env.AGENTPROBE_SERVER_CORS_ORIGINS);
 
   const dbUrlEnv = env.AGENTPROBE_DB_URL;
   const dbEnv = env.AGENTPROBE_SERVER_DB;
@@ -215,8 +176,6 @@ function readEnvFlags(env: Record<string, string | undefined>): ParsedFlags {
     db: dbPath,
     dbUrl,
     dashboardDist: env.AGENTPROBE_SERVER_DASHBOARD_DIST,
-    token: env.AGENTPROBE_SERVER_TOKEN,
-    corsOrigins,
     unsafeExpose,
     logFormat,
   };
@@ -305,8 +264,6 @@ export function buildServerConfig(source: FlagSource): ServerConfig {
     envFlags.dashboardDist,
   );
   const dashboardDist = configuredDashboardDist ?? defaultDashboardDist();
-  const token = merge(cli.token, envFlags.token);
-  const corsOrigins = envFlags.corsOrigins ?? [];
   const unsafeExpose = Boolean(merge(cli.unsafeExpose, envFlags.unsafeExpose));
   const openBrowser = Boolean(cli.open);
   const logFormat = merge(cli.logFormat, envFlags.logFormat) ?? "text";
@@ -326,26 +283,13 @@ export function buildServerConfig(source: FlagSource): ServerConfig {
         `Refusing to bind to non-loopback host \`${host}\` without --unsafe-expose.`,
       );
     }
-    if (!token || token.trim().length === 0) {
-      throw new AgentProbeConfigError(
-        `--unsafe-expose requires an authentication token (set --token or AGENTPROBE_SERVER_TOKEN).`,
-      );
-    }
   }
-  if (unsafeExpose && corsOrigins.length === 0) {
-    throw new AgentProbeConfigError(
-      `--unsafe-expose requires explicit CORS origins (set AGENTPROBE_SERVER_CORS_ORIGINS).`,
-    );
-  }
-
   return {
     host,
     port,
     dataPath: resolve(dataPath),
     dbUrl,
     dashboardDist: dashboardDist ? resolve(dashboardDist) : undefined,
-    token: token?.trim() ? token : undefined,
-    corsOrigins,
     unsafeExpose,
     openBrowser,
     logFormat,
