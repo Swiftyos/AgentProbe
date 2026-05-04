@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-05-04T09:00:52.169Z
+Generated: 2026-05-04T11:14:08.973Z
 
 ```text
   AGENTS.md
@@ -414,7 +414,6 @@ src/providers/sdk/
 src/runtime/
 src/runtime/server/
   src/runtime/server/app-server.ts
-src/runtime/server/auth/
   src/runtime/server/config.ts
 src/runtime/server/controllers/
 src/runtime/server/dashboard/
@@ -470,7 +469,6 @@ tests/unit/persistence/
   tests/unit/report.test.ts
   tests/unit/runner.test.ts
 tests/unit/server/
-  tests/unit/server/auth.test.ts
   tests/unit/server/comparison.test.ts
   tests/unit/server/config.test.ts
   tests/unit/server/inline-dashboard.test.ts

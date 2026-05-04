@@ -6,7 +6,8 @@ import {
   useRef,
   useState,
 } from "react";
-import { jsonBody, useServerRequest } from "./api/client.ts";import type {
+import { jsonBody, useServerRequest } from "./api/client.ts";
+import type {
   HealthResponse,
   OpenRouterStatusResponse,
   Preset,
@@ -1048,7 +1049,7 @@ function SuitesView({ request }: { request: ServerRequest }) {
   );
 }
 
-function StartRunView({
+export function StartRunView({
   request,
   navigate,
 }: {
@@ -1256,8 +1257,13 @@ function StartRunView({
         {!presetId && (
           <Card className="overflow-hidden">
             <div className="p-3 border-b border-border flex items-center justify-between">
-              <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-                Scenarios
+              <div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                  Scenarios
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  {scenarios.scenarios.length} available
+                </div>
               </div>
               <Button
                 variant="secondary"
@@ -1276,7 +1282,7 @@ function StartRunView({
               </Button>
             </div>
             <div className="max-h-[420px] overflow-y-auto divide-y divide-border">
-              {scenarios.scenarios.slice(0, 200).map((scenario) => {
+              {scenarios.scenarios.map((scenario) => {
                 const key = `${scenario.sourcePath}::${scenario.id}`;
                 const checked = selected.has(key);
                 return (
@@ -1893,11 +1899,7 @@ function OpenRouterApiKeyForm({ request }: { request: ServerRequest }) {
   );
 }
 
-function SettingsView({
-  request,
-}: {
-  request: ServerRequest;
-}) {
+function SettingsView({ request }: { request: ServerRequest }) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [ready, setReady] = useState<ReadyResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -1994,9 +1996,7 @@ function ServerDashboard() {
       return <EndpointsView request={request} />;
     }
     if (pathname === "/settings") {
-      return (
-        <SettingsView request={request} />
-      );
+      return <SettingsView request={request} />;
     }
     if (pathname === "/compare") {
       return <CompareView />;
@@ -2144,9 +2144,7 @@ function ServerDashboard() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-[1280px] px-6 py-8">
-        {content}
-      </main>
+      <main className="mx-auto max-w-[1280px] px-6 py-8">{content}</main>
     </div>
   );
 }

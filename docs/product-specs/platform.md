@@ -178,7 +178,9 @@ views
 **Then** every surface assembles its response from on-disk suite YAMLs and the
 persisted run history without starting a new evaluation and without requiring
 `OPEN_ROUTER_API_KEY`, returning JSON for `/api/*` routes and rendered HTML or
-plain text for report and health routes.
+plain text for report and health routes. Dashboard scenario pickers render the
+complete `/api/scenarios` inventory so every scenario file under the configured
+data root is selectable.
 
 ### Docker Compose readiness waits for server readiness
 

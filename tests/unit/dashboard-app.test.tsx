@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Window } from "happy-dom";
 import React, { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { RunDetailView } from "../../dashboard/src/App.tsx";
+import { RunDetailView, StartRunView } from "../../dashboard/src/App.tsx";
 
 type SseListener = () => void;
 
@@ -47,6 +47,7 @@ let previousNavigator: typeof globalThis.navigator | undefined;
 let previousElement: typeof globalThis.Element | undefined;
 let previousHTMLElement: typeof globalThis.HTMLElement | undefined;
 let previousEventSource: typeof globalThis.EventSource | undefined;
+let previousGetComputedStyle: typeof globalThis.getComputedStyle | undefined;
 let previousActEnvironment: unknown;
 
 function installDom(): void {
@@ -57,6 +58,7 @@ function installDom(): void {
   previousElement = globalThis.Element;
   previousHTMLElement = globalThis.HTMLElement;
   previousEventSource = globalThis.EventSource;
+  previousGetComputedStyle = globalThis.getComputedStyle;
   previousActEnvironment = (
     globalThis as { IS_REACT_ACT_ENVIRONMENT?: unknown }
   ).IS_REACT_ACT_ENVIRONMENT;
@@ -91,10 +93,20 @@ function installDom(): void {
     writable: true,
     value: MockEventSource,
   });
+  Object.defineProperty(globalThis, "getComputedStyle", {
+    configurable: true,
+    writable: true,
+    value: window.getComputedStyle.bind(window),
+  });
   Object.defineProperty(window, "EventSource", {
     configurable: true,
     writable: true,
     value: MockEventSource,
+  });
+  Object.defineProperty(window, "SyntaxError", {
+    configurable: true,
+    writable: true,
+    value: SyntaxError,
   });
   Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
     configurable: true,
@@ -137,6 +149,11 @@ function restoreDom(): void {
     configurable: true,
     writable: true,
     value: previousEventSource,
+  });
+  Object.defineProperty(globalThis, "getComputedStyle", {
+    configurable: true,
+    writable: true,
+    value: previousGetComputedStyle,
   });
   Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
     configurable: true,
@@ -289,5 +306,82 @@ describe("RunDetailView SSE subscription", () => {
     expect(container.textContent).toContain("run-b");
     expect(container.textContent).not.toContain("run-a");
     expect(MockEventSource.instances).toHaveLength(2);
+  });
+});
+
+describe("StartRunView scenario picker", () => {
+  test("renders every scenario returned by the server", async () => {
+    const manyScenarios = Array.from({ length: 205 }, (_, index) => {
+      const ordinal = index + 1;
+      return {
+        suiteId: "bulk",
+        id: `scenario-${String(ordinal).padStart(3, "0")}`,
+        name: `Scenario ${ordinal}`,
+        description: null,
+        tags: [],
+        priority: null,
+        persona: null,
+        rubric: null,
+        sourcePath: "bulk-scenarios.yaml",
+      };
+    });
+    const request = async (path: string) => {
+      if (path === "/api/suites") {
+        return {
+          data_path: "/app/data",
+          scanned_at: "2026-04-17T00:00:00.000Z",
+          errors: [],
+          suites: [
+            {
+              id: "endpoint",
+              path: "endpoint.yaml",
+              relativePath: "endpoint.yaml",
+              schema: "endpoints",
+              objectCount: 1,
+              scenarioIds: [],
+            },
+            {
+              id: "personas",
+              path: "personas.yaml",
+              relativePath: "personas.yaml",
+              schema: "personas",
+              objectCount: 1,
+              scenarioIds: [],
+            },
+            {
+              id: "rubric",
+              path: "rubric.yaml",
+              relativePath: "rubric.yaml",
+              schema: "rubrics",
+              objectCount: 1,
+              scenarioIds: [],
+            },
+          ],
+        };
+      }
+      if (path === "/api/scenarios") {
+        return {
+          scanned_at: "2026-04-17T00:00:00.000Z",
+          scenarios: manyScenarios,
+        };
+      }
+      if (path === "/api/presets") {
+        return { presets: [] };
+      }
+      throw new Error(`Unexpected request: ${path}`);
+    };
+
+    await act(async () => {
+      root?.render(
+        React.createElement(StartRunView, {
+          request,
+          navigate: () => undefined,
+        }),
+      );
+      await flushReact();
+    });
+
+    expect(container.textContent).toContain("205 available");
+    expect(container.textContent).toContain("scenario-205");
   });
 });
