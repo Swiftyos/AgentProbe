@@ -84,7 +84,10 @@ boundary metadata that agents and reports can inspect
 **When** the CLI prepares authenticated requests for that endpoint
 **Then** the CLI forges the bearer token locally, registers the user with the
 backend, extracts tool-call evidence from the backend SSE stream, and does not
-depend on a Supabase signup flow
+depend on a Supabase signup flow. The dashboard server may persist per-endpoint
+overrides for the AutoGPT backend base URL and JWT secret; when present, those
+saved values take precedence over the endpoint YAML defaults and process
+environment fallbacks for runs launched through the server.
 
 ### Repeat mode reruns scenarios with isolated users per iteration
 

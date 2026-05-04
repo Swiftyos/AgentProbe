@@ -24,11 +24,13 @@ describe("PostgresRepository secrets and endpoint overrides", () => {
 
         const saved = await repo.putEndpointOverride("data/endpoint.yaml", {
           connection: { baseUrl: "https://example.test" },
+          autogptJwtSecret: "secret-override",
           auth: { type: "none" },
         });
         expect(saved.endpointPath).toBe("data/endpoint.yaml");
         expect(saved.overrides).toEqual({
           connection: { baseUrl: "https://example.test" },
+          autogptJwtSecret: "secret-override",
           auth: { type: "none" },
         });
         expect(await repo.listEndpointOverrides()).toHaveLength(1);
@@ -38,6 +40,7 @@ describe("PostgresRepository secrets and endpoint overrides", () => {
           endpointPath: "data/endpoint.yaml",
           overrides: {
             connection: { baseUrl: "https://example.test" },
+            autogptJwtSecret: "secret-override",
           },
         });
         expect(await repo.deleteEndpointOverride("data/endpoint.yaml")).toBe(

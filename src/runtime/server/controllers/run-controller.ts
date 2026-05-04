@@ -50,6 +50,7 @@ type RunSpec = {
   presetId?: string | null;
   presetSnapshot?: PresetSnapshot | null;
   baseUrlOverride?: string;
+  autogptJwtSecretOverride?: string;
 };
 
 type ActiveRun = {
@@ -192,24 +193,30 @@ export class RunController {
   }
 
   /**
-   * Resolve the effective base_url override for a run: the per-request override
-   * (passed in the launch payload) wins; otherwise we fall back to the saved
-   * override for that endpoint YAML.
+   * Resolve the effective endpoint overrides for a run: per-request values
+   * win; otherwise we fall back to saved overrides for that endpoint YAML.
    */
-  private async resolveBaseUrlOverride(
+  private async resolveEndpointOverrides(
     endpointPathInput: string,
-    requestOverride: string | undefined,
-  ): Promise<string | undefined> {
-    if (requestOverride?.trim()) {
-      return requestOverride.trim();
-    }
+    requestOverrides: {
+      baseUrl?: string;
+      autogptJwtSecret?: string;
+    },
+  ): Promise<{
+    baseUrlOverride?: string;
+    autogptJwtSecretOverride?: string;
+  }> {
     const { relativePath } =
       this.options.suiteController.resolveDataFile(endpointPathInput);
     const fields =
       await this.options.endpointOverridesController.resolveFields(
         relativePath,
       );
-    return fields.baseUrl;
+    return {
+      baseUrlOverride: requestOverrides.baseUrl?.trim() || fields.baseUrl,
+      autogptJwtSecretOverride:
+        requestOverrides.autogptJwtSecret?.trim() || fields.autogptJwtSecret,
+    };
   }
 
   private suiteKey(spec: RunSpec): string {
@@ -269,9 +276,12 @@ export class RunController {
     }
 
     const endpointInput = requiredString(body, "endpoint");
-    const baseUrlOverride = await this.resolveBaseUrlOverride(
+    const endpointOverrides = await this.resolveEndpointOverrides(
       endpointInput,
-      optionalString(body, "base_url"),
+      {
+        baseUrl: optionalString(body, "base_url"),
+        autogptJwtSecret: optionalString(body, "autogpt_jwt_secret"),
+      },
     );
 
     return {
@@ -287,7 +297,7 @@ export class RunController {
       notes: optionalString(body, "notes"),
       presetId,
       presetSnapshot,
-      baseUrlOverride,
+      ...endpointOverrides,
     };
   }
 
@@ -318,9 +328,12 @@ export class RunController {
     const rubricOverride = optionalString(overrides, "rubric");
 
     const endpointInput = endpointOverride ?? preset.endpoint;
-    const baseUrlOverride = await this.resolveBaseUrlOverride(
+    const endpointOverrides = await this.resolveEndpointOverrides(
       endpointInput,
-      optionalString(overrides, "base_url"),
+      {
+        baseUrl: optionalString(overrides, "base_url"),
+        autogptJwtSecret: optionalString(overrides, "autogpt_jwt_secret"),
+      },
     );
 
     return {
@@ -338,7 +351,7 @@ export class RunController {
       notes: optionalString(body, "notes"),
       presetId: preset.id,
       presetSnapshot: snapshotFromPreset(preset),
-      baseUrlOverride,
+      ...endpointOverrides,
     };
   }
 
@@ -466,6 +479,7 @@ export class RunController {
         presetId: spec.presetId,
         presetSnapshot: spec.presetSnapshot,
         baseUrlOverride: spec.baseUrlOverride,
+        autogptJwtSecretOverride: spec.autogptJwtSecretOverride,
       });
     } catch (error) {
       const runId = options.recorder.runId;
