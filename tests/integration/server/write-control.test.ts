@@ -7,7 +7,8 @@ import {
   startAgentProbeServer,
 } from "../../../src/runtime/server/app-server.ts";
 import { buildServerConfig } from "../../../src/runtime/server/config.ts";
-import { makeTempDir } from "../../unit/support.ts";
+import { PRE_RELEASE_DEFAULT_PRESET } from "../../../src/runtime/server/default-presets.ts";
+import { DATA_DIR, makeTempDir } from "../../unit/support.ts";
 
 type RunStartResponse = {
   run_id: string;
@@ -183,10 +184,7 @@ describe("server write control", () => {
   });
 
   async function start(
-    options: {
-      targetUrl?: string;
-      scenarioPersona?: string;
-    } = {},
+    options: { targetUrl?: string; scenarioPersona?: string } = {},
   ) {
     Bun.env.OPEN_ROUTER_API_KEY = "integration-key";
     const root = makeTempDir("server-write");
@@ -230,6 +228,34 @@ describe("server write control", () => {
     }
     return undefined;
   }
+
+  test("seeds packaged default presets on server startup", async () => {
+    const root = makeTempDir("server-default-presets");
+    const server = await startAgentProbeServer(
+      buildServerConfig({
+        args: [
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "0",
+          "--data",
+          DATA_DIR,
+          "--db",
+          join(root, "runs.sqlite3"),
+        ],
+        env: {},
+      }),
+    );
+    servers.push(server);
+
+    const body = await json<{ presets: PresetResponse["preset"][] }>(
+      `${server.url}/api/presets`,
+    );
+    const preset = body.presets.find(
+      (item) => item.name === "Pre Release Checks",
+    );
+    expect(preset?.selection).toEqual(PRE_RELEASE_DEFAULT_PRESET.selection);
+  });
 
   test("starts a dry-run, persists server metadata, and replays SSE progress", async () => {
     const { server } = await start();

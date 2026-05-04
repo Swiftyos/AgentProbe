@@ -19,6 +19,7 @@ import {
   softDeletePreset as sqliteSoftDeletePreset,
   updatePreset as sqliteUpdatePreset,
   updateRunMetadata as sqliteUpdateRunMetadata,
+  upsertPresetByName as sqliteUpsertPresetByName,
 } from "./sqlite-run-history.ts";
 import type {
   PresetWriteInput,
@@ -47,6 +48,10 @@ export class SqliteRepository implements RecordingRepository {
 
   async createPreset(input: PresetWriteInput) {
     return sqliteCreatePreset(input, { dbUrl: this.dbUrl });
+  }
+
+  async upsertPresetByName(input: PresetWriteInput) {
+    return sqliteUpsertPresetByName(input, { dbUrl: this.dbUrl });
   }
 
   async getPreset(

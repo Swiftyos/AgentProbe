@@ -342,7 +342,9 @@ describe("read-only AgentProbe server", () => {
     expect(preflight.headers.get("access-control-allow-origin")).toBeNull();
     expect(preflight.headers.get("access-control-allow-methods")).toBeNull();
     expect(preflight.headers.get("access-control-allow-headers")).toBeNull();
-    expect(preflight.headers.get("access-control-allow-credentials")).toBeNull();
+    expect(
+      preflight.headers.get("access-control-allow-credentials"),
+    ).toBeNull();
 
     const api = await fetch(`${server.url}/api/runs`, {
       headers: { origin: "https://dashboard.example" },

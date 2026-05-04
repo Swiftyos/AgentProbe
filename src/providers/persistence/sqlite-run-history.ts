@@ -1257,6 +1257,95 @@ export function createPreset(
   }
 }
 
+export function upsertPresetByName(
+  input: PresetWriteInput,
+  options: { dbUrl?: string } = {},
+): PresetRecord {
+  const database = openDatabase(options.dbUrl);
+  const now = utcNow();
+  let presetId: string | undefined;
+  try {
+    database.exec("begin immediate;");
+    const existing = database
+      .query("select id from presets where name = ?")
+      .get(input.name) as { id?: string } | null;
+    if (existing?.id) {
+      presetId = existing.id;
+      database
+        .query(
+          `
+            update presets
+            set description = ?,
+                endpoint = ?,
+                personas = ?,
+                rubric = ?,
+                parallel_enabled = ?,
+                parallel_limit = ?,
+                repeat = ?,
+                dry_run = ?,
+                updated_at = ?,
+                deleted_at = null
+            where id = ?
+          `,
+        )
+        .run(
+          input.description ?? null,
+          input.endpoint,
+          input.personas,
+          input.rubric,
+          input.parallel?.enabled ? 1 : 0,
+          input.parallel?.limit ?? null,
+          input.repeat ?? 1,
+          input.dryRun ? 1 : 0,
+          now,
+          presetId,
+        );
+    } else {
+      presetId = randomUUID().replaceAll("-", "");
+      database
+        .query(
+          `
+            insert into presets (
+              id, name, description, endpoint, personas, rubric,
+              parallel_enabled, parallel_limit, repeat, dry_run, created_at, updated_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+        )
+        .run(
+          presetId,
+          input.name,
+          input.description ?? null,
+          input.endpoint,
+          input.personas,
+          input.rubric,
+          input.parallel?.enabled ? 1 : 0,
+          input.parallel?.limit ?? null,
+          input.repeat ?? 1,
+          input.dryRun ? 1 : 0,
+          now,
+          now,
+        );
+    }
+    replacePresetScenarios(database, presetId, input.selection);
+    database.exec("commit;");
+    const row = database
+      .query("select * from presets where id = ?")
+      .get(presetId) as Record<string, unknown>;
+    return mapPresetRow(
+      row,
+      readPresetSelection(database, presetId),
+      latestRunForPresetRow(database, presetId),
+    );
+  } catch (error) {
+    try {
+      database.exec("rollback;");
+    } catch {}
+    throw error;
+  } finally {
+    database.close();
+  }
+}
+
 export function getPreset(
   presetId: string,
   options: { dbUrl?: string; includeDeleted?: boolean } = {},

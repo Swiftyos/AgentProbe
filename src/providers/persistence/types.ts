@@ -165,6 +165,7 @@ export interface ReadableRepository {
 export interface PersistenceRepository extends ReadableRepository {
   // Preset operations
   createPreset(input: PresetWriteInput): Promise<PresetRecord>;
+  upsertPresetByName(input: PresetWriteInput): Promise<PresetRecord>;
   getPreset(
     presetId: string,
     options?: { includeDeleted?: boolean },

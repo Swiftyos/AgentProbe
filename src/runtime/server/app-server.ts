@@ -22,6 +22,10 @@ import { PresetController } from "./controllers/preset-controller.ts";
 import { RunController } from "./controllers/run-controller.ts";
 import { SettingsController } from "./controllers/settings-controller.ts";
 import { SuiteController } from "./controllers/suite-controller.ts";
+import {
+  logDefaultPresetSeedResults,
+  seedDefaultPresets,
+} from "./default-presets.ts";
 import { ensureRequestId, errorResponse } from "./http-helpers.ts";
 import { handleCompareRuns } from "./routes/comparisons.ts";
 import {
@@ -328,6 +332,10 @@ export async function startAgentProbeServer(
   const suiteController = new SuiteController({ dataPath: config.dataPath });
   // Warm cache and surface directory errors early.
   suiteController.inventory();
+  logDefaultPresetSeedResults(
+    await seedDefaultPresets({ repository, suiteController }),
+    { logFormat: config.logFormat },
+  );
 
   const streamHub = new StreamHub();
   const presetController = new PresetController({

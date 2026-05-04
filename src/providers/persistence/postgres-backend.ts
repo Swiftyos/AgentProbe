@@ -485,6 +485,61 @@ export class PostgresRepository implements RecordingRepository {
     });
   }
 
+  async upsertPresetByName(input: PresetWriteInput): Promise<PresetRecord> {
+    return this.withSql(async (sql) => {
+      let presetId: string | undefined;
+      await sql.begin(async (tx) => {
+        const rows = await tx<UnknownRecord>`
+          insert into presets (
+            id, name, description, endpoint, personas, rubric,
+            parallel_enabled, parallel_limit, repeat, dry_run, created_at, updated_at
+          ) values (
+            ${crypto.randomUUID().replaceAll("-", "")},
+            ${input.name},
+            ${input.description ?? null},
+            ${input.endpoint},
+            ${input.personas},
+            ${input.rubric},
+            ${Boolean(input.parallel?.enabled)},
+            ${input.parallel?.limit ?? null},
+            ${input.repeat ?? 1},
+            ${Boolean(input.dryRun)},
+            now(),
+            now()
+          )
+          on conflict (name) do update set
+            description = excluded.description,
+            endpoint = excluded.endpoint,
+            personas = excluded.personas,
+            rubric = excluded.rubric,
+            parallel_enabled = excluded.parallel_enabled,
+            parallel_limit = excluded.parallel_limit,
+            repeat = excluded.repeat,
+            dry_run = excluded.dry_run,
+            updated_at = now(),
+            deleted_at = null
+          returning id
+        `;
+        presetId = asStringOrNull(rows[0]?.id) ?? undefined;
+        if (!presetId) {
+          throw new AgentProbeRuntimeError(
+            "Failed to read upserted preset id.",
+          );
+        }
+        await this.replacePresetScenarios(tx, presetId, input.selection);
+      });
+      const result = presetId
+        ? await fetchPresetById(sql, presetId, false)
+        : undefined;
+      if (!result) {
+        throw new AgentProbeRuntimeError(
+          "Failed to read back upserted preset.",
+        );
+      }
+      return result;
+    });
+  }
+
   private async replacePresetScenarios(
     sql: SqlTag,
     presetId: string,

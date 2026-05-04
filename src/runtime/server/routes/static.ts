@@ -47,17 +47,14 @@ function isDashboardPath(pathname: string): boolean {
 }
 
 function serveInlineDashboard(context: ServerContext): Response {
-  return new Response(
-    dashboardHtml(),
-    {
-      status: 200,
-      headers: {
-        "content-type": "text/html; charset=utf-8",
-        "x-request-id": context.requestId,
-        "cache-control": "no-store",
-      },
+  return new Response(dashboardHtml(), {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "x-request-id": context.requestId,
+      "cache-control": "no-store",
     },
-  );
+  });
 }
 
 export async function handleStatic(

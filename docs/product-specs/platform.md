@@ -247,6 +247,14 @@ from the preset, and later edits or soft-deletions of the preset do not
 retroactively change historical runs or the comparison semantics that read the
 snapshot.
 
+**Given** the packaged AgentProbe data directory contains the AutoGPT endpoint,
+baseline scenario suite, default personas, and default rubric files
+**When** `agentprobe start-server` boots against a writable persistence backend
+**Then** the server ensures a `Pre Release Checks` preset exists with the
+source-backed pre-release scenario selection so fresh Docker deployments expose
+the preset in `/api/presets` without requiring an operator to seed the database
+by hand.
+
 ### Comparison workspace diffs 2 to 10 historical runs
 
 **Given** at least two persisted runs, preferably launched from the same preset

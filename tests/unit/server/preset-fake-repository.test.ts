@@ -46,6 +46,27 @@ class FakeRepository implements PersistenceRepository {
     return preset;
   }
 
+  async upsertPresetByName(input: PresetWriteInput): Promise<PresetRecord> {
+    const existing = this.presets.find((preset) => preset.name === input.name);
+    if (existing) {
+      existing.description = input.description ?? null;
+      existing.endpoint = input.endpoint;
+      existing.personas = input.personas;
+      existing.rubric = input.rubric;
+      existing.selection = input.selection;
+      existing.parallel = {
+        enabled: input.parallel?.enabled ?? false,
+        limit: input.parallel?.limit ?? null,
+      };
+      existing.repeat = input.repeat ?? 1;
+      existing.dryRun = input.dryRun ?? false;
+      existing.updatedAt = "2026-04-17T00:00:00.000Z";
+      existing.deletedAt = null;
+      return existing;
+    }
+    return this.createPreset(input);
+  }
+
   async getPreset(presetId: string): Promise<PresetRecord | undefined> {
     return this.presets.find((preset) => preset.id === presetId);
   }

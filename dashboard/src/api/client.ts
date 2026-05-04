@@ -19,10 +19,7 @@ function errorMessageFromBody(body: unknown, fallback: string): string {
   return typeof message === "string" && message ? message : fallback;
 }
 
-export async function api<T>(
-  path: string,
-  init: RequestInit = {},
-): Promise<T> {
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = { accept: "application/json" };
   const incomingHeaders = new Headers(init.headers);
   for (const [key, value] of incomingHeaders.entries()) {
@@ -59,11 +56,7 @@ export function jsonBody(method: string, body?: unknown): RequestInit {
 export function useServerRequest(): ServerRequest {
   return useCallback(
     async <T>(path: string, init?: RequestInit): Promise<T> => {
-      try {
-        return await api<T>(path, init);
-      } catch (error) {
-        throw error;
-      }
+      return await api<T>(path, init);
     },
     [],
   );
