@@ -185,4 +185,6 @@ export type EndpointOverrideDetailResponse = {
 };
 export type EndpointOverrideUpsertResponse = { override: EndpointOverride };
 
-export type ServerRequest = <T>(path: string, init?: RequestInit) => Promise<T>;
+import type { ApiOptions } from "./client.ts";
+
+export type ServerRequest = <T>(path: string, init?: ApiOptions) => Promise<T>;

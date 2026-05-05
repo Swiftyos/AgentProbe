@@ -65,6 +65,10 @@ import {
 import { handleRunSse } from "./routes/sse.ts";
 import { handleStatic } from "./routes/static.ts";
 import {
+  type PerfTracker,
+  responseBudget,
+} from "./middleware/response-budget.ts";
+import {
   handleListAllScenarios,
   handleListSuiteScenarios,
   handleListSuites,
@@ -104,6 +108,7 @@ type ServerHonoEnv = {
   Variables: {
     requestStartedAt: number;
     serverContext: ServerContext;
+    perf: PerfTracker;
   };
 };
 
@@ -236,6 +241,14 @@ function createServerApp(
     );
     c.res = finalResponse;
   });
+
+  app.use(
+    "*",
+    responseBudget({
+      skip: (path) =>
+        path.endsWith("/events") || path.endsWith("/report.html"),
+    }),
+  );
 
   app.onError((error, c) =>
     serverErrorResponse(error, serverContext(c).requestId),
