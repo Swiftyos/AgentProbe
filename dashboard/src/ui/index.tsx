@@ -292,7 +292,6 @@ export function StatTilesSkeleton({ count = 4 }: { count?: number }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
       {Array.from({ length: count }, (_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: static placeholder grid
         <ShadcnCard key={i} className="px-4 py-3 shadow-sm">
           <Skeleton className="h-3 w-16 mb-2" />
           <Skeleton className="h-7 w-20" />
@@ -325,7 +324,6 @@ export function RunsTableSkeleton({
           </thead>
           <tbody className="divide-y divide-border">
             {Array.from({ length: rows }, (_, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: static placeholder grid
               <tr key={i}>
                 {selectable ? (
                   <td className="px-3 py-2 align-middle">
@@ -367,7 +365,6 @@ export function CardSkeleton({
     <ShadcnCard className={cn("px-4 py-4 space-y-3", className)}>
       {Array.from({ length: lines }, (_, i) => (
         <Skeleton
-          // biome-ignore lint/suspicious/noArrayIndexKey: static placeholder grid
           key={i}
           className={cn(
             "h-4",

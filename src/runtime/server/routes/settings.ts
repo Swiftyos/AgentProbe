@@ -1,21 +1,12 @@
 import type { ServerContext } from "../app-server.ts";
-import { errorResponse, jsonResponse } from "../http-helpers.ts";
+import { jsonResponse, routeErrorResponse } from "../http-helpers.ts";
 import { HttpInputError, readJsonObject } from "../validation.ts";
 
 function routeError(error: unknown, requestId: string): Response {
-  if (error instanceof HttpInputError) {
-    return errorResponse({
-      status: error.status,
-      type: error.code,
-      message: error.message,
-      requestId,
-    });
-  }
-  return errorResponse({
-    status: 500,
-    type: "internal_error",
-    message: error instanceof Error ? error.message : String(error),
+  return routeErrorResponse(error, {
     requestId,
+    fallbackType: "internal_error",
+    mapConfigErrors: false,
   });
 }
 

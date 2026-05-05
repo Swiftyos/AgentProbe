@@ -64,9 +64,7 @@ export function CollapsedToolGroup({ parts }: Props) {
         <ChevronRight
           size={12}
           strokeWidth={2.5}
-          className={
-            "transition-transform duration-150 " + (expanded ? "rotate-90" : "")
-          }
+          className={`transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}
         />
         {errorCount > 0 ? (
           <AlertTriangle size={14} strokeWidth={2} className="text-rose-500" />

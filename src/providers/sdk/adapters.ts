@@ -1,8 +1,8 @@
+import type { EndpointAdapter } from "../../domains/evaluation/ports.ts";
 import type {
   AdapterReply,
   AutogptAuthResult,
   Endpoints,
-  UploadedFile,
 } from "../../shared/types/contracts.ts";
 import {
   AgentProbeConfigError,
@@ -11,18 +11,6 @@ import {
 import { HttpEndpointAdapter } from "./http-endpoint.ts";
 import { buildOpenClawAdapter, OpenClawEndpointAdapter } from "./openclaw.ts";
 import { configureEndpoint, dispatchKey } from "./preset-config.ts";
-
-export type EndpointAdapter = {
-  healthCheck: (renderContext: Record<string, unknown>) => Promise<void>;
-  openScenario: (
-    renderContext: Record<string, unknown>,
-  ) => Promise<Record<string, unknown>>;
-  sendUserTurn: (
-    renderContext: Record<string, unknown>,
-  ) => Promise<AdapterReply>;
-  closeScenario: (renderContext: Record<string, unknown>) => Promise<void>;
-  uploadFile?: (filePath: string, fileName: string) => Promise<UploadedFile>;
-};
 
 class CliHarnessEndpointAdapter implements EndpointAdapter {
   constructor(readonly endpoint: Endpoints) {

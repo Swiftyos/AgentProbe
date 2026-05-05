@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { HttpInputError } from "./validation.ts";
+
 export type ErrorEnvelope = {
   error: {
     code: string;
@@ -49,6 +51,43 @@ export function errorResponse(options: {
   return jsonResponse(envelope, {
     status: options.status,
     headers: options.headers,
+    requestId: options.requestId,
+  });
+}
+
+export function routeErrorResponse(
+  error: unknown,
+  options: {
+    requestId: string;
+    fallbackType: string;
+    fallbackStatus?: number;
+    mapConfigErrors?: boolean;
+  },
+): Response {
+  if (error instanceof HttpInputError) {
+    return errorResponse({
+      status: error.status,
+      type: error.code,
+      message: error.message,
+      requestId: options.requestId,
+    });
+  }
+  if (
+    options.mapConfigErrors !== false &&
+    error instanceof Error &&
+    error.name === "AgentProbeConfigError"
+  ) {
+    return errorResponse({
+      status: 400,
+      type: "bad_request",
+      message: error.message,
+      requestId: options.requestId,
+    });
+  }
+  return errorResponse({
+    status: options.fallbackStatus ?? 500,
+    type: options.fallbackType,
+    message: error instanceof Error ? error.message : String(error),
     requestId: options.requestId,
   });
 }

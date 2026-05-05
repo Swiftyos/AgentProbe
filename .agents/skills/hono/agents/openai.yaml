@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hono"
+  short_description: "Hono API best-practice guidance"
+  default_prompt: "Use $hono to implement a type-safe Hono API route with validation, middleware, tests, and RPC-friendly exports."

@@ -1,4 +1,3 @@
-import type { OpenAiResponsesClient } from "../../providers/sdk/openai-responses.ts";
 import type {
   ConversationTurn,
   JsonValue,
@@ -7,6 +6,7 @@ import type {
   PersonaStep,
 } from "../../shared/types/contracts.ts";
 import { AgentProbeRuntimeError } from "../../shared/utils/errors.ts";
+import type { LlmResponsesClient } from "./ports.ts";
 
 const DEFAULT_PERSONA_MODEL = "moonshotai/kimi-k2.5";
 
@@ -566,7 +566,7 @@ function correctionNoteForPersonaError(
 export async function generatePersonaStep(
   persona: Persona,
   history: ConversationHistory,
-  client: OpenAiResponsesClient,
+  client: LlmResponsesClient,
   options: {
     guidance?: string;
     requireResponse?: boolean;
@@ -642,7 +642,7 @@ export async function generatePersonaStep(
 export async function generateNextStep(
   persona: Persona,
   history: ConversationHistory,
-  client: OpenAiResponsesClient,
+  client: LlmResponsesClient,
   options: {
     guidance?: string;
   } = {},

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Drizzle"
+  short_description: "Drizzle ORM patterns and docs"
+  default_prompt: "Use $drizzle to implement a typed Drizzle ORM schema, query, or migration."

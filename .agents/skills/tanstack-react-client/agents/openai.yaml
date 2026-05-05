@@ -1,0 +1,4 @@
+interface:
+  display_name: "TanStack React Client"
+  short_description: "React TanStack patterns, including AI"
+  default_prompt: "Use $tanstack-react-client to build a client-rendered React feature with TanStack Query, Router, and AI."

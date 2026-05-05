@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { jsonBody, useServerRequest } from "./api/client.ts";
+import { DashboardQueryProvider } from "./api/query-client.tsx";
 import type {
   HealthResponse,
   OpenRouterStatusResponse,
@@ -2314,7 +2315,7 @@ function LiveDashboard() {
   );
 }
 
-export function App() {
+function AppContent() {
   const [mode, setMode] = useState<AppMode>("detecting");
   const [_pathname, setPathname] = useState<string>(
     typeof window !== "undefined" ? window.location.pathname : "/",
@@ -2355,4 +2356,12 @@ export function App() {
     return <Loading label="Starting dashboard…" />;
   }
   return mode === "live" ? <LiveDashboard /> : <ServerDashboard />;
+}
+
+export function App() {
+  return (
+    <DashboardQueryProvider>
+      <AppContent />
+    </DashboardQueryProvider>
+  );
 }

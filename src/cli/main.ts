@@ -1,5 +1,4 @@
 import { dirname, resolve } from "node:path";
-
 import { runSuite } from "../domains/evaluation/run-suite.ts";
 import { startDashboardServer } from "../domains/reporting/dashboard.ts";
 import { writeRunReport } from "../domains/reporting/render-report.ts";
@@ -13,7 +12,7 @@ import {
   DEFAULT_DB_FILENAME,
   SqliteRunRecorder,
 } from "../providers/persistence/sqlite-run-history.ts";
-import { parseDbUrl, redactDbUrl } from "../providers/persistence/url.ts";
+import { redactDbUrl } from "../providers/persistence/url.ts";
 import { OpenAiResponsesClient } from "../providers/sdk/openai-responses.ts";
 import {
   loadConfiguredEndpoint,
@@ -21,6 +20,7 @@ import {
   openclawChat,
   openclawHistory,
 } from "../providers/sdk/openclaw.ts";
+import { providerEndpointAdapterFactory } from "../providers/sdk/run-adapter-factory.ts";
 import { startAgentProbeServer } from "../runtime/server/app-server.ts";
 import { buildServerConfig } from "../runtime/server/config.ts";
 import type { RunProgressEvent, RunResult } from "../shared/types/contracts.ts";
@@ -29,12 +29,14 @@ import {
   AgentProbeRuntimeError,
 } from "../shared/utils/errors.ts";
 import { setLogLevel } from "../shared/utils/logging.ts";
-
-type GlobalCliOptions = {
-  args: string[];
-  dataPath?: string;
-  verbosity: 0 | 1 | 2;
-};
+import {
+  normalizeGlobalArgs,
+  parseFlag,
+  parseIntegerOption,
+  parseOption,
+  parseParallelOption,
+  resolveMigrationDbUrl,
+} from "./args.ts";
 
 type DashboardScenarioSeed = {
   ordinal: number;
@@ -129,91 +131,6 @@ function printRunSummary(result: RunResult): void {
   console.log(
     `Summary: ${passedCount} passed, ${failedCount} failed, ${result.results.length} total`,
   );
-}
-
-function parseFlag(args: string[], name: string): boolean {
-  return args.includes(name);
-}
-
-function parseIntegerValue(name: string, value: string): number {
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || String(parsed) !== value.trim()) {
-    throw new AgentProbeConfigError(`${name} requires an integer value.`);
-  }
-  return parsed;
-}
-
-function parseOption(args: string[], name: string): string | undefined {
-  const index = args.indexOf(name);
-  if (index === -1) {
-    return undefined;
-  }
-  return args[index + 1];
-}
-
-function parseIntegerOption(args: string[], name: string): number | undefined {
-  const value = parseOption(args, name);
-  if (value === undefined) {
-    return undefined;
-  }
-  return parseIntegerValue(name, value);
-}
-
-function parseParallelOption(args: string[]): {
-  enabled: boolean;
-  limit?: number;
-} {
-  for (let index = 0; index < args.length; index += 1) {
-    const arg = args[index];
-    if (arg !== "--parallel" && arg !== "--parrallel") {
-      continue;
-    }
-
-    const rawLimit = args[index + 1];
-    if (rawLimit === undefined || rawLimit.startsWith("--")) {
-      return { enabled: true };
-    }
-
-    const limit = parseIntegerValue("--parallel", rawLimit);
-    if (limit < 1) {
-      throw new AgentProbeConfigError(
-        "--parallel must be at least 1 when a limit is provided.",
-      );
-    }
-    return { enabled: true, limit };
-  }
-
-  return { enabled: false };
-}
-
-function normalizeGlobalArgs(argv: string[]): GlobalCliOptions {
-  const args: string[] = [];
-  let dataPath: string | undefined;
-  let verbosity = 0;
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === "--data-path") {
-      dataPath = argv[index + 1];
-      index += 1;
-      continue;
-    }
-    if (arg === "-vv") {
-      verbosity = Math.max(verbosity, 2);
-      continue;
-    }
-    if (arg === "-v" || arg === "--verbose") {
-      verbosity = Math.min(2, verbosity + 1);
-      continue;
-    }
-    args.push(arg);
-  }
-
-  return {
-    args,
-    dataPath,
-    verbosity: verbosity >= 2 ? 2 : verbosity === 1 ? 1 : 0,
-  };
 }
 
 function applyVerbosityLevel(verbosity: 0 | 1 | 2): void {
@@ -372,6 +289,7 @@ async function handleRun(args: string[]): Promise<number> {
         dashboard?.state.handleProgress(event);
         printRunProgress(event);
       },
+      adapterFactory: providerEndpointAdapterFactory,
       parallel: parallel.enabled,
       parallelLimit: parallel.limit,
       dryRun: parseFlag(args, "--dry-run"),
@@ -496,27 +414,10 @@ async function handleOpenclaw(args: string[]): Promise<number> {
 }
 
 async function handleDbMigrate(args: string[]): Promise<number> {
-  const dbFlag = parseOption(args, "--db");
-  const envUrl = process.env.AGENTPROBE_DB_URL;
-  let resolvedUrl: string;
-  if (dbFlag) {
-    if (
-      dbFlag.startsWith("sqlite://") ||
-      dbFlag.startsWith("postgres://") ||
-      dbFlag.startsWith("postgresql://")
-    ) {
-      resolvedUrl = dbFlag;
-    } else {
-      resolvedUrl = `sqlite:///${resolve(dbFlag)}`;
-    }
-  } else if (envUrl) {
-    resolvedUrl = envUrl;
-  } else {
-    resolvedUrl = `sqlite:///${resolve(DEFAULT_DB_DIRNAME, DEFAULT_DB_FILENAME)}`;
-  }
-
-  // Validate the URL scheme with a clear error before doing work.
-  parseDbUrl(resolvedUrl);
+  const resolvedUrl = resolveMigrationDbUrl({
+    dbFlag: parseOption(args, "--db"),
+    envUrl: process.env.AGENTPROBE_DB_URL,
+  });
 
   const report = await runMigrations(resolvedUrl);
   console.log(`backend: ${report.backend}`);

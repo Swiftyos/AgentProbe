@@ -156,15 +156,15 @@ export type ListRunsOptions = RunFilters & {
   offset?: number;
 };
 
-/**
- * Read-only repository surface for historical run views and comparisons.
- */
-export interface ReadableRepository {
+export interface RepositoryLifecycle {
   readonly kind: PersistenceBackendKind;
   readonly dbUrl: string;
 
   initialize(): Promise<void>;
   close?(): Promise<void>;
+}
+
+export interface RunHistoryReader extends RepositoryLifecycle {
   listRuns(options?: ListRunsOptions): Promise<RunSummary[]>;
   countRuns(filters?: RunFilters): Promise<number>;
   listRunsForPreset(presetId: string): Promise<RunSummary[]>;
@@ -176,12 +176,11 @@ export interface ReadableRepository {
 }
 
 /**
- * Async-first persistence repository. SQLite and Postgres both implement this
- * surface; existing sync free-function callers keep working through compat
- * wrappers in `sqlite-run-history.ts`.
+ * Read-only repository surface for historical run views and comparisons.
  */
-export interface PersistenceRepository extends ReadableRepository {
-  // Preset operations
+export type ReadableRepository = RunHistoryReader;
+
+export interface PresetRepository {
   createPreset(input: PresetWriteInput): Promise<PresetRecord>;
   upsertPresetByName(input: PresetWriteInput): Promise<PresetRecord>;
   getPreset(
@@ -194,25 +193,26 @@ export interface PersistenceRepository extends ReadableRepository {
     input: Partial<PresetWriteInput>,
   ): Promise<PresetRecord | undefined>;
   softDeletePreset(presetId: string): Promise<PresetRecord | undefined>;
+}
 
-  // Cancellation
+export interface RunMutationRepository {
   markRunCancelled(
     runId: string,
     options?: { exitCode?: number },
   ): Promise<RunRecord | undefined>;
-
-  // Run metadata edits (label / notes). Pass null to clear a field.
   updateRunMetadata(
     runId: string,
     patch: { label?: string | null; notes?: string | null },
   ): Promise<RunRecord | undefined>;
+}
 
-  // Encrypted secret storage (e.g., OPEN_ROUTER_API_KEY) keyed by name.
+export interface SecretRepository {
   getSecret(key: string): Promise<StoredSecretEnvelope | undefined>;
   putSecret(key: string, secret: StoredSecretEnvelope): Promise<void>;
   deleteSecret(key: string): Promise<boolean>;
+}
 
-  // Per-endpoint YAML overrides applied at run start.
+export interface EndpointOverrideRepository {
   getEndpointOverride(
     endpointPath: string,
   ): Promise<StoredEndpointOverride | undefined>;
@@ -223,6 +223,17 @@ export interface PersistenceRepository extends ReadableRepository {
   ): Promise<StoredEndpointOverride>;
   deleteEndpointOverride(endpointPath: string): Promise<boolean>;
 }
+
+/**
+ * Async-first persistence repository. SQLite and Postgres both implement this
+ * surface; existing sync free-function callers keep working through compat
+ * wrappers in `sqlite-run-history.ts`.
+ */
+export type PersistenceRepository = ReadableRepository &
+  PresetRepository &
+  RunMutationRepository &
+  SecretRepository &
+  EndpointOverrideRepository;
 
 /**
  * Repository surface required by callers that create run recorders. Postgres is

@@ -7,6 +7,7 @@ import type {
   RunRecorder,
 } from "../../../providers/persistence/types.ts";
 import { OpenAiResponsesClient } from "../../../providers/sdk/openai-responses.ts";
+import { providerEndpointAdapterFactory } from "../../../providers/sdk/run-adapter-factory.ts";
 import type {
   JsonValue,
   PresetRecord,
@@ -468,6 +469,7 @@ export class RunController {
             payload: jsonProgressPayload(event),
           });
         },
+        adapterFactory: providerEndpointAdapterFactory,
         parallel: spec.parallel.enabled,
         parallelLimit: spec.parallel.limit,
         dryRun: spec.dryRun,

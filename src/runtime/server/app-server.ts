@@ -1,3 +1,6 @@
+import type { Context } from "hono";
+import { Hono } from "hono";
+
 import { createRecordingRepository } from "../../providers/persistence/factory.ts";
 import { resolveSqlitePath } from "../../providers/persistence/sqlite-connection.ts";
 import type {
@@ -95,191 +98,17 @@ export type StartedServer = {
   stop: () => Promise<void>;
 };
 
-type RouteHandler = (
-  request: Request,
-  context: ServerContext,
-  params: Record<string, string>,
-) => Response | Promise<Response>;
+type ServerContextBase = Omit<ServerContext, "requestId">;
 
-type Route = {
-  method: string;
-  pattern: RegExp;
-  paramNames: string[];
-  handler: RouteHandler;
+type ServerHonoEnv = {
+  Variables: {
+    requestStartedAt: number;
+    serverContext: ServerContext;
+  };
 };
 
-function compileRoute(
-  method: string,
-  path: string,
-  handler: RouteHandler,
-): Route {
-  const paramNames: string[] = [];
-  const regexSource = path.replace(/:([a-zA-Z_]+)/g, (_match, name: string) => {
-    paramNames.push(name);
-    return "([^/]+)";
-  });
-  return {
-    method,
-    pattern: new RegExp(`^${regexSource}$`),
-    paramNames,
-    handler,
-  };
-}
-
-function buildRoutes(): Route[] {
-  return [
-    compileRoute("GET", "/healthz", handleHealthz),
-    compileRoute("GET", "/readyz", handleReadyz),
-    compileRoute("GET", "/api/session", handleSession),
-    compileRoute("GET", "/api/suites", handleListSuites),
-    compileRoute(
-      "GET",
-      "/api/suites/:suiteId/scenarios",
-      (request, context, params) =>
-        handleListSuiteScenarios(request, context, {
-          suiteId: params.suiteId ?? "",
-        }),
-    ),
-    compileRoute("GET", "/api/scenarios", handleListAllScenarios),
-    compileRoute("GET", "/api/scenarios/lookup", handleScenarioLookup),
-    compileRoute("GET", "/api/runs", handleListRuns),
-    compileRoute("POST", "/api/runs", handleStartRun),
-    compileRoute("GET", "/api/runs/:runId", (request, context, params) =>
-      handleGetRun(request, context, { runId: params.runId ?? "" }),
-    ),
-    compileRoute("PATCH", "/api/runs/:runId", (request, context, params) =>
-      handlePatchRun(request, context, { runId: params.runId ?? "" }),
-    ),
-    compileRoute(
-      "POST",
-      "/api/runs/:runId/cancel",
-      (request, context, params) =>
-        handleCancelRun(request, context, { runId: params.runId ?? "" }),
-    ),
-    compileRoute(
-      "GET",
-      "/api/runs/:runId/scenarios/:ordinal",
-      (request, context, params) =>
-        handleGetScenarioRun(request, context, {
-          runId: params.runId ?? "",
-          ordinal: params.ordinal ?? "",
-        }),
-    ),
-    compileRoute("GET", "/api/runs/:runId/events", (request, context, params) =>
-      handleRunSse(request, context, { runId: params.runId ?? "" }),
-    ),
-    compileRoute(
-      "GET",
-      "/api/runs/:runId/report.html",
-      (request, context, params) =>
-        handleRunReport(request, context, { runId: params.runId ?? "" }),
-    ),
-    compileRoute("GET", "/api/comparisons", (request, context) =>
-      handleCompareRuns(request, context),
-    ),
-    compileRoute("GET", "/api/presets", handleListPresets),
-    compileRoute("POST", "/api/presets", handleCreatePreset),
-    compileRoute(
-      "POST",
-      "/api/runs/:runId/save-as-preset",
-      (request, context, params) =>
-        handleCreatePresetFromRun(request, context, {
-          runId: params.runId ?? "",
-        }),
-    ),
-    compileRoute("GET", "/api/presets/:presetId", (request, context, params) =>
-      handleGetPreset(request, context, { presetId: params.presetId ?? "" }),
-    ),
-    compileRoute("PUT", "/api/presets/:presetId", (request, context, params) =>
-      handleUpdatePreset(request, context, {
-        presetId: params.presetId ?? "",
-      }),
-    ),
-    compileRoute(
-      "DELETE",
-      "/api/presets/:presetId",
-      (request, context, params) =>
-        handleDeletePreset(request, context, {
-          presetId: params.presetId ?? "",
-        }),
-    ),
-    compileRoute(
-      "GET",
-      "/api/presets/:presetId/runs",
-      (request, context, params) =>
-        handlePresetRuns(request, context, { presetId: params.presetId ?? "" }),
-    ),
-    compileRoute(
-      "POST",
-      "/api/presets/:presetId/runs",
-      (request, context, params) =>
-        handleStartPresetRun(request, context, {
-          presetId: params.presetId ?? "",
-        }),
-    ),
-    compileRoute(
-      "GET",
-      "/api/settings/secrets/open_router_api_key",
-      handleGetOpenRouterStatus,
-    ),
-    compileRoute(
-      "PUT",
-      "/api/settings/secrets/open_router_api_key",
-      handlePutOpenRouterApiKey,
-    ),
-    compileRoute(
-      "DELETE",
-      "/api/settings/secrets/open_router_api_key",
-      handleDeleteOpenRouterApiKey,
-    ),
-    compileRoute("GET", "/api/endpoint-overrides", handleListEndpointOverrides),
-    compileRoute(
-      "GET",
-      "/api/endpoint-overrides/:endpointPath",
-      (request, context, params) =>
-        handleGetEndpointOverride(request, context, {
-          endpointPath: params.endpointPath ?? "",
-        }),
-    ),
-    compileRoute(
-      "PUT",
-      "/api/endpoint-overrides/:endpointPath",
-      (request, context, params) =>
-        handlePutEndpointOverride(request, context, {
-          endpointPath: params.endpointPath ?? "",
-        }),
-    ),
-    compileRoute(
-      "DELETE",
-      "/api/endpoint-overrides/:endpointPath",
-      (request, context, params) =>
-        handleDeleteEndpointOverride(request, context, {
-          endpointPath: params.endpointPath ?? "",
-        }),
-    ),
-  ];
-}
-
-function matchRoute(
-  routes: Route[],
-  method: string,
-  pathname: string,
-): { route: Route; params: Record<string, string> } | undefined {
-  for (const route of routes) {
-    if (route.method !== method && route.method !== "*") {
-      continue;
-    }
-    const match = route.pattern.exec(pathname);
-    if (!match) {
-      continue;
-    }
-    const params: Record<string, string> = {};
-    route.paramNames.forEach((name, index) => {
-      params[name] = match[index + 1] ?? "";
-    });
-    return { route, params };
-  }
-  return undefined;
+function serverContext(c: Context<ServerHonoEnv>): ServerContext {
+  return c.get("serverContext");
 }
 
 const GZIP_MIN_BYTES = 1024;
@@ -361,6 +190,182 @@ function logRequest(
   );
 }
 
+function serverErrorResponse(error: unknown, requestId: string): Response {
+  if (error instanceof AgentProbeConfigError) {
+    return errorResponse({
+      status: 400,
+      type: "ConfigurationError",
+      message: error.message,
+      requestId,
+    });
+  }
+  if (error instanceof AgentProbeRuntimeError) {
+    return errorResponse({
+      status: 500,
+      type: "RuntimeError",
+      message: error.message,
+      requestId,
+    });
+  }
+  return errorResponse({
+    status: 500,
+    type: "InternalServerError",
+    message: error instanceof Error ? error.message : String(error),
+    requestId,
+  });
+}
+
+function createServerApp(
+  config: ServerConfig,
+  baseContext: ServerContextBase,
+): Hono<ServerHonoEnv> {
+  const app = new Hono<ServerHonoEnv>();
+
+  app.use("*", async (c, next) => {
+    const requestId = ensureRequestId(c.req.raw);
+    c.set("requestStartedAt", performance.now());
+    c.set("serverContext", { ...baseContext, requestId });
+    await next();
+    const finalResponse = await maybeGzip(c.req.raw, c.res);
+    logRequest(
+      config,
+      c.req.raw,
+      finalResponse,
+      performance.now() - c.get("requestStartedAt"),
+      requestId,
+    );
+    c.res = finalResponse;
+  });
+
+  app.onError((error, c) =>
+    serverErrorResponse(error, serverContext(c).requestId),
+  );
+
+  app.get("/healthz", (c) => handleHealthz(c.req.raw, serverContext(c)));
+  app.get("/readyz", (c) => handleReadyz(c.req.raw, serverContext(c)));
+  app.get("/api/session", (c) => handleSession(c.req.raw, serverContext(c)));
+  app.get("/api/suites", (c) => handleListSuites(c.req.raw, serverContext(c)));
+  app.get("/api/suites/:suiteId/scenarios", (c) =>
+    handleListSuiteScenarios(c.req.raw, serverContext(c), {
+      suiteId: c.req.param("suiteId"),
+    }),
+  );
+  app.get("/api/scenarios", (c) =>
+    handleListAllScenarios(c.req.raw, serverContext(c)),
+  );
+  app.get("/api/scenarios/lookup", (c) =>
+    handleScenarioLookup(c.req.raw, serverContext(c)),
+  );
+
+  app.get("/api/runs", (c) => handleListRuns(c.req.raw, serverContext(c)));
+  app.post("/api/runs", (c) => handleStartRun(c.req.raw, serverContext(c)));
+  app.get("/api/runs/:runId", (c) =>
+    handleGetRun(c.req.raw, serverContext(c), {
+      runId: c.req.param("runId"),
+    }),
+  );
+  app.patch("/api/runs/:runId", (c) =>
+    handlePatchRun(c.req.raw, serverContext(c), {
+      runId: c.req.param("runId"),
+    }),
+  );
+  app.post("/api/runs/:runId/cancel", (c) =>
+    handleCancelRun(c.req.raw, serverContext(c), {
+      runId: c.req.param("runId"),
+    }),
+  );
+  app.get("/api/runs/:runId/scenarios/:ordinal", (c) =>
+    handleGetScenarioRun(c.req.raw, serverContext(c), {
+      runId: c.req.param("runId"),
+      ordinal: c.req.param("ordinal"),
+    }),
+  );
+  app.get("/api/runs/:runId/events", (c) =>
+    handleRunSse(c.req.raw, serverContext(c), {
+      runId: c.req.param("runId"),
+    }),
+  );
+  app.get("/api/runs/:runId/report.html", (c) =>
+    handleRunReport(c.req.raw, serverContext(c), {
+      runId: c.req.param("runId"),
+    }),
+  );
+  app.post("/api/runs/:runId/save-as-preset", (c) =>
+    handleCreatePresetFromRun(c.req.raw, serverContext(c), {
+      runId: c.req.param("runId"),
+    }),
+  );
+
+  app.get("/api/comparisons", (c) =>
+    handleCompareRuns(c.req.raw, serverContext(c)),
+  );
+
+  app.get("/api/presets", (c) =>
+    handleListPresets(c.req.raw, serverContext(c)),
+  );
+  app.post("/api/presets", (c) =>
+    handleCreatePreset(c.req.raw, serverContext(c)),
+  );
+  app.get("/api/presets/:presetId", (c) =>
+    handleGetPreset(c.req.raw, serverContext(c), {
+      presetId: c.req.param("presetId"),
+    }),
+  );
+  app.put("/api/presets/:presetId", (c) =>
+    handleUpdatePreset(c.req.raw, serverContext(c), {
+      presetId: c.req.param("presetId"),
+    }),
+  );
+  app.delete("/api/presets/:presetId", (c) =>
+    handleDeletePreset(c.req.raw, serverContext(c), {
+      presetId: c.req.param("presetId"),
+    }),
+  );
+  app.get("/api/presets/:presetId/runs", (c) =>
+    handlePresetRuns(c.req.raw, serverContext(c), {
+      presetId: c.req.param("presetId"),
+    }),
+  );
+  app.post("/api/presets/:presetId/runs", (c) =>
+    handleStartPresetRun(c.req.raw, serverContext(c), {
+      presetId: c.req.param("presetId"),
+    }),
+  );
+
+  app.get("/api/settings/secrets/open_router_api_key", (c) =>
+    handleGetOpenRouterStatus(c.req.raw, serverContext(c)),
+  );
+  app.put("/api/settings/secrets/open_router_api_key", (c) =>
+    handlePutOpenRouterApiKey(c.req.raw, serverContext(c)),
+  );
+  app.delete("/api/settings/secrets/open_router_api_key", (c) =>
+    handleDeleteOpenRouterApiKey(c.req.raw, serverContext(c)),
+  );
+
+  app.get("/api/endpoint-overrides", (c) =>
+    handleListEndpointOverrides(c.req.raw, serverContext(c)),
+  );
+  app.get("/api/endpoint-overrides/:endpointPath", (c) =>
+    handleGetEndpointOverride(c.req.raw, serverContext(c), {
+      endpointPath: c.req.param("endpointPath"),
+    }),
+  );
+  app.put("/api/endpoint-overrides/:endpointPath", (c) =>
+    handlePutEndpointOverride(c.req.raw, serverContext(c), {
+      endpointPath: c.req.param("endpointPath"),
+    }),
+  );
+  app.delete("/api/endpoint-overrides/:endpointPath", (c) =>
+    handleDeleteEndpointOverride(c.req.raw, serverContext(c), {
+      endpointPath: c.req.param("endpointPath"),
+    }),
+  );
+
+  app.notFound((c) => handleStatic(c.req.raw, serverContext(c)));
+
+  return app;
+}
+
 export async function startAgentProbeServer(
   config: ServerConfig,
 ): Promise<StartedServer> {
@@ -421,10 +426,9 @@ export async function startAgentProbeServer(
       return null;
     },
   });
-  const routes = buildRoutes();
   const startedAt = Date.now();
 
-  const baseContext = {
+  const baseContext: ServerContextBase = {
     config,
     presetController,
     runController,
@@ -437,64 +441,12 @@ export async function startAgentProbeServer(
     startedAt,
     version: SERVER_VERSION,
   };
-
-  const fetchHandler = async (request: Request): Promise<Response> => {
-    const requestId = ensureRequestId(request);
-    const url = new URL(request.url);
-    const t0 = performance.now();
-    let response: Response;
-    const context: ServerContext = { ...baseContext, requestId };
-    try {
-      const matched = matchRoute(routes, request.method, url.pathname);
-      if (matched) {
-        response = await matched.route.handler(
-          request,
-          context,
-          matched.params,
-        );
-      } else {
-        response = await handleStatic(request, context);
-      }
-    } catch (error) {
-      if (error instanceof AgentProbeConfigError) {
-        response = errorResponse({
-          status: 400,
-          type: "ConfigurationError",
-          message: error.message,
-          requestId,
-        });
-      } else if (error instanceof AgentProbeRuntimeError) {
-        response = errorResponse({
-          status: 500,
-          type: "RuntimeError",
-          message: error.message,
-          requestId,
-        });
-      } else {
-        response = errorResponse({
-          status: 500,
-          type: "InternalServerError",
-          message: error instanceof Error ? error.message : String(error),
-          requestId,
-        });
-      }
-    }
-
-    const finalResponse = await maybeGzip(request, response);
-    logRequest(
-      config,
-      request,
-      finalResponse,
-      performance.now() - t0,
-      requestId,
-    );
-    return finalResponse;
-  };
+  const app = createServerApp(config, baseContext);
 
   const server = Bun.serve({
     hostname: config.host,
     port: config.port,
-    fetch: fetchHandler,
+    fetch: app.fetch,
   });
 
   const stop = async (): Promise<void> => {

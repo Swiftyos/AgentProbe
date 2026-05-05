@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   type ChangeEvent,
   type FormEvent,
@@ -6,7 +7,9 @@ import {
   useMemo,
   useState,
 } from "react";
+import { dashboardQueryKeys } from "../api/query-keys.ts";
 import { Badge } from "../components/ui/badge.tsx";
+import { comparePath, parseCompareSearch } from "../routing/search.ts";
 import {
   Button,
   Card,
@@ -148,35 +151,42 @@ function changeBadge(change: ComparisonScenarioRow["status_change"]) {
   return <Badge variant="secondary">Unchanged</Badge>;
 }
 
-function parseRunIds(search: string): string[] {
-  const params = new URLSearchParams(search);
-  const raw = params.get("run_ids");
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
-
-function parseOnlyChanges(search: string): boolean {
-  const params = new URLSearchParams(search);
-  return params.get("only") === "changes";
-}
-
 function updateLocation(runIds: string[], onlyChanges: boolean): void {
-  const params = new URLSearchParams();
-  if (runIds.length > 0) {
-    params.set("run_ids", runIds.join(","));
-  }
-  if (onlyChanges) {
-    params.set("only", "changes");
-  }
-  const search = params.toString();
-  const query = search ? `?${search}` : "";
-  const next = `/compare${query}`;
+  const next = comparePath({ runIds, onlyChanges });
   if (window.location.pathname + window.location.search !== next) {
     window.history.replaceState(null, "", next);
   }
+}
+
+async function fetchRuns(apiBase: string): Promise<RunOption[]> {
+  const response = await fetch(`${apiBase}/api/runs?limit=100`);
+  if (!response.ok) {
+    throw new Error(`/api/runs returned ${response.status}`);
+  }
+  const body = (await response.json()) as RunsResponse;
+  return body.runs.map((run) => ({
+    runId: run.runId,
+    status: run.status,
+    label: run.label ?? null,
+    startedAt: run.startedAt,
+  }));
+}
+
+async function fetchComparison(
+  apiBase: string,
+  runIds: string[],
+): Promise<ComparisonPayload> {
+  const query = new URLSearchParams({ run_ids: runIds.join(",") });
+  const response = await fetch(
+    `${apiBase}/api/comparisons?${query.toString()}`,
+  );
+  if (!response.ok) {
+    const body = (await response.json()) as ApiError;
+    throw new Error(
+      body.error?.message ?? `/api/comparisons returned ${response.status}`,
+    );
+  }
+  return (await response.json()) as ComparisonPayload;
 }
 
 function fmtDate(iso: string | null | undefined): string {
@@ -189,84 +199,41 @@ function fmtDate(iso: string | null | undefined): string {
 }
 
 export function CompareView({ apiBase = "" }: CompareViewProps) {
-  const [runIds, setRunIds] = useState<string[]>(() =>
-    parseRunIds(window.location.search),
+  const initialSearch = useMemo(
+    () => parseCompareSearch(window.location.search),
+    [],
   );
-  const [onlyChanges, setOnlyChanges] = useState<boolean>(() =>
-    parseOnlyChanges(window.location.search),
+  const [runIds, setRunIds] = useState<string[]>(() => initialSearch.runIds);
+  const [onlyChanges, setOnlyChanges] = useState<boolean>(
+    () => initialSearch.onlyChanges,
   );
-  const [payload, setPayload] = useState<ComparisonPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(runIds.length < 2);
-  const [availableRuns, setAvailableRuns] = useState<RunOption[]>([]);
   const [picker, setPicker] = useState<Set<string>>(new Set(runIds));
   const pickerCanApply = picker.size >= 2 && picker.size <= 10;
 
-  const fetchRuns = useCallback(async () => {
-    try {
-      const response = await fetch(`${apiBase}/api/runs?limit=100`);
-      if (!response.ok) {
-        throw new Error(`/api/runs returned ${response.status}`);
-      }
-      const body = (await response.json()) as RunsResponse;
-      setAvailableRuns(
-        body.runs.map((run) => ({
-          runId: run.runId,
-          status: run.status,
-          label: run.label ?? null,
-          startedAt: run.startedAt,
-        })),
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [apiBase]);
+  const runsQuery = useQuery({
+    queryKey: dashboardQueryKeys.runs.list({ apiBase, limit: 100 }),
+    queryFn: () => fetchRuns(apiBase),
+  });
 
-  useEffect(() => {
-    void fetchRuns();
-  }, [fetchRuns]);
-
-  useEffect(() => {
-    if (runIds.length < 2) {
-      setPayload(null);
-      return undefined;
-    }
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    const query = new URLSearchParams({ run_ids: runIds.join(",") });
-    fetch(`${apiBase}/api/comparisons?${query.toString()}`)
-      .then(async (response) => {
-        if (!response.ok) {
-          const body = (await response.json()) as ApiError;
-          throw new Error(
-            body.error?.message ??
-              `/api/comparisons returned ${response.status}`,
-          );
-        }
-        return (await response.json()) as ComparisonPayload;
-      })
-      .then((body) => {
-        if (cancelled) return;
-        setPayload(body);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : String(err));
-        setPayload(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [apiBase, runIds]);
+  const comparisonQuery = useQuery({
+    queryKey: dashboardQueryKeys.comparisons.detail(runIds),
+    queryFn: () => fetchComparison(apiBase, runIds),
+    enabled: runIds.length >= 2,
+  });
 
   useEffect(() => {
     updateLocation(runIds, onlyChanges);
   }, [runIds, onlyChanges]);
+
+  const availableRuns = runsQuery.data ?? [];
+  const payload = runIds.length >= 2 ? (comparisonQuery.data ?? null) : null;
+  const loading = comparisonQuery.isFetching;
+  const queryError =
+    runsQuery.error ?? (runIds.length >= 2 ? comparisonQuery.error : null);
+  const displayError =
+    error ?? (queryError instanceof Error ? queryError.message : null);
 
   const onTogglePicker = useCallback((event: ChangeEvent<HTMLInputElement>) => {
     const runId = event.target.value;
@@ -355,7 +322,7 @@ export function CompareView({ apiBase = "" }: CompareViewProps) {
         }
       />
 
-      {error ? <ErrorBanner message={error} /> : null}
+      {displayError ? <ErrorBanner message={displayError} /> : null}
 
       {pickerOpen ? (
         <Card className="p-4 mb-6">

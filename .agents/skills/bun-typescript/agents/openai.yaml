@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bun TypeScript"
+  short_description: "High-quality TypeScript systems on Bun"
+  default_prompt: "Use $bun-typescript to design or review a serious TypeScript system running on Bun."

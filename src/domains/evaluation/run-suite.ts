@@ -1,12 +1,6 @@
 import { existsSync, statSync } from "node:fs";
 import { basename, dirname, resolve } from "node:path";
 
-import {
-  buildEndpointAdapter,
-  type EndpointAdapter,
-} from "../../providers/sdk/adapters.ts";
-import { resolveAuth } from "../../providers/sdk/autogpt-auth.ts";
-import type { OpenAiResponsesClient } from "../../providers/sdk/openai-responses.ts";
 import type {
   AdapterReply,
   CheckpointAssertion,
@@ -45,9 +39,27 @@ import {
   parseTimeOffset,
 } from "../validation/load-suite.ts";
 import { judgeResponse } from "./judge.ts";
+import type {
+  EndpointAdapter,
+  EndpointAdapterFactory,
+  LlmResponsesClient,
+} from "./ports.ts";
 import { generatePersonaStep, resolvePersonaModel } from "./simulator.ts";
 
 const resetsRequiringReinit = new Set(["new", "fresh_agent"]);
+
+const dryRunEndpointAdapter: EndpointAdapter = {
+  async healthCheck() {},
+  async openScenario() {
+    return {};
+  },
+  async sendUserTurn() {
+    throw new AgentProbeRuntimeError(
+      "Dry-run adapter should not receive user turns.",
+    );
+  },
+  async closeScenario() {},
+};
 
 function applyConnectionUrlOverride(
   endpoint: Endpoints,
@@ -545,7 +557,7 @@ export async function runScenario(
   rubric: Rubric,
   options: {
     defaults?: ScenarioDefaults;
-    client: OpenAiResponsesClient;
+    client: LlmResponsesClient;
     recorder?: RunRecorder;
     scenarioOrdinal?: number;
     dryRun?: boolean;
@@ -1072,8 +1084,8 @@ export async function runSuite(options: {
   trigger?: string;
   presetId?: string | null;
   presetSnapshot?: PresetSnapshot | Record<string, JsonValue> | null;
-  adapterFactory?: (endpoint: Endpoints) => EndpointAdapter;
-  client: OpenAiResponsesClient;
+  adapterFactory?: EndpointAdapterFactory;
+  client: LlmResponsesClient;
   recorder?: RunRecorder;
   progressCallback?: (event: RunProgressEvent) => void;
   parallel?: boolean;
@@ -1217,19 +1229,19 @@ export async function runSuite(options: {
           iteration,
           displayId:
             iteration > 1 ? `${scenario.id}#${iteration}` : scenario.id,
-          adapterFactory: () =>
-            options.adapterFactory
-              ? options.adapterFactory(endpointConfig)
-              : buildEndpointAdapter(endpointConfig, {
-                  autogptAuthResolver: () =>
-                    resolveAuth({
-                      userId: pinnedUserId,
-                      name: pinnedUserName,
-                      backendUrl: options.baseUrlOverride?.trim() || undefined,
-                      jwtSecret:
-                        options.autogptJwtSecretOverride?.trim() || undefined,
-                    }),
-                }),
+          adapterFactory: () => {
+            if (!options.adapterFactory) {
+              throw new AgentProbeConfigError(
+                "runSuite requires an endpoint adapter factory for executable runs.",
+              );
+            }
+            return options.adapterFactory(endpointConfig, {
+              userId: pinnedUserId,
+              userName: pinnedUserName,
+              baseUrlOverride: options.baseUrlOverride,
+              autogptJwtSecretOverride: options.autogptJwtSecretOverride,
+            });
+          },
         });
         ordinal += 1;
       }
@@ -1238,8 +1250,11 @@ export async function runSuite(options: {
     const executePrepared = async (
       prepared: PreparedRun,
     ): Promise<ScenarioRunResult> => {
+      const adapter = options.dryRun
+        ? dryRunEndpointAdapter
+        : prepared.adapterFactory();
       return await runScenario(
-        prepared.adapterFactory(),
+        adapter,
         prepared.scenario,
         prepared.persona,
         prepared.rubric,

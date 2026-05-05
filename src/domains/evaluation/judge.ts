@@ -1,9 +1,4 @@
 import { createHash } from "node:crypto";
-import type { OpenAiResponsesClient } from "../../providers/sdk/openai-responses.ts";
-import {
-  OpenAiResponsesApiError,
-  OpenAiResponsesAuthenticationError,
-} from "../../providers/sdk/openai-responses.ts";
 import type {
   JsonValue,
   OpenAiResponsesRequest,
@@ -11,6 +6,7 @@ import type {
   RubricScore,
 } from "../../shared/types/contracts.ts";
 import { AgentProbeRuntimeError } from "../../shared/utils/errors.ts";
+import type { LlmResponsesClient } from "./ports.ts";
 
 const DEFAULT_RETRY_DELAY_MS = 2000;
 const MAX_JUDGE_ATTEMPTS = 3;
@@ -26,6 +22,21 @@ function judgeRetryDelayMs(): number {
   return Number.isFinite(parsed) && parsed >= 0
     ? parsed
     : DEFAULT_RETRY_DELAY_MS;
+}
+
+function responsesApiStatusCode(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") {
+    return undefined;
+  }
+  const statusCode = (error as { statusCode?: unknown }).statusCode;
+  return typeof statusCode === "number" ? statusCode : undefined;
+}
+
+function isResponsesAuthenticationError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.name === "OpenAiResponsesAuthenticationError"
+  );
 }
 
 async function sleep(ms: number): Promise<void> {
@@ -292,7 +303,7 @@ function validateRubricScore(rubric: Rubric, score: RubricScore): void {
 export async function judgeResponse(
   rubric: Rubric,
   responseText: string,
-  client: OpenAiResponsesClient,
+  client: LlmResponsesClient,
 ): Promise<RubricScore> {
   if (rubric.dimensions.length === 0) {
     throw new AgentProbeRuntimeError(
@@ -364,14 +375,14 @@ export async function judgeResponse(
       return score;
     } catch (error) {
       lastError = error;
-      if (error instanceof OpenAiResponsesAuthenticationError) {
+      if (isResponsesAuthenticationError(error)) {
         throw new AgentProbeRuntimeError(
           `Judge authentication failed for model '${rubric.judge.model}'. Set a valid OPEN_ROUTER_API_KEY before running agentprobe.`,
         );
       }
 
-      if (error instanceof OpenAiResponsesApiError) {
-        const statusCode = error.statusCode;
+      const statusCode = responsesApiStatusCode(error);
+      if (statusCode !== undefined) {
         if (
           statusCode &&
           statusCode >= 400 &&

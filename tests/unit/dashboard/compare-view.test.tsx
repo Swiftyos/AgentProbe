@@ -3,6 +3,10 @@ import { Window } from "happy-dom";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
+import {
+  createDashboardQueryClient,
+  DashboardQueryProvider,
+} from "../../../dashboard/src/api/query-client.tsx";
 import { CompareView } from "../../../dashboard/src/components/CompareView.tsx";
 
 const RUN_A = "11111111111111111111111111111111";
@@ -83,7 +87,11 @@ async function renderCompare(
   installFetch(responder);
   await act(async () => {
     root = createRoot(container);
-    root.render(<CompareView />);
+    root.render(
+      <DashboardQueryProvider client={createDashboardQueryClient()}>
+        <CompareView />
+      </DashboardQueryProvider>,
+    );
   });
   await flushAsync();
 }

@@ -129,6 +129,21 @@ async function listPresetsWithMockSql(presetCount: number) {
   };
 }
 
+async function listRunsWithMockSql(
+  options: Parameters<PostgresRepository["listRuns"]>[0],
+) {
+  const { queries, sql } = makeCountingSql(1);
+  const repo = new PostgresRepository("postgres://example.invalid/agentprobe");
+  Object.defineProperty(repo, "withSql", {
+    value: async <T>(fn: (sql: SqlTag) => Promise<T>) => fn(sql),
+  });
+
+  return {
+    runs: await repo.listRuns(options),
+    queries,
+  };
+}
+
 describe("PostgresRepository.listPresets", () => {
   test.each([
     10, 50, 200,
@@ -177,5 +192,24 @@ describe("PostgresRepository.listPresets", () => {
         },
       },
     });
+  });
+});
+
+describe("PostgresRepository.listRuns", () => {
+  test("builds deterministic filtered list queries with bounded pagination", async () => {
+    const { runs, queries } = await listRunsWithMockSql({
+      status: "completed",
+      presetId: "preset-1",
+      trigger: "server",
+      limit: 25,
+      offset: 50,
+    });
+
+    expect(runs).toHaveLength(1);
+    expect(queries).toHaveLength(1);
+    expect(queries[0]).toContain(
+      "where status = $1 and preset_id = $2 and trigger = $3",
+    );
+    expect(queries[0]).toContain("order by started_at desc limit $4 offset $5");
   });
 });
