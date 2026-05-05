@@ -1,3 +1,4 @@
+import { span } from "../../shared/observability/perf.ts";
 import type {
   JsonValue,
   PresetRecord,
@@ -256,36 +257,56 @@ async function loadScenarioRecords(
   sql: SqlTag,
   runId: string,
 ): Promise<ScenarioRecord[]> {
-  const scenarioRows = await sql<UnknownRecord>`
-    select * from scenario_runs where run_id = ${runId} order by ordinal asc
-  `;
+  const scenarioRows = await span(
+    "pg.scenario_runs",
+    () => sql<UnknownRecord>`
+      select * from scenario_runs where run_id = ${runId} order by ordinal asc
+    `,
+  );
   const ids = scenarioRows.map((row) => Number(row.id));
   if (ids.length === 0) {
     return [];
   }
   const [turns, events, toolCalls, checkpoints, dimensionScores] =
-    await Promise.all([
-      sql<UnknownRecord>`
-        select * from turns where scenario_run_id in ${sql(ids)}
-        order by scenario_run_id asc, turn_index asc
-      `,
-      sql<UnknownRecord>`
-        select * from target_events where scenario_run_id in ${sql(ids)}
-        order by scenario_run_id asc, turn_index asc, exchange_index asc
-      `,
-      sql<UnknownRecord>`
-        select * from tool_calls where scenario_run_id in ${sql(ids)}
-        order by scenario_run_id asc, turn_index asc, call_order asc nulls last
-      `,
-      sql<UnknownRecord>`
-        select * from checkpoints where scenario_run_id in ${sql(ids)}
-        order by scenario_run_id asc, checkpoint_index asc
-      `,
-      sql<UnknownRecord>`
-        select * from judge_dimension_scores where scenario_run_id in ${sql(ids)}
-        order by scenario_run_id asc, dimension_id asc
-      `,
-    ]);
+    await span("pg.scenario_children", () =>
+      Promise.all([
+        span(
+          "pg.turns",
+          () => sql<UnknownRecord>`
+            select * from turns where scenario_run_id in ${sql(ids)}
+            order by scenario_run_id asc, turn_index asc
+          `,
+        ),
+        span(
+          "pg.target_events",
+          () => sql<UnknownRecord>`
+            select * from target_events where scenario_run_id in ${sql(ids)}
+            order by scenario_run_id asc, turn_index asc, exchange_index asc
+          `,
+        ),
+        span(
+          "pg.tool_calls",
+          () => sql<UnknownRecord>`
+            select * from tool_calls where scenario_run_id in ${sql(ids)}
+            order by scenario_run_id asc, turn_index asc, call_order asc nulls last
+          `,
+        ),
+        span(
+          "pg.checkpoints",
+          () => sql<UnknownRecord>`
+            select * from checkpoints where scenario_run_id in ${sql(ids)}
+            order by scenario_run_id asc, checkpoint_index asc
+          `,
+        ),
+        span(
+          "pg.judge_dimension_scores",
+          () => sql<UnknownRecord>`
+            select * from judge_dimension_scores where scenario_run_id in ${sql(ids)}
+            order by scenario_run_id asc, dimension_id asc
+          `,
+        ),
+      ]),
+    );
 
   const groupBy = <T extends UnknownRecord>(
     rows: T[],
@@ -731,16 +752,19 @@ export class PostgresRepository implements RecordingRepository {
 
   async getRun(runId: string): Promise<RunRecord | undefined> {
     return this.withSql(async (sql) => {
-      const rows = await sql<UnknownRecord>`
-        select * from runs where id = ${runId} limit 1
-      `;
+      const rows = await span(
+        "pg.runs",
+        () => sql<UnknownRecord>`
+          select * from runs where id = ${runId} limit 1
+        `,
+      );
       const row = rows[0];
       if (!row) {
         return undefined;
       }
       const summary = mapRunSummaryRow(row);
       const scenarios = await loadScenarioRecords(sql, runId);
-      return {
+      return await span("getRun.assemble", () => ({
         ...summary,
         sourcePaths:
           asJson<Record<string, string>>(row.source_paths_json) ?? null,
@@ -751,7 +775,7 @@ export class PostgresRepository implements RecordingRepository {
         presetSnapshot:
           asJson<Record<string, JsonValue>>(row.preset_snapshot_json) ?? null,
         scenarios,
-      };
+      }));
     });
   }
 

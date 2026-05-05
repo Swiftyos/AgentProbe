@@ -1,52 +1,15 @@
 import { createMiddleware } from "hono/factory";
 
+import {
+  Perf,
+  type PerfTracker,
+  type Span,
+  withPerf,
+} from "../../../shared/observability/perf.ts";
+
+export type { PerfTracker, Span } from "../../../shared/observability/perf.ts";
+
 export const RESPONSE_BUDGET_MS = 200;
-
-export interface Span {
-  name: string;
-  startMs: number;
-  durationMs: number;
-}
-
-export interface PerfTracker {
-  span<T>(name: string, fn: () => Promise<T> | T): Promise<T>;
-  mark(name: string, durationMs: number): void;
-  completed(): readonly Span[];
-}
-
-class Perf implements PerfTracker {
-  private readonly start: number;
-  private readonly spans: Span[] = [];
-
-  constructor(start: number) {
-    this.start = start;
-  }
-
-  async span<T>(name: string, fn: () => Promise<T> | T): Promise<T> {
-    const t0 = performance.now();
-    try {
-      return await fn();
-    } finally {
-      this.spans.push({
-        name,
-        startMs: t0 - this.start,
-        durationMs: performance.now() - t0,
-      });
-    }
-  }
-
-  mark(name: string, durationMs: number) {
-    this.spans.push({
-      name,
-      startMs: performance.now() - this.start - durationMs,
-      durationMs,
-    });
-  }
-
-  completed(): readonly Span[] {
-    return this.spans;
-  }
-}
 
 function serverTimingHeader(spans: readonly Span[], totalMs: number): string {
   const parts = spans.map(
@@ -113,7 +76,7 @@ export function responseBudget(options: BudgetOptions = {}) {
     c.set("perf", perf);
 
     try {
-      await next();
+      await withPerf(perf, () => next());
     } finally {
       const elapsedMs = performance.now() - start;
       const spans = perf.completed();

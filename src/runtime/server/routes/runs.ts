@@ -8,6 +8,7 @@ import {
   jsonResponse,
   parsePositiveInt,
 } from "../http-helpers.ts";
+import { span } from "../../../shared/observability/perf.ts";
 import { HttpInputError, readJsonObject } from "../validation.ts";
 
 const DEFAULT_PAGE_SIZE = 50;
@@ -185,7 +186,9 @@ export async function handleGetRun(
 
   let run: RunRecord | undefined;
   try {
-    run = await context.repository.getRun(params.runId);
+    run = await span("repo.getRun", () =>
+      context.repository.getRun(params.runId),
+    );
   } catch (error) {
     return errorResponse({
       status: 500,
@@ -202,9 +205,9 @@ export async function handleGetRun(
       requestId: context.requestId,
     });
   }
-  return jsonResponse(
-    { run: stripRunSnapshots(run) },
-    { requestId: context.requestId },
+  const stripped = await span("stripRunSnapshots", () => stripRunSnapshots(run));
+  return await span("jsonResponse.serialize", () =>
+    jsonResponse({ run: stripped }, { requestId: context.requestId }),
   );
 }
 
