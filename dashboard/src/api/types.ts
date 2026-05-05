@@ -43,6 +43,7 @@ export type ServerScenario = {
   };
   turns?: Array<Record<string, unknown>>;
   toolCalls?: Array<Record<string, unknown>>;
+  targetEvents?: Array<Record<string, unknown>>;
   checkpoints?: Array<Record<string, unknown>>;
   judgeDimensionScores?: Array<Record<string, unknown>>;
   expectations?: unknown;

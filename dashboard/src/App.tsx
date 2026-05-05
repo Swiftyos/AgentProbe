@@ -174,6 +174,7 @@ function scenarioDetail(scenario: ServerScenario): ScenarioDetail {
     turns: (scenario.turns ?? []) as unknown as ScenarioDetail["turns"],
     tool_calls: (scenario.toolCalls ??
       []) as unknown as ScenarioDetail["tool_calls"],
+    target_events: scenario.targetEvents ?? [],
     checkpoints: (scenario.checkpoints ??
       []) as unknown as ScenarioDetail["checkpoints"],
     judge_dimension_scores: (scenario.judgeDimensionScores ?? []).map(
@@ -508,6 +509,8 @@ function OverviewView({
   );
 }
 
+const RUNS_PAGE_SIZE = 50;
+
 function RunsView({
   request,
   navigate,
@@ -515,15 +518,22 @@ function RunsView({
   request: ServerRequest;
   navigate: (href: string) => void;
 }) {
-  const [data, setData] = useState<RunsResponse | null>(null);
+  const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [total, setTotal] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    request<RunsResponse>("/api/runs")
+    request<RunsResponse>(`/api/runs?limit=${RUNS_PAGE_SIZE}&offset=0`)
       .then((next) => {
         if (cancelled) return;
-        setData(next);
+        setRuns(next.runs);
+        setTotal(next.total);
+        setNextCursor(next.next_cursor ?? null);
+        setInitialized(true);
         setError(null);
       })
       .catch((err) => {
@@ -535,13 +545,43 @@ function RunsView({
     };
   }, [request]);
 
-  if (error) return <ErrorBanner message={error} />;
-  if (!data) return <Loading />;
+  const loadMore = useCallback(() => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    request<RunsResponse>(
+      `/api/runs?limit=${RUNS_PAGE_SIZE}&offset=${encodeURIComponent(nextCursor)}`,
+    )
+      .then((next) => {
+        setRuns((prev) => [...prev, ...next.runs]);
+        setTotal(next.total);
+        setNextCursor(next.next_cursor ?? null);
+        setError(null);
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        setLoadingMore(false);
+      });
+  }, [nextCursor, loadingMore, request]);
+
+  if (error && !initialized) return <ErrorBanner message={error} />;
+  if (!initialized) return <Loading />;
 
   return (
     <>
-      <PageHeader eyebrow="History" title="Runs" meta={`${data.total} total`} />
-      <RunsTable runs={data.runs} navigate={navigate} />
+      <PageHeader eyebrow="History" title="Runs" meta={`${total} total`} />
+      {error ? <ErrorBanner message={error} /> : null}
+      <RunsTable runs={runs} navigate={navigate} />
+      {nextCursor ? (
+        <div className="mt-4 flex justify-center">
+          <Button variant="secondary" onClick={loadMore} disabled={loadingMore}>
+            {loadingMore
+              ? "Loading..."
+              : `Load more (${runs.length} of ${total})`}
+          </Button>
+        </div>
+      ) : null}
     </>
   );
 }

@@ -17,12 +17,54 @@ import {
 import { createPostgresClient, type SqlTag } from "./postgres-client.ts";
 import { PostgresRunRecorder } from "./postgres-run-recorder.ts";
 import type {
+  ListRunsOptions,
   PresetWriteInput,
   RecordingRepository,
+  RunFilters,
   RunRecorder,
   StoredEndpointOverride,
   StoredSecretEnvelope,
 } from "./types.ts";
+
+/**
+ * Columns required by `mapRunSummaryRow`. Listed explicitly so list views do
+ * not pay for the wide JSONB snapshot columns (`preset_snapshot_json`,
+ * `endpoint_snapshot_json`, `selected_scenario_ids_json`, `source_paths_json`)
+ * that only the run-detail view reads.
+ */
+const RUN_SUMMARY_COLUMNS = `
+  id, status, passed, exit_code, preset, label, notes, trigger,
+  cancelled_at, preset_id, started_at, completed_at, suite_fingerprint,
+  final_error_json,
+  scenario_total, scenario_passed_count, scenario_failed_count,
+  scenario_harness_failed_count, scenario_errored_count
+`;
+
+const MAX_LIST_RUNS_LIMIT = 1000;
+
+function buildRunFilterClause(filters: RunFilters): {
+  whereSql: string;
+  params: unknown[];
+} {
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+  const push = (column: string, value: string | null | undefined) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+    params.push(value);
+    conditions.push(`${column} = $${params.length}`);
+  };
+  push("status", filters.status);
+  push("preset", filters.preset);
+  push("preset_id", filters.presetId);
+  push("trigger", filters.trigger);
+  push("suite_fingerprint", filters.suiteFingerprint);
+  return {
+    whereSql: conditions.length ? `where ${conditions.join(" and ")}` : "",
+    params,
+  };
+}
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -325,10 +367,10 @@ async function latestRunForPreset(
   sql: SqlTag,
   presetId: string,
 ): Promise<RunSummary | null> {
-  const rows = await sql<UnknownRecord>`
-    select * from runs where preset_id = ${presetId}
-    order by started_at desc limit 1
-  `;
+  const rows = await sql.unsafe<UnknownRecord>(
+    `select ${RUN_SUMMARY_COLUMNS} from runs where preset_id = $1 order by started_at desc limit 1`,
+    [presetId],
+  );
   const row = rows[0];
   return row ? mapRunSummaryRow(row) : null;
 }
@@ -342,11 +384,12 @@ async function latestRunsForPresets(
     return latestRuns;
   }
 
-  const rows = await sql<UnknownRecord>`
-    select distinct on (preset_id) * from runs
-    where preset_id in ${sql(presetIds)}
-    order by preset_id asc, started_at desc
-  `;
+  const rows = await sql.unsafe<UnknownRecord>(
+    `select distinct on (preset_id) ${RUN_SUMMARY_COLUMNS} from runs
+       where preset_id = any($1::text[])
+       order by preset_id asc, started_at desc`,
+    [presetIds],
+  );
   for (const row of rows) {
     const presetId = asStringOrNull(row.preset_id);
     if (!presetId) {
@@ -644,21 +687,45 @@ export class PostgresRepository implements RecordingRepository {
     });
   }
 
-  async listRuns(): Promise<RunSummary[]> {
+  async listRuns(options: ListRunsOptions = {}): Promise<RunSummary[]> {
     return this.withSql(async (sql) => {
-      const rows = await sql<UnknownRecord>`
-        select * from runs order by started_at desc
-      `;
+      const { whereSql, params } = buildRunFilterClause(options);
+      const limit =
+        options.limit !== undefined && options.limit > 0
+          ? Math.min(options.limit, MAX_LIST_RUNS_LIMIT)
+          : null;
+      const offset =
+        options.offset !== undefined && options.offset > 0 ? options.offset : 0;
+      let limitClause = "";
+      const finalParams = [...params];
+      if (limit !== null) {
+        finalParams.push(limit, offset);
+        limitClause = ` limit $${finalParams.length - 1} offset $${finalParams.length}`;
+      }
+      const query = `select ${RUN_SUMMARY_COLUMNS} from runs ${whereSql} order by started_at desc${limitClause}`;
+      const rows = await sql.unsafe<UnknownRecord>(query, finalParams);
       return rows.map(mapRunSummaryRow);
+    });
+  }
+
+  async countRuns(filters: RunFilters = {}): Promise<number> {
+    return this.withSql(async (sql) => {
+      const { whereSql, params } = buildRunFilterClause(filters);
+      const query = `select count(*)::bigint as count from runs ${whereSql}`;
+      const rows = await sql.unsafe<{ count: number | string | bigint }>(
+        query,
+        params,
+      );
+      return Number(rows[0]?.count ?? 0);
     });
   }
 
   async listRunsForPreset(presetId: string): Promise<RunSummary[]> {
     return this.withSql(async (sql) => {
-      const rows = await sql<UnknownRecord>`
-        select * from runs where preset_id = ${presetId}
-        order by started_at desc
-      `;
+      const rows = await sql.unsafe<UnknownRecord>(
+        `select ${RUN_SUMMARY_COLUMNS} from runs where preset_id = $1 order by started_at desc`,
+        [presetId],
+      );
       return rows.map(mapRunSummaryRow);
     });
   }

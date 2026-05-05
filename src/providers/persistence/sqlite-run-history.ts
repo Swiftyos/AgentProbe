@@ -1778,13 +1778,83 @@ function mapRunSummaryRow(row: Record<string, unknown>): RunSummary {
   };
 }
 
-export function listRuns(options: { dbUrl?: string } = {}): RunSummary[] {
+export type ListRunsFilters = {
+  status?: string | null;
+  preset?: string | null;
+  presetId?: string | null;
+  trigger?: string | null;
+  suiteFingerprint?: string | null;
+};
+
+export type ListRunsOptions = ListRunsFilters & {
+  dbUrl?: string;
+  limit?: number;
+  offset?: number;
+};
+
+const SQLITE_MAX_LIST_RUNS_LIMIT = 1000;
+
+function buildSqliteRunFilterClause(filters: ListRunsFilters): {
+  whereSql: string;
+  params: Array<string>;
+} {
+  const conditions: string[] = [];
+  const params: string[] = [];
+  const push = (column: string, value: string | null | undefined) => {
+    if (value === undefined || value === null || value === "") {
+      return;
+    }
+    conditions.push(`${column} = ?`);
+    params.push(value);
+  };
+  push("status", filters.status);
+  push("preset", filters.preset);
+  push("preset_id", filters.presetId);
+  push("trigger", filters.trigger);
+  push("suite_fingerprint", filters.suiteFingerprint);
+  return {
+    whereSql: conditions.length ? `where ${conditions.join(" and ")}` : "",
+    params,
+  };
+}
+
+export function listRuns(options: ListRunsOptions = {}): RunSummary[] {
   const database = openDatabase(options.dbUrl);
   try {
+    const { whereSql, params } = buildSqliteRunFilterClause(options);
+    const limit =
+      options.limit !== undefined && options.limit > 0
+        ? Math.min(options.limit, SQLITE_MAX_LIST_RUNS_LIMIT)
+        : null;
+    const offset =
+      options.offset !== undefined && options.offset > 0 ? options.offset : 0;
+    let limitClause = "";
+    const finalParams: Array<string | number> = [...params];
+    if (limit !== null) {
+      limitClause = " limit ? offset ?";
+      finalParams.push(limit, offset);
+    }
     const rows = database
-      .query("select * from runs order by started_at desc")
-      .all() as Array<Record<string, unknown>>;
+      .query(
+        `select * from runs ${whereSql} order by started_at desc${limitClause}`,
+      )
+      .all(...finalParams) as Array<Record<string, unknown>>;
     return rows.map((row) => mapRunSummaryRow(row));
+  } finally {
+    database.close();
+  }
+}
+
+export function countRuns(
+  options: ListRunsFilters & { dbUrl?: string } = {},
+): number {
+  const database = openDatabase(options.dbUrl);
+  try {
+    const { whereSql, params } = buildSqliteRunFilterClause(options);
+    const row = database
+      .query(`select count(*) as count from runs ${whereSql}`)
+      .get(...params) as { count: number | bigint } | undefined;
+    return Number(row?.count ?? 0);
   } finally {
     database.close();
   }

@@ -87,6 +87,10 @@ class FakeRepository implements PersistenceRepository {
     return [];
   }
 
+  async countRuns(): Promise<number> {
+    return 0;
+  }
+
   async listRunsForPreset(): Promise<RunSummary[]> {
     return [];
   }

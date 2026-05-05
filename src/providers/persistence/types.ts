@@ -140,6 +140,23 @@ export type StoredEndpointOverride = {
 };
 
 /**
+ * Filters applied to list/count queries over the `runs` table. Each field is
+ * an exact-match filter; `null`/`undefined`/empty string mean "no filter".
+ */
+export type RunFilters = {
+  status?: string | null;
+  preset?: string | null;
+  presetId?: string | null;
+  trigger?: string | null;
+  suiteFingerprint?: string | null;
+};
+
+export type ListRunsOptions = RunFilters & {
+  limit?: number;
+  offset?: number;
+};
+
+/**
  * Read-only repository surface for historical run views and comparisons.
  */
 export interface ReadableRepository {
@@ -148,7 +165,8 @@ export interface ReadableRepository {
 
   initialize(): Promise<void>;
   close?(): Promise<void>;
-  listRuns(): Promise<RunSummary[]>;
+  listRuns(options?: ListRunsOptions): Promise<RunSummary[]>;
+  countRuns(filters?: RunFilters): Promise<number>;
   listRunsForPreset(presetId: string): Promise<RunSummary[]>;
   getRun(runId: string): Promise<RunRecord | undefined>;
   latestRunForSuite(

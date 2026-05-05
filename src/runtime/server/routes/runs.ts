@@ -1,4 +1,4 @@
-import type { RunRecord, RunSummary } from "../../../shared/types/contracts.ts";
+import type { RunRecord } from "../../../shared/types/contracts.ts";
 import type { ServerContext } from "../app-server.ts";
 import {
   errorResponse,
@@ -10,39 +10,6 @@ import { HttpInputError, readJsonObject } from "../validation.ts";
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 
-function filterRuns(
-  runs: RunSummary[],
-  filters: {
-    status?: string | null;
-    preset?: string | null;
-    presetId?: string | null;
-    trigger?: string | null;
-    suiteFingerprint?: string | null;
-  },
-): RunSummary[] {
-  return runs.filter((run) => {
-    if (filters.status && run.status !== filters.status) {
-      return false;
-    }
-    if (filters.preset && run.preset !== filters.preset) {
-      return false;
-    }
-    if (filters.presetId && run.presetId !== filters.presetId) {
-      return false;
-    }
-    if (filters.trigger && run.trigger !== filters.trigger) {
-      return false;
-    }
-    if (
-      filters.suiteFingerprint &&
-      run.suiteFingerprint !== filters.suiteFingerprint
-    ) {
-      return false;
-    }
-    return true;
-  });
-}
-
 export async function handleListRuns(
   request: Request,
   context: ServerContext,
@@ -52,18 +19,6 @@ export async function handleListRuns(
       { runs: [], total: 0, next_cursor: null },
       { requestId: context.requestId },
     );
-  }
-
-  let allRuns: RunSummary[];
-  try {
-    allRuns = await context.repository.listRuns();
-  } catch (error) {
-    return errorResponse({
-      status: 500,
-      type: "PersistenceError",
-      message: error instanceof Error ? error.message : String(error),
-      requestId: context.requestId,
-    });
   }
 
   const url = new URL(request.url);
@@ -77,33 +32,38 @@ export async function handleListRuns(
     0,
     Number.MAX_SAFE_INTEGER,
   );
-  const status = url.searchParams.get("status");
-  const preset = url.searchParams.get("preset");
-  const presetId = url.searchParams.get("preset_id");
-  const trigger = url.searchParams.get("trigger");
-  const suiteFingerprint = url.searchParams.get("suite_fingerprint");
+  const filters = {
+    status: url.searchParams.get("status"),
+    preset: url.searchParams.get("preset"),
+    presetId: url.searchParams.get("preset_id"),
+    trigger: url.searchParams.get("trigger"),
+    suiteFingerprint: url.searchParams.get("suite_fingerprint"),
+  };
 
-  const filtered = filterRuns(allRuns, {
-    status,
-    preset,
-    presetId,
-    trigger,
-    suiteFingerprint,
-  });
-  const start = offset === 0 ? 0 : Math.min(offset, filtered.length);
-  const page = filtered.slice(start, start + limit);
-  const nextOffset = start + page.length;
-
-  return jsonResponse(
-    {
-      runs: page,
-      total: filtered.length,
-      limit,
-      offset: start,
-      next_cursor: nextOffset < filtered.length ? String(nextOffset) : null,
-    },
-    { requestId: context.requestId },
-  );
+  try {
+    const [runs, total] = await Promise.all([
+      context.repository.listRuns({ limit, offset, ...filters }),
+      context.repository.countRuns(filters),
+    ]);
+    const nextOffset = offset + runs.length;
+    return jsonResponse(
+      {
+        runs,
+        total,
+        limit,
+        offset,
+        next_cursor: nextOffset < total ? String(nextOffset) : null,
+      },
+      { requestId: context.requestId },
+    );
+  } catch (error) {
+    return errorResponse({
+      status: 500,
+      type: "PersistenceError",
+      message: error instanceof Error ? error.message : String(error),
+      requestId: context.requestId,
+    });
+  }
 }
 
 export async function handleStartRun(

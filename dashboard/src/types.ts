@@ -8,6 +8,17 @@ export interface ScenarioState {
   finished_at: number | null;
 }
 
+export type MessagePart =
+  | { kind: "text"; text: string }
+  | { kind: "reasoning"; text: string }
+  | {
+      kind: "tool";
+      name: string;
+      toolCallId?: string;
+      input: unknown;
+      output?: unknown;
+    };
+
 export interface Turn {
   turn_index: number;
   role: string;
@@ -16,6 +27,7 @@ export interface Turn {
   created_at?: string;
   tool_calls?: ToolCall[];
   checkpoints?: Checkpoint[];
+  parts?: MessagePart[];
 }
 
 export interface ToolCall {
@@ -61,6 +73,7 @@ export interface ScenarioDetail {
   };
   turns?: Turn[];
   tool_calls?: ToolCall[];
+  target_events?: Array<Record<string, unknown>>;
   checkpoints?: Checkpoint[];
   judge_dimension_scores?: DimensionScore[];
   expectations?: unknown;

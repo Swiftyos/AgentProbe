@@ -1,14 +1,39 @@
-import { Wrench } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../lib/utils.ts";
-import type { Checkpoint, ScenarioDetail, ToolCall, Turn } from "../types.ts";
+import type {
+  Checkpoint,
+  MessagePart,
+  ScenarioDetail,
+  ToolCall,
+  Turn,
+} from "../types.ts";
+import { CollapsedToolGroup } from "./conversation/CollapsedToolGroup.tsx";
+import { partsByTurn } from "./conversation/partsFromStream.ts";
+import {
+  categoryIcon,
+  formatToolName,
+  getAnimationText,
+  getToolCategory,
+} from "./conversation/toolHelpers.ts";
 import { Markdown } from "./copilot/Markdown.tsx";
 import { Message, MessageContent } from "./copilot/Message.tsx";
+import { CopyAction, MessageActions } from "./copilot/MessageActions.tsx";
 import { ReasoningCollapse } from "./copilot/ReasoningCollapse.tsx";
+import { StepsCollapse } from "./copilot/StepsCollapse.tsx";
 import { ToolAccordion } from "./copilot/ToolAccordion.tsx";
 
 interface Props {
   detail: ScenarioDetail;
+}
+
+type ToolPart = MessagePart & { kind: "tool" };
+
+function sortToolCalls(calls: ToolCall[]): ToolCall[] {
+  return [...calls].sort((a, b) => {
+    const ao = a.call_order ?? Number.POSITIVE_INFINITY;
+    const bo = b.call_order ?? Number.POSITIVE_INFINITY;
+    return ao - bo;
+  });
 }
 
 function buildTurnRows(detail: ScenarioDetail): Turn[] {
@@ -25,10 +50,12 @@ function buildTurnRows(detail: ScenarioDetail): Turn[] {
     if (!cpByTurn[idx]) cpByTurn[idx] = [];
     cpByTurn[idx].push(cp);
   }
+  const partsByTurnIndex = partsByTurn(detail.target_events ?? []);
   return (detail.turns ?? []).map((t) => ({
     ...t,
-    tool_calls: toolsByTurn[t.turn_index] ?? [],
+    tool_calls: sortToolCalls(toolsByTurn[t.turn_index] ?? []),
     checkpoints: cpByTurn[t.turn_index] ?? [],
+    parts: partsByTurnIndex[t.turn_index],
   }));
 }
 
@@ -67,7 +94,7 @@ function splitReasoning(content: string): {
   return { reasoning, body };
 }
 
-function renderContent(content: string): ReactNode {
+function renderMarkdown(content: string): ReactNode {
   return <Markdown>{content}</Markdown>;
 }
 
@@ -118,7 +145,7 @@ function SystemRow({ turn }: { turn: Turn }) {
     <Divider label={label}>
       {turn.content && (
         <div className="max-w-[85%] text-center text-xs text-muted-foreground">
-          {renderContent(turn.content)}
+          {renderMarkdown(turn.content)}
         </div>
       )}
     </Divider>
@@ -139,7 +166,7 @@ function UserMessage({ turn }: { turn: Turn }) {
     <Message from="user">
       <MessageContent>
         {turn.content ? (
-          renderContent(turn.content)
+          renderMarkdown(turn.content)
         ) : (
           <span className="text-muted-foreground italic">(empty)</span>
         )}
@@ -151,32 +178,55 @@ function UserMessage({ turn }: { turn: Turn }) {
   );
 }
 
-function ToolAccordionBlock({ tc }: { tc: ToolCall }) {
-  const argsPreview =
-    tc.args != null
-      ? typeof tc.args === "string"
-        ? tc.args
-        : JSON.stringify(tc.args)
-      : "";
-  const description =
-    argsPreview.length > 0
-      ? argsPreview.length > 80
-        ? `${argsPreview.slice(0, 77)}…`
-        : argsPreview
-      : undefined;
+function ToolBlock({
+  name,
+  input,
+  output,
+}: {
+  name: string;
+  input: unknown;
+  output?: unknown;
+}) {
+  const category = getToolCategory(name);
+  const Icon = categoryIcon(category);
+  const state = output === undefined ? "input-available" : "output-available";
+  const animationText = getAnimationText(name, category, state, input);
+  const hasOutput = output !== undefined && output !== null;
+
   return (
     <ToolAccordion
-      icon={<Wrench size={14} strokeWidth={2.25} />}
-      title={<span className="font-mono">{tc.name}</span>}
-      description={description}
+      icon={<Icon size={14} strokeWidth={2} />}
+      title={animationText}
+      description={<span className="font-mono">{formatToolName(name)}</span>}
     >
-      {tc.args != null ? (
-        <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-3 font-mono text-[11px] text-foreground">
-          {JSON.stringify(tc.args, null, 2)}
-        </pre>
-      ) : (
-        <p className="text-xs text-muted-foreground">(no arguments)</p>
-      )}
+      <div className="flex flex-col gap-2">
+        <div>
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">
+            Input
+          </div>
+          {input != null ? (
+            <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-3 font-mono text-[11px] text-foreground">
+              {typeof input === "string"
+                ? input
+                : JSON.stringify(input, null, 2)}
+            </pre>
+          ) : (
+            <p className="text-xs text-muted-foreground">(no arguments)</p>
+          )}
+        </div>
+        {hasOutput && (
+          <div>
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground/70">
+              Output
+            </div>
+            <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-3 font-mono text-[11px] text-foreground">
+              {typeof output === "string"
+                ? output
+                : JSON.stringify(output, null, 2)}
+            </pre>
+          </div>
+        )}
+      </div>
     </ToolAccordion>
   );
 }
@@ -224,37 +274,187 @@ function CheckpointRow({ checkpoints }: { checkpoints: Checkpoint[] }) {
   );
 }
 
+/* --------------------------------------------------------------------- */
+/*  Render segments — port of buildRenderSegments + splitReasoningAndResponse */
+/* --------------------------------------------------------------------- */
+
+type RenderSegment =
+  | { kind: "single"; part: MessagePart; index: number }
+  | { kind: "group"; parts: ToolPart[] };
+
+/** Group consecutive completed tool parts (≥2) into a CollapsedToolGroup. */
+function buildSegments(parts: MessagePart[]): RenderSegment[] {
+  const segments: RenderSegment[] = [];
+  let pending: ToolPart[] = [];
+
+  function flush() {
+    if (pending.length === 0) return;
+    if (pending.length >= 2) {
+      segments.push({ kind: "group", parts: pending });
+    } else {
+      segments.push({ kind: "single", part: pending[0], index: -1 });
+    }
+    pending = [];
+  }
+
+  parts.forEach((part, i) => {
+    if (part.kind === "tool") {
+      pending.push(part);
+    } else {
+      flush();
+      segments.push({ kind: "single", part, index: i });
+    }
+  });
+  flush();
+  return segments;
+}
+
+/** Split parts into "leading reasoning/steps" and "final response" — the
+ * trailing run of text+tools that follows the last reasoning boundary. The
+ * leading slice goes into a StepsCollapse, the final into the main bubble.
+ */
+function splitReasoningAndResponse(parts: MessagePart[]): {
+  reasoning: MessagePart[];
+  response: MessagePart[];
+} {
+  let lastReasoningIndex = -1;
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (parts[i].kind === "reasoning") {
+      lastReasoningIndex = i;
+      break;
+    }
+  }
+  if (lastReasoningIndex === -1) return { reasoning: [], response: parts };
+
+  const after = parts.slice(lastReasoningIndex + 1);
+  const hasResponseAfter = after.some(
+    (p) => p.kind === "text" && p.text.trim().length > 0,
+  );
+  if (!hasResponseAfter) return { reasoning: [], response: parts };
+
+  return {
+    reasoning: parts.slice(0, lastReasoningIndex + 1),
+    response: after,
+  };
+}
+
+function PartRenderer({ part }: { part: MessagePart }) {
+  if (part.kind === "text") {
+    return (
+      <div className="text-[1rem] leading-relaxed text-foreground">
+        {renderMarkdown(part.text)}
+      </div>
+    );
+  }
+  if (part.kind === "reasoning") {
+    return (
+      <ReasoningCollapse>
+        <Markdown className="text-xs text-muted-foreground">
+          {part.text}
+        </Markdown>
+      </ReasoningCollapse>
+    );
+  }
+  return <ToolBlock name={part.name} input={part.input} output={part.output} />;
+}
+
+function SegmentList({ segments }: { segments: RenderSegment[] }) {
+  return (
+    <>
+      {segments.map((seg, i) => {
+        if (seg.kind === "group") {
+          return <CollapsedToolGroup key={`group-${i}`} parts={seg.parts} />;
+        }
+        return <PartRenderer key={`part-${i}`} part={seg.part} />;
+      })}
+    </>
+  );
+}
+
+function extractAssistantText(parts: MessagePart[]): string {
+  return parts
+    .filter((p): p is MessagePart & { kind: "text" } => p.kind === "text")
+    .map((p) => p.text)
+    .join("\n\n")
+    .trim();
+}
+
 function AssistantMessage({ turn }: { turn: Turn }) {
-  const { reasoning, body } = splitReasoning(turn.content ?? "");
-  const hasBody = body.length > 0;
-  const hasTools = (turn.tool_calls ?? []).length > 0;
-  const hasReasoning = reasoning.length > 0;
+  const parts = turn.parts ?? [];
+  const useParts = parts.length > 0;
+
+  const { reasoning: leading, response } = useParts
+    ? splitReasoningAndResponse(parts)
+    : { reasoning: [] as MessagePart[], response: [] as MessagePart[] };
+
+  // Fallback path: no streaming events available; reconstruct from content +
+  // sorted tool_calls (text first, then tool calls in call_order).
+  const fallback = useParts
+    ? null
+    : (() => {
+        const { reasoning, body } = splitReasoning(turn.content ?? "");
+        return {
+          reasoning,
+          body,
+          tools: turn.tool_calls ?? [],
+        };
+      })();
+
+  const responseSegments = useParts ? buildSegments(response) : null;
+  const reasoningSegments =
+    useParts && leading.length > 0 ? buildSegments(leading) : null;
+
+  const copyText = useParts
+    ? extractAssistantText(response.length > 0 ? response : parts)
+    : (fallback?.body ?? turn.content ?? "");
 
   return (
     <Message from="assistant">
       <MessageContent>
-        {hasReasoning && (
-          <ReasoningCollapse>
-            <Markdown className="text-xs text-muted-foreground">
-              {reasoning}
-            </Markdown>
-          </ReasoningCollapse>
-        )}
-        {hasBody && (
-          <div className="text-sm leading-relaxed text-foreground">
-            {renderContent(body)}
-          </div>
-        )}
-        {hasTools && (
-          <div className="flex flex-col gap-1.5">
-            {turn.tool_calls?.map((tc, i) => (
-              <ToolAccordionBlock key={i} tc={tc} />
-            ))}
-          </div>
+        {useParts ? (
+          <>
+            {reasoningSegments && (
+              <StepsCollapse count={leading.length}>
+                <SegmentList segments={reasoningSegments} />
+              </StepsCollapse>
+            )}
+            {responseSegments && <SegmentList segments={responseSegments} />}
+          </>
+        ) : (
+          fallback && (
+            <>
+              {fallback.reasoning && (
+                <ReasoningCollapse>
+                  <Markdown className="text-xs text-muted-foreground">
+                    {fallback.reasoning}
+                  </Markdown>
+                </ReasoningCollapse>
+              )}
+              {fallback.body && (
+                <div className="text-[1rem] leading-relaxed text-foreground">
+                  {renderMarkdown(fallback.body)}
+                </div>
+              )}
+              {fallback.tools.length > 0 && (
+                <div className="flex flex-col gap-1.5">
+                  {fallback.tools.map((tc, i) => (
+                    <ToolBlock key={i} name={tc.name} input={tc.args} />
+                  ))}
+                </div>
+              )}
+            </>
+          )
         )}
         <CheckpointRow checkpoints={turn.checkpoints ?? []} />
       </MessageContent>
-      <TurnMeta turn={turn} />
+      <div className="flex items-center justify-between gap-2">
+        <TurnMeta turn={turn} />
+        {copyText.length > 0 && (
+          <MessageActions>
+            <CopyAction text={copyText} />
+          </MessageActions>
+        )}
+      </div>
     </Message>
   );
 }
@@ -262,7 +462,7 @@ function AssistantMessage({ turn }: { turn: Turn }) {
 export function ConversationView({ detail }: Props) {
   const rows = buildTurnRows(detail);
   return (
-    <div className={cn("flex flex-col gap-4")}>
+    <div className={cn("flex flex-col gap-6 px-1 py-2")}>
       {rows.map((turn, i) => {
         if (isSessionBoundary(turn)) {
           return <BoundaryRow key={i} turn={turn} />;

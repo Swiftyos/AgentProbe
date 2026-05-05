@@ -1,6 +1,7 @@
 import {
   initDb,
   SqliteRunRecorder,
+  countRuns as sqliteCountRuns,
   createPreset as sqliteCreatePreset,
   deleteEndpointOverride as sqliteDeleteEndpointOverride,
   deleteStoredSecret as sqliteDeleteStoredSecret,
@@ -22,8 +23,10 @@ import {
   upsertPresetByName as sqliteUpsertPresetByName,
 } from "./sqlite-run-history.ts";
 import type {
+  ListRunsOptions,
   PresetWriteInput,
   RecordingRepository,
+  RunFilters,
   RunRecorder,
   StoredEndpointOverride,
   StoredSecretEnvelope,
@@ -79,8 +82,12 @@ export class SqliteRepository implements RecordingRepository {
     return sqliteSoftDeletePreset(presetId, { dbUrl: this.dbUrl });
   }
 
-  async listRuns() {
-    return sqliteListRuns({ dbUrl: this.dbUrl });
+  async listRuns(options: ListRunsOptions = {}) {
+    return sqliteListRuns({ ...options, dbUrl: this.dbUrl });
+  }
+
+  async countRuns(filters: RunFilters = {}) {
+    return sqliteCountRuns({ ...filters, dbUrl: this.dbUrl });
   }
 
   async listRunsForPreset(presetId: string) {
