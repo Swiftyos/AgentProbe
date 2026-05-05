@@ -282,6 +282,56 @@ function matchRoute(
   return undefined;
 }
 
+const GZIP_MIN_BYTES = 1024;
+const GZIP_COMPRESSIBLE_TYPE = /^(application\/(json|javascript|xml)|text\/)/i;
+
+/**
+ * Bun.serve does not auto-compress responses. Run-detail payloads can be
+ * many MB of JSON, so we gzip eligible responses here. SSE streams and
+ * already-encoded responses pass through untouched.
+ */
+async function maybeGzip(
+  request: Request,
+  response: Response,
+): Promise<Response> {
+  if (!request.headers.get("accept-encoding")?.toLowerCase().includes("gzip")) {
+    return response;
+  }
+  if (!response.body || response.status === 204 || response.status === 304) {
+    return response;
+  }
+  if (response.headers.get("content-encoding")) {
+    return response;
+  }
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!GZIP_COMPRESSIBLE_TYPE.test(contentType)) {
+    return response;
+  }
+  if (contentType.toLowerCase().includes("text/event-stream")) {
+    return response;
+  }
+  const buffer = await response.arrayBuffer();
+  if (buffer.byteLength < GZIP_MIN_BYTES) {
+    const headers = new Headers(response.headers);
+    headers.append("vary", "Accept-Encoding");
+    return new Response(buffer, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+  const compressed = Bun.gzipSync(new Uint8Array(buffer));
+  const headers = new Headers(response.headers);
+  headers.set("content-encoding", "gzip");
+  headers.set("content-length", String(compressed.byteLength));
+  headers.append("vary", "Accept-Encoding");
+  return new Response(compressed, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
 function logRequest(
   config: ServerConfig,
   request: Request,
@@ -430,8 +480,15 @@ export async function startAgentProbeServer(
       }
     }
 
-    logRequest(config, request, response, performance.now() - t0, requestId);
-    return response;
+    const finalResponse = await maybeGzip(request, response);
+    logRequest(
+      config,
+      request,
+      finalResponse,
+      performance.now() - t0,
+      requestId,
+    );
+    return finalResponse;
   };
 
   const server = Bun.serve({

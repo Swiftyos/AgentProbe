@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-05-05T10:16:25.852Z
+Generated: 2026-05-05T12:54:17.998Z
 
 ```text
   AGENTS.md
@@ -32,6 +32,7 @@ dashboard/src/components/
   dashboard/src/components/RubricView.tsx
   dashboard/src/components/ScenarioTable.tsx
   dashboard/src/components/StatsBar.tsx
+dashboard/src/components/conversation/
 dashboard/src/components/copilot/
   dashboard/src/components/theme-toggle.tsx
 dashboard/src/components/ui/

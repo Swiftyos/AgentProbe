@@ -77,3 +77,4 @@ bun run ci
 7. Preserve layered boundaries and typed SDK/provider interfaces. No transport logic in higher-level business logic.
 8. Structured logs, metrics, and spans are required for debugging and latency enforcement on critical paths.
 9. Every PR must follow the template and leave enough evidence for the next agent to continue cleanly.
+10. Run `./scripts/fast-feedback.sh` reguallary to check your changes

@@ -45,6 +45,7 @@ import type {
 import {
   Button,
   Card,
+  CardSkeleton,
   Checkbox,
   EmptyState,
   ErrorBanner,
@@ -52,8 +53,11 @@ import {
   Loading,
   Modal,
   PageHeader,
+  PageHeaderSkeleton,
+  RunsTableSkeleton,
   SimpleSelect,
   StatTile,
+  StatTilesSkeleton,
   StatusPill,
   Tag,
   TextInput,
@@ -487,7 +491,18 @@ function OverviewView({
   }, [request]);
 
   if (error) return <ErrorBanner message={error} />;
-  if (!runs || !suites) return <Loading />;
+  if (!runs || !suites) {
+    return (
+      <>
+        <PageHeaderSkeleton />
+        <StatTilesSkeleton />
+        <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+          Latest Runs
+        </div>
+        <RunsTableSkeleton rows={5} />
+      </>
+    );
+  }
 
   const passed = runs.runs.filter((run) => run.passed === true).length;
   const failed = runs.runs.filter((run) => run.passed === false).length;
@@ -566,7 +581,14 @@ function RunsView({
   }, [nextCursor, loadingMore, request]);
 
   if (error && !initialized) return <ErrorBanner message={error} />;
-  if (!initialized) return <Loading />;
+  if (!initialized) {
+    return (
+      <>
+        <PageHeaderSkeleton withMeta />
+        <RunsTableSkeleton rows={8} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -737,7 +759,16 @@ export function RunDetailView({
   };
 
   if (error) return <ErrorBanner message={error} />;
-  if (!run || !dashboardData) return <Loading />;
+  if (!run || !dashboardData) {
+    return (
+      <>
+        <PageHeaderSkeleton withMeta />
+        <StatTilesSkeleton />
+        <CardSkeleton lines={4} className="mb-4" />
+        <RunsTableSkeleton rows={6} selectable={false} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -899,7 +930,15 @@ function ScenarioDetailView({
   }, [request, runId, ordinal]);
 
   if (error) return <ErrorBanner message={error} />;
-  if (!data) return <Loading />;
+  if (!data) {
+    return (
+      <>
+        <PageHeaderSkeleton withMeta />
+        <CardSkeleton lines={4} className="mb-3" />
+        <CardSkeleton lines={6} />
+      </>
+    );
+  }
 
   const detail = scenarioDetail(data.scenario);
 
@@ -982,7 +1021,15 @@ function SuitesView({ request }: { request: ServerRequest }) {
   }, [request]);
 
   if (error) return <ErrorBanner message={error} />;
-  if (!suites || !scenarios) return <Loading />;
+  if (!suites || !scenarios) {
+    return (
+      <>
+        <PageHeaderSkeleton withMeta />
+        <CardSkeleton lines={5} className="mb-3" />
+        <CardSkeleton lines={5} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -1153,7 +1200,15 @@ export function StartRunView({
   }, [scenarios, selected]);
 
   if (error) return <ErrorBanner message={error} />;
-  if (!suites || !scenarios || !presets) return <Loading />;
+  if (!suites || !scenarios || !presets) {
+    return (
+      <>
+        <PageHeaderSkeleton withMeta />
+        <CardSkeleton lines={6} className="mb-3" />
+        <CardSkeleton lines={4} />
+      </>
+    );
+  }
 
   const endpointSuites = suites.suites.filter(
     (suite) => suite.schema === "endpoints",
@@ -1516,7 +1571,18 @@ function PresetsView({
   }, [request]);
 
   if (error) return <ErrorBanner message={error} />;
-  if (!data) return <Loading />;
+  if (!data) {
+    return (
+      <>
+        <PageHeaderSkeleton withMeta />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <CardSkeleton lines={4} />
+          <CardSkeleton lines={4} />
+          <CardSkeleton lines={4} />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
@@ -1706,7 +1772,15 @@ function PresetDetailView({
   };
 
   if (error) return <ErrorBanner message={error} />;
-  if (!preset || !runs) return <Loading />;
+  if (!preset || !runs) {
+    return (
+      <>
+        <PageHeaderSkeleton withMeta />
+        <CardSkeleton lines={4} className="mb-3" />
+        <RunsTableSkeleton rows={5} selectable={false} />
+      </>
+    );
+  }
 
   const transport = detectTransport(preset.preset.endpoint);
 

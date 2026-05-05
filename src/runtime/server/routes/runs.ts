@@ -1,4 +1,7 @@
-import type { RunRecord } from "../../../shared/types/contracts.ts";
+import type {
+  RunRecord,
+  ScenarioRecord,
+} from "../../../shared/types/contracts.ts";
 import type { ServerContext } from "../app-server.ts";
 import {
   errorResponse,
@@ -9,6 +12,34 @@ import { HttpInputError, readJsonObject } from "../validation.ts";
 
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
+
+/**
+ * Drop per-scenario config-snapshot fields before sending the run to the
+ * dashboard. With 10–20 scenarios per run, these duplicated JSON copies of
+ * the scenario/persona/rubric specs add up to most of the response size.
+ * Server-internal callers (comparison, preset rebase, report rendering)
+ * use `repository.getRun()` directly and still receive the full payload.
+ * Run-level snapshot fields (`presetSnapshot`, `endpointSnapshot`,
+ * `selectedScenarioIds`, `sourcePaths`) stay on the wire — they're a single
+ * object per run and remain part of the public API contract.
+ */
+function stripScenarioSnapshots(scenario: ScenarioRecord): ScenarioRecord {
+  return {
+    ...scenario,
+    scenarioSnapshot: undefined,
+    personaSnapshot: undefined,
+    rubricSnapshot: undefined,
+    expectations: undefined,
+    tags: undefined,
+  };
+}
+
+function stripRunSnapshots(run: RunRecord): RunRecord {
+  return {
+    ...run,
+    scenarios: run.scenarios.map(stripScenarioSnapshots),
+  };
+}
 
 export async function handleListRuns(
   request: Request,
@@ -171,7 +202,10 @@ export async function handleGetRun(
       requestId: context.requestId,
     });
   }
-  return jsonResponse({ run }, { requestId: context.requestId });
+  return jsonResponse(
+    { run: stripRunSnapshots(run) },
+    { requestId: context.requestId },
+  );
 }
 
 function nullableStringField(
@@ -287,7 +321,10 @@ export async function handlePatchRun(
       requestId: context.requestId,
     });
   }
-  return jsonResponse({ run }, { requestId: context.requestId });
+  return jsonResponse(
+    { run: stripRunSnapshots(run) },
+    { requestId: context.requestId },
+  );
 }
 
 export async function handleGetScenarioRun(
@@ -351,7 +388,7 @@ export async function handleGetScenarioRun(
         startedAt: run.startedAt,
         completedAt: run.completedAt,
       },
-      scenario,
+      scenario: stripScenarioSnapshots(scenario),
     },
     { requestId: context.requestId },
   );
