@@ -190,6 +190,284 @@ const DASHBOARD_HTML = `<!doctype html>
         color: #8b949e;
         font-size: 11px;
       }
+      .scenario-header {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-start;
+        margin-bottom: 12px;
+      }
+      .scenario-title h2 {
+        margin: 0 0 4px 0;
+      }
+      .scenario-sid {
+        font-family: Menlo, Consolas, monospace;
+        font-size: 11px;
+        color: #6e7681;
+      }
+      .score-block {
+        display: flex;
+        gap: 20px;
+      }
+      .score-stat {
+        text-align: right;
+      }
+      .score-stat-label {
+        font-size: 10px;
+        color: #6e7681;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .score-stat-value {
+        font-size: 20px;
+        font-weight: 700;
+        margin-top: 2px;
+      }
+      .tabs {
+        display: flex;
+        gap: 4px;
+        border-bottom: 1px solid #1e222b;
+        margin-bottom: 16px;
+      }
+      .tab-btn {
+        padding: 8px 16px;
+        background: transparent;
+        color: #8b949e;
+        border: none;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .tab-btn.active {
+        color: #f5f5f5;
+        border-bottom-color: #1f6feb;
+      }
+      .tab-pane {
+        display: none;
+      }
+      .tab-pane.active {
+        display: block;
+      }
+      .chat-list {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+      .chat-row {
+        display: flex;
+        flex-direction: column;
+      }
+      .chat-row.user {
+        align-items: flex-end;
+      }
+      .chat-row.assistant {
+        align-items: flex-start;
+      }
+      .chat-row.system {
+        align-items: stretch;
+      }
+      .chat-bubble {
+        max-width: 85%;
+        padding: 10px 14px;
+        border-radius: 14px;
+        font-size: 13px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+      .chat-bubble.user {
+        background: #1f2937;
+        border-bottom-right-radius: 4px;
+        color: #f5f5f5;
+      }
+      .chat-bubble.assistant {
+        background: transparent;
+        padding-left: 0;
+        padding-right: 0;
+        max-width: 95%;
+        width: 100%;
+      }
+      .chat-meta {
+        font-size: 10px;
+        color: #6e7681;
+        margin-top: 4px;
+      }
+      .chat-divider {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #6e7681;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin: 4px 0;
+      }
+      .chat-divider::before,
+      .chat-divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: #1e222b;
+      }
+      .chat-divider-fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        justify-content: center;
+        margin-top: 6px;
+      }
+      .chat-pill {
+        display: inline-flex;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #0a0d12;
+        border: 1px solid #1e222b;
+        font-family: Menlo, Consolas, monospace;
+        font-size: 10px;
+        color: #c9d1d9;
+      }
+      .chat-pill .pill-key {
+        color: #6e7681;
+      }
+      .system-note {
+        text-align: center;
+        font-size: 11px;
+        color: #8b949e;
+        max-width: 85%;
+        margin: 4px auto 0;
+        white-space: pre-wrap;
+      }
+      .tool-detail {
+        background: #0a0d12;
+        border: 1px solid #1e222b;
+        border-radius: 6px;
+        padding: 6px 10px;
+        margin-top: 8px;
+        font-size: 11px;
+      }
+      .tool-detail summary {
+        cursor: pointer;
+        color: #8b949e;
+        list-style: none;
+      }
+      .tool-detail summary::-webkit-details-marker {
+        display: none;
+      }
+      .tool-detail .tool-label {
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-size: 10px;
+        color: #6e7681;
+        margin-right: 6px;
+      }
+      .tool-detail .tool-name {
+        color: #58a6ff;
+        font-family: Menlo, Consolas, monospace;
+      }
+      .tool-detail pre {
+        margin: 8px 0 0;
+        background: transparent;
+        padding: 0;
+        font-size: 11px;
+      }
+      .cp-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .cp-pill {
+        display: inline-flex;
+        gap: 4px;
+        align-items: center;
+        padding: 2px 10px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .cp-pill.pass {
+        background: rgba(26, 127, 55, 0.2);
+        color: #57a463;
+      }
+      .cp-pill.fail {
+        background: rgba(215, 58, 73, 0.2);
+        color: #f85149;
+        cursor: pointer;
+      }
+      .cp-failures {
+        margin: 4px 0 0 18px;
+        padding: 0 0 0 12px;
+        font-size: 11px;
+        color: #f85149;
+      }
+      .judge-overall {
+        background: #0a0d12;
+        border-left: 3px solid #1f6feb;
+        padding: 12px 14px;
+        border-radius: 4px;
+        margin-bottom: 16px;
+        font-size: 13px;
+        line-height: 1.55;
+        white-space: pre-wrap;
+      }
+      .dim-score {
+        background: #0a0d12;
+        border: 1px solid #1e222b;
+        border-radius: 6px;
+        padding: 12px 14px;
+        margin-bottom: 8px;
+      }
+      .dim-score-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 6px;
+        gap: 12px;
+      }
+      .dim-score-name {
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .dim-score-value {
+        font-family: Menlo, Consolas, monospace;
+        font-size: 12px;
+        color: #8b949e;
+        white-space: nowrap;
+      }
+      .dim-score-bar {
+        height: 4px;
+        background: #1e222b;
+        border-radius: 2px;
+        overflow: hidden;
+        margin-bottom: 10px;
+      }
+      .dim-score-fill {
+        height: 100%;
+        background: #1f6feb;
+      }
+      .dim-score-reason {
+        font-size: 12px;
+        color: #c9d1d9;
+        line-height: 1.55;
+        white-space: pre-wrap;
+      }
+      .dim-score-evidence {
+        margin-top: 10px;
+      }
+      .dim-score-evidence summary {
+        font-size: 11px;
+        color: #8b949e;
+        cursor: pointer;
+      }
+      .dim-score-evidence ul {
+        margin: 6px 0 0;
+        padding-left: 18px;
+        font-size: 11px;
+        color: #c9d1d9;
+      }
     </style>
   </head>
   <body>
@@ -663,6 +941,311 @@ const DASHBOARD_HTML = `<!doctype html>
           }
         }
 
+        function isSessionBoundary(turn) {
+          return (
+            turn.role === "system" &&
+            typeof turn.content === "string" &&
+            turn.content.indexOf("--- Session boundary") === 0
+          );
+        }
+
+        function parseSessionBoundary(content) {
+          const fields = {};
+          const re =
+            /session_id:\\s*(\\S+)|reset_policy:\\s*(\\S+)|time_offset:\\s*(\\S+)|user_id:\\s*(\\S+)/g;
+          let m = re.exec(content);
+          while (m !== null) {
+            if (m[1]) fields.session_id = m[1];
+            if (m[2]) fields.reset_policy = m[2];
+            if (m[3]) fields.time_offset = m[3];
+            if (m[4]) fields.user_id = m[4];
+            m = re.exec(content);
+          }
+          return fields;
+        }
+
+        function renderToolCall(tc) {
+          const name = escapeHtml(tc.name || "tool");
+          let argsHtml = "";
+          if (tc.args !== null && tc.args !== undefined) {
+            try {
+              argsHtml =
+                "<pre>" +
+                escapeHtml(JSON.stringify(tc.args, null, 2)) +
+                "</pre>";
+            } catch (_) {
+              argsHtml = "";
+            }
+          }
+          return (
+            '<details class="tool-detail"><summary>' +
+            '<span class="tool-label">tool</span>' +
+            '<span class="tool-name">' +
+            name +
+            "</span></summary>" +
+            argsHtml +
+            "</details>"
+          );
+        }
+
+        function renderCheckpoint(cp) {
+          const idx = escapeHtml(cp.checkpoint_index);
+          if (cp.passed) {
+            return (
+              '<span class="cp-pill pass">&#10003; Checkpoint ' +
+              idx +
+              "</span>"
+            );
+          }
+          const failures = (cp.failures || [])
+            .map(function (f) {
+              return "<li>" + escapeHtml(f) + "</li>";
+            })
+            .join("");
+          const failuresHtml = failures
+            ? '<ul class="cp-failures">' + failures + "</ul>"
+            : "";
+          return (
+            '<details><summary class="cp-pill fail">&#10007; Checkpoint ' +
+            idx +
+            "</summary>" +
+            failuresHtml +
+            "</details>"
+          );
+        }
+
+        function renderTurn(turn, tools, cps) {
+          const turnIdx = turn.turn_index;
+          const source = turn.source ? " · " + escapeHtml(turn.source) : "";
+          const meta =
+            '<div class="chat-meta">Turn ' +
+            escapeHtml(turnIdx) +
+            source +
+            "</div>";
+
+          if (isSessionBoundary(turn)) {
+            const fields = parseSessionBoundary(turn.content || "");
+            const keys = Object.keys(fields);
+            const pills = keys.length
+              ? '<div class="chat-divider-fields">' +
+                keys
+                  .map(function (k) {
+                    return (
+                      '<span class="chat-pill"><span class="pill-key">' +
+                      escapeHtml(k) +
+                      ":</span>" +
+                      escapeHtml(fields[k]) +
+                      "</span>"
+                    );
+                  })
+                  .join("") +
+                "</div>"
+              : "";
+            return (
+              '<div class="chat-row system">' +
+              '<div class="chat-divider">Session boundary</div>' +
+              pills +
+              "</div>"
+            );
+          }
+
+          const content = turn.content || "";
+
+          if (turn.role === "user") {
+            return (
+              '<div class="chat-row user">' +
+              '<div class="chat-bubble user">' +
+              escapeHtml(content) +
+              "</div>" +
+              meta +
+              "</div>"
+            );
+          }
+
+          if (turn.role === "assistant") {
+            const toolsHtml = tools.length
+              ? tools.map(renderToolCall).join("")
+              : "";
+            const cpsHtml = cps.length
+              ? '<div class="cp-row">' +
+                cps.map(renderCheckpoint).join("") +
+                "</div>"
+              : "";
+            return (
+              '<div class="chat-row assistant">' +
+              '<div class="chat-bubble assistant">' +
+              escapeHtml(content) +
+              "</div>" +
+              toolsHtml +
+              cpsHtml +
+              meta +
+              "</div>"
+            );
+          }
+
+          const label =
+            turn.role === "inject"
+              ? "Inject"
+              : turn.role === "checkpoint"
+                ? "Checkpoint"
+                : turn.role === "system"
+                  ? "System"
+                  : escapeHtml(turn.role);
+          const note = content
+            ? '<div class="system-note">' + escapeHtml(content) + "</div>"
+            : "";
+          return (
+            '<div class="chat-row system">' +
+            '<div class="chat-divider">' +
+            label +
+            "</div>" +
+            note +
+            "</div>"
+          );
+        }
+
+        function renderConversationTab(scenario) {
+          const turns = scenario.turns || [];
+          const allTools = scenario.toolCalls || [];
+          const allCps = scenario.checkpoints || [];
+
+          const toolsByTurn = {};
+          allTools.forEach(function (tc) {
+            const idx = tc.turn_index;
+            if (!toolsByTurn[idx]) toolsByTurn[idx] = [];
+            toolsByTurn[idx].push(tc);
+          });
+          const cpsByTurn = {};
+          allCps.forEach(function (cp) {
+            const idx =
+              cp.preceding_turn_index === null ||
+              cp.preceding_turn_index === undefined
+                ? -1
+                : cp.preceding_turn_index;
+            if (!cpsByTurn[idx]) cpsByTurn[idx] = [];
+            cpsByTurn[idx].push(cp);
+          });
+
+          if (turns.length === 0) {
+            return '<p class="muted">No conversation turns recorded.</p>';
+          }
+          return (
+            '<div class="chat-list">' +
+            turns
+              .map(function (turn) {
+                return renderTurn(
+                  turn,
+                  toolsByTurn[turn.turn_index] || [],
+                  cpsByTurn[turn.turn_index] || [],
+                );
+              })
+              .join("") +
+            "</div>"
+          );
+        }
+
+        function renderRubricTab(scenario) {
+          const judge = scenario.judge || {};
+          const dims = scenario.judgeDimensionScores || [];
+          const overall =
+            typeof judge.overallNotes === "string" && judge.overallNotes
+              ? '<div class="judge-overall">' +
+                escapeHtml(judge.overallNotes) +
+                "</div>"
+              : "";
+
+          if (dims.length === 0 && !overall) {
+            return '<p class="muted">No judge feedback recorded.</p>';
+          }
+
+          const dimHtml = dims
+            .map(function (d) {
+              const name = escapeHtml(d.dimension_name || d.dimension_id);
+              const raw = d.raw_score;
+              const scale = d.scale_points;
+              const norm = d.normalized_score;
+              const weight = d.weight;
+              const valueLabel =
+                (raw !== null && raw !== undefined ? raw : "?") +
+                (scale !== null && scale !== undefined ? " / " + scale : "") +
+                (weight !== null && weight !== undefined
+                  ? "  ·  weight " + weight
+                  : "");
+              const pct =
+                norm !== null && norm !== undefined
+                  ? Math.max(0, Math.min(100, Math.round(norm * 100)))
+                  : 0;
+              const reasoning = d.reasoning
+                ? '<div class="dim-score-reason">' +
+                  escapeHtml(d.reasoning) +
+                  "</div>"
+                : "";
+              const evidence = (d.evidence || [])
+                .map(function (e) {
+                  return "<li>" + escapeHtml(e) + "</li>";
+                })
+                .join("");
+              const evidenceHtml = evidence
+                ? '<details class="dim-score-evidence"><summary>Evidence (' +
+                  (d.evidence || []).length +
+                  ")</summary><ul>" +
+                  evidence +
+                  "</ul></details>"
+                : "";
+              return (
+                '<div class="dim-score">' +
+                '<div class="dim-score-header">' +
+                '<div class="dim-score-name">' +
+                name +
+                "</div>" +
+                '<div class="dim-score-value">' +
+                escapeHtml(valueLabel) +
+                "</div>" +
+                "</div>" +
+                '<div class="dim-score-bar"><div class="dim-score-fill" style="width:' +
+                pct +
+                '%"></div></div>' +
+                reasoning +
+                evidenceHtml +
+                "</div>"
+              );
+            })
+            .join("");
+
+          const judgeMeta =
+            judge.provider || judge.model
+              ? '<p class="muted">Judge: ' +
+                escapeHtml(judge.provider || "?") +
+                " / " +
+                escapeHtml(judge.model || "?") +
+                "</p>"
+              : "";
+
+          return judgeMeta + overall + dimHtml;
+        }
+
+        function bindTabs(scope) {
+          const buttons = scope.querySelectorAll(".tab-btn");
+          const panes = scope.querySelectorAll(".tab-pane");
+          buttons.forEach(function (btn) {
+            btn.addEventListener("click", function () {
+              const target = btn.getAttribute("data-tab");
+              buttons.forEach(function (b) {
+                b.classList.toggle(
+                  "active",
+                  b.getAttribute("data-tab") === target,
+                );
+              });
+              panes.forEach(function (p) {
+                p.classList.toggle(
+                  "active",
+                  p.getAttribute("data-pane") === target,
+                );
+              });
+            });
+          });
+        }
+
         async function renderScenario(runId, ordinal) {
           try {
             const data = await api(
@@ -671,18 +1254,73 @@ const DASHBOARD_HTML = `<!doctype html>
                 "/scenarios/" +
                 encodeURIComponent(ordinal),
             );
-            content.innerHTML =
-              '<div class="card"><h2>' +
-              escapeHtml(data.scenario.scenarioName) +
-              " (ordinal " +
-              escapeHtml(data.scenario.ordinal) +
-              ")</h2>" +
-              '<p><a href="/runs/' +
+            const scenario = data.scenario;
+            const passed =
+              scenario.passed === true
+                ? '<span class="badge badge-pass">pass</span>'
+                : scenario.passed === false
+                  ? '<span class="badge badge-fail">fail</span>'
+                  : '<span class="badge badge-unknown">' +
+                    escapeHtml(scenario.status) +
+                    "</span>";
+            const score = formatScore(scenario.overallScore);
+            const threshold =
+              scenario.passThreshold !== null &&
+              scenario.passThreshold !== undefined
+                ? formatScore(scenario.passThreshold)
+                : "-";
+            const headerHtml =
+              '<div class="scenario-header">' +
+              '<div class="scenario-title">' +
+              "<h2>" +
+              escapeHtml(scenario.scenarioName) +
+              "</h2>" +
+              '<div class="scenario-sid">' +
+              escapeHtml(scenario.scenarioId) +
+              " · ordinal " +
+              escapeHtml(scenario.ordinal) +
+              (scenario.userId ? " · " + escapeHtml(scenario.userId) : "") +
+              "</div>" +
+              '<p style="margin-top:8px"><a href="/runs/' +
               escapeHtml(data.run.runId) +
-              '">Back to run</a></p>' +
-              "<pre>" +
-              escapeHtml(JSON.stringify(data.scenario, null, 2)) +
-              "</pre></div>";
+              '">&larr; Back to run</a></p>' +
+              "</div>" +
+              '<div class="score-block">' +
+              '<div class="score-stat"><div class="score-stat-label">Score</div><div class="score-stat-value">' +
+              score +
+              "</div></div>" +
+              '<div class="score-stat"><div class="score-stat-label">Threshold</div><div class="score-stat-value">' +
+              threshold +
+              "</div></div>" +
+              '<div class="score-stat"><div class="score-stat-label">Status</div><div class="score-stat-value">' +
+              passed +
+              "</div></div>" +
+              "</div>" +
+              "</div>";
+
+            const tabsHtml =
+              '<div class="tabs">' +
+              '<button type="button" class="tab-btn active" data-tab="conversation">Conversation</button>' +
+              '<button type="button" class="tab-btn" data-tab="rubric">Rubric</button>' +
+              "</div>";
+
+            const conversationHtml =
+              '<div class="tab-pane active" data-pane="conversation">' +
+              renderConversationTab(scenario) +
+              "</div>";
+            const rubricHtml =
+              '<div class="tab-pane" data-pane="rubric">' +
+              renderRubricTab(scenario) +
+              "</div>";
+
+            content.innerHTML =
+              '<div class="card">' +
+              headerHtml +
+              tabsHtml +
+              conversationHtml +
+              rubricHtml +
+              "</div>";
+            bindTabs(content);
           } catch (error) {
             showError(error);
           }

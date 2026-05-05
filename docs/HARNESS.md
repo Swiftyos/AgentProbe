@@ -13,6 +13,10 @@
 
 Quality-gate ownership and maintenance rules live in
 [`docs/references/quality-gates.md`](references/quality-gates.md).
+`bun run fast-feedback` automatically refreshes docs indexes, workspace docs,
+and the quality score before validating the repository, so agents should review
+and commit any generated documentation changes it produces.
+
 ## Test timeouts
 
 `bun run test` and `bun run test:e2e` set `--timeout 30000` (30s per test). The
@@ -60,6 +64,6 @@ These paths never automerge:
 
 1. If `fast-feedback.sh` fails: fix before merging. No exceptions.
 2. If nightly baseline breaks: an auto-PR is opened. Fix forward.
-3. If generated docs are stale: refresh and commit.
+3. If generated docs changed during fast feedback: review and commit them.
 4. If a change affects latency or observability-critical paths, attach evidence
    that the documented budgets in `docs/RELIABILITY.md` still hold.

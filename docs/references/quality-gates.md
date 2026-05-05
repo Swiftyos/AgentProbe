@@ -19,7 +19,8 @@
 - Use generic toolchains for broad correctness (`tsc`, Biome).
 - Use repo-specific scripts for architecture, docs freshness, and plan hygiene.
 - Promote repeated review feedback into a rule or check whenever possible.
-- Keep `bun run fast-feedback` as the required PR-ready local loop.
+- Keep `bun run fast-feedback` as the required PR-ready local loop; it refreshes
+  generated docs and quality score before validating gates.
 - Keep `bun run ci` as the local mirror of GitHub CI.
 - Keep workflow YAML thin by calling package scripts or repo scripts instead of
   duplicating command chains.

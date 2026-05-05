@@ -809,8 +809,8 @@ describe("bun e2e baseline for the typescript cli", () => {
     );
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain("PASS refund-smoke score=0.00");
-    expect(result.stdout).toContain("PASS billing-followup score=0.00");
+    expect(result.stdout).toContain("PASS refund-smoke score=1.00");
+    expect(result.stdout).toContain("PASS billing-followup score=1.00");
     expect(result.stdout).toContain("Summary: 2 passed, 0 failed, 2 total");
     expect(backend.requestLog).toHaveLength(0);
     expect(await readOpenAiLog(workspace.openAiLogPath)).toHaveLength(0);
@@ -828,18 +828,19 @@ describe("bun e2e baseline for the typescript cli", () => {
     );
     expect(runRows[0]).toEqual({
       status: "completed",
-      scenario_total: 0,
-      scenario_passed_count: 0,
+      scenario_total: 2,
+      scenario_passed_count: 2,
       selected_scenario_ids_json: scenarioIds,
     });
 
     const scenarioRows = queryRows(
       workspace.dbPath,
-      ["scenario_id"],
+      ["scenario_id", "ordinal"],
       "scenario_runs",
       "ordinal ASC",
     );
-    expect(scenarioRows).toHaveLength(0);
+    expect(scenarioRows).toHaveLength(2);
+    expect(scenarioRows.map((row) => row.scenario_id)).toEqual(scenarioIds);
   });
 
   test("parallel preserves result ordering while overlapping target requests", async () => {

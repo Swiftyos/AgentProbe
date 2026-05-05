@@ -14,6 +14,7 @@ import type {
   ConversationTurn,
   Endpoints,
   JsonValue,
+  JudgeDimensionScore,
   Persona,
   PresetSnapshot,
   Rubric,
@@ -442,6 +443,101 @@ function renderRubricTemplates(
   return rendered;
 }
 
+function findInitialUserPrompt(scenario: Scenario): string {
+  for (const session of effectiveSessions(scenario)) {
+    for (const turn of session.turns) {
+      if (
+        turn.role === "user" &&
+        typeof turn.content === "string" &&
+        turn.content.trim().length > 0
+      ) {
+        return turn.content;
+      }
+    }
+  }
+  return "";
+}
+
+async function runScenarioDryRun(
+  scenario: Scenario,
+  persona: Persona,
+  rubric: Rubric,
+  options: {
+    recorder?: RunRecorder;
+    scenarioOrdinal?: number;
+    userId?: string;
+  },
+): Promise<ScenarioRunResult> {
+  const scenarioRunId = await options.recorder?.recordScenarioStarted?.({
+    scenario,
+    persona,
+    rubric,
+    ordinal: options.scenarioOrdinal,
+    userId: options.userId,
+  });
+
+  const initialTurn: ConversationTurn = {
+    role: "user",
+    content: findInitialUserPrompt(scenario),
+  };
+
+  if (scenarioRunId !== undefined) {
+    await options.recorder?.recordTurn?.(scenarioRunId, {
+      turnIndex: 0,
+      turn: initialTurn,
+      source: "scenario",
+    });
+  }
+
+  const dimensions: Record<string, JudgeDimensionScore> = {};
+  for (const dimension of rubric.dimensions) {
+    dimensions[dimension.id] = {
+      reasoning:
+        "Dry run: scenario was not executed; static placeholder score.",
+      evidence: [],
+      score: dimension.scale.points ?? 1,
+    };
+  }
+  const judgeScore: RubricScore = {
+    dimensions,
+    overallNotes: "Dry run placeholder judge result.",
+    passed: true,
+  };
+  const renderedRubric = cloneRubric(rubric);
+  const computedOverallScore = overallScore(renderedRubric, judgeScore);
+
+  if (scenarioRunId !== undefined) {
+    await options.recorder?.recordJudgeResult?.(scenarioRunId, {
+      rubric: renderedRubric,
+      score: judgeScore,
+      overallScore: computedOverallScore,
+    });
+  }
+
+  const result: ScenarioRunResult = {
+    scenarioId: scenario.id,
+    scenarioName: scenario.name,
+    personaId: persona.id,
+    rubricId: rubric.id,
+    userId: options.userId,
+    passed: judgeScore.passed,
+    overallScore: computedOverallScore,
+    transcript: [initialTurn],
+    checkpoints: [],
+    toolCallsByTurn: {},
+    renderedTurns: [],
+    judgeScore,
+  };
+
+  if (scenarioRunId !== undefined) {
+    await options.recorder?.recordScenarioFinished?.(scenarioRunId, {
+      result,
+    });
+  }
+
+  return result;
+}
+
 export async function runScenario(
   adapter: EndpointAdapter,
   scenario: Scenario,
@@ -459,19 +555,7 @@ export async function runScenario(
   },
 ): Promise<ScenarioRunResult> {
   if (options.dryRun) {
-    return {
-      scenarioId: scenario.id,
-      scenarioName: scenario.name,
-      personaId: persona.id,
-      rubricId: rubric.id,
-      userId: options.userId,
-      passed: true,
-      overallScore: 0,
-      transcript: [],
-      checkpoints: [],
-      toolCallsByTurn: {},
-      renderedTurns: [],
-    };
+    return await runScenarioDryRun(scenario, persona, rubric, options);
   }
 
   const fullTranscript: ConversationTurn[] = [];

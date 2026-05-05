@@ -3,6 +3,7 @@ import type { DashboardData, ScenarioState } from "../types.ts";
 
 interface Props {
   data: DashboardData;
+  runId?: string;
   onSelect: (ordinal: number) => void;
 }
 
@@ -36,13 +37,15 @@ function Duration({ scenario }: { scenario: ScenarioState }) {
   return <>{elapsed > 0 ? `${elapsed.toFixed(0)}s` : "-"}</>;
 }
 
-export function ScenarioTable({ data, onSelect }: Props) {
+export function ScenarioTable({ data, runId, onSelect }: Props) {
+  const scenarioHref = (ordinal: number) =>
+    runId ? `/runs/${encodeURIComponent(runId)}/scenarios/${ordinal}` : null;
   return (
     <>
       <div className="section-title">
         Scenarios{" "}
         <span style={{ color: "var(--muted)", fontWeight: 400, fontSize: 12 }}>
-          (click completed rows to inspect)
+          (click a row to view conversation &amp; rubric)
         </span>
       </div>
       <table>
@@ -59,13 +62,26 @@ export function ScenarioTable({ data, onSelect }: Props) {
         <tbody>
           {data.scenarios.map((s, i) => {
             const hasDetail = i in data.details;
+            const href = scenarioHref(i);
             return (
               <tr
                 key={`${s.scenario_id}-${i}`}
                 className={`status-${s.status}${hasDetail ? " clickable-row" : ""}`}
                 onClick={hasDetail ? () => onSelect(i) : undefined}
               >
-                <td className="id-cell">{s.scenario_id}</td>
+                <td className="id-cell">
+                  {hasDetail && href ? (
+                    <a
+                      href={href}
+                      onClick={(event) => event.stopPropagation()}
+                      style={{ color: "inherit", textDecoration: "none" }}
+                    >
+                      {s.scenario_id}
+                    </a>
+                  ) : (
+                    s.scenario_id
+                  )}
+                </td>
                 <td>{s.scenario_name ?? ""}</td>
                 <td className="status-badge">
                   <span>

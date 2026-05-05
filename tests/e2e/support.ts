@@ -390,6 +390,110 @@ export async function cleanupWorkspace(workspace: E2EWorkspace): Promise<void> {
   await rm(workspace.rootDir, { recursive: true, force: true });
 }
 
+export async function waitForListeningUrl(
+  process: Bun.Subprocess<"ignore", "pipe", "pipe">,
+  timeoutMs: number,
+): Promise<string> {
+  const reader = process.stderr.getReader();
+  const decoder = new TextDecoder();
+  let stderr = "";
+  const started = Date.now();
+
+  while (Date.now() - started < timeoutMs) {
+    const remaining = Math.max(1, timeoutMs - (Date.now() - started));
+    const result = await Promise.race([
+      reader.read(),
+      new Promise<never>((_resolve, reject) =>
+        setTimeout(
+          () => reject(new Error("timed out waiting for server")),
+          remaining,
+        ),
+      ),
+    ]);
+    if (result.done) {
+      throw new Error(`server exited before listening:\n${stderr}`);
+    }
+    stderr += decoder.decode(result.value, { stream: true });
+    const match = stderr.match(
+      /AgentProbe server listening on (http:\/\/[^\s]+)/,
+    );
+    if (match?.[1]) {
+      return match[1];
+    }
+  }
+
+  throw new Error(`server did not report a listening URL:\n${stderr}`);
+}
+
+export type DashboardServerHandle = {
+  url: string;
+  process: Bun.Subprocess<"ignore", "pipe", "pipe">;
+  stop: () => Promise<void>;
+};
+
+export async function startDashboardServer(options: {
+  dataPath: string;
+  dbPath: string;
+  cwd?: string;
+  extraEnv?: Record<string, string | undefined>;
+  startupTimeoutMs?: number;
+  stopTimeoutMs?: number;
+}): Promise<DashboardServerHandle> {
+  const env = {
+    ...Bun.env,
+    AGENTPROBE_DISABLE_BROWSER_OPEN: "1",
+    OPEN_ROUTER_API_KEY: "",
+    ...options.extraEnv,
+  };
+
+  const process = Bun.spawn({
+    cmd: [
+      "bun",
+      "run",
+      "agentprobe",
+      "start-server",
+      "--port",
+      "0",
+      "--data",
+      options.dataPath,
+      "--db",
+      options.dbPath,
+    ],
+    cwd: options.cwd ?? REPO_ROOT,
+    env,
+    stdin: "ignore",
+    stdout: "pipe",
+    stderr: "pipe",
+  });
+
+  let url: string;
+  try {
+    url = await waitForListeningUrl(
+      process,
+      options.startupTimeoutMs ?? 15_000,
+    );
+  } catch (error) {
+    process.kill("SIGTERM");
+    throw error;
+  }
+
+  const stop = async (): Promise<void> => {
+    process.kill("SIGTERM");
+    const timeout = options.stopTimeoutMs ?? 5_000;
+    await Promise.race([
+      process.exited,
+      new Promise<never>((_resolve, reject) =>
+        setTimeout(() => {
+          process.kill("SIGKILL");
+          reject(new Error(`server did not stop within ${timeout}ms`));
+        }, timeout),
+      ),
+    ]);
+  };
+
+  return { url, process, stop };
+}
+
 export async function runAgentprobe(
   args: string[],
   options: RunOptions,

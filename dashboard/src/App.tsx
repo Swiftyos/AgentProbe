@@ -557,7 +557,6 @@ export function RunDetailView({
 }) {
   const [run, setRun] = useState<RunRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedOrdinal, setSelectedOrdinal] = useState<number | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [presetModalOpen, setPresetModalOpen] = useState(false);
   const [presetName, setPresetName] = useState("");
@@ -603,7 +602,6 @@ export function RunDetailView({
   useEffect(() => {
     setRun(null);
     setError(null);
-    setSelectedOrdinal(null);
     void loadRun();
   }, [loadRun]);
 
@@ -648,10 +646,14 @@ export function RunDetailView({
     () => (run ? dashboardDataFromRun(run) : null),
     [run],
   );
-  const selectedDetail =
-    selectedOrdinal != null && dashboardData
-      ? (dashboardData.details[selectedOrdinal] ?? null)
-      : null;
+
+  const goToScenario = useCallback(
+    (ordinal: number) => {
+      if (!navigate || !run) return;
+      navigate(`/runs/${encodeURIComponent(run.runId)}/scenarios/${ordinal}`);
+    },
+    [navigate, run],
+  );
 
   const openPresetModal = () => {
     setPresetError(null);
@@ -810,30 +812,15 @@ export function RunDetailView({
       />
       <StatsBar data={dashboardData} />
       <ProgressBar data={dashboardData} />
-      <ScenarioTable data={dashboardData} onSelect={setSelectedOrdinal} />
-      <div className="flex flex-wrap gap-2 my-4">
-        {run.scenarios.map((scenario) => (
-          <a
-            key={scenario.ordinal}
-            href={`/runs/${encodeURIComponent(run.runId)}/scenarios/${
-              scenario.ordinal
-            }`}
-            className="inline-flex items-center px-2.5 py-1 rounded border border-border bg-secondary text-muted-foreground text-xs hover:text-foreground hover:border-primary no-underline"
-          >
-            Scenario {scenario.ordinal}
-          </a>
-        ))}
-      </div>
+      <ScenarioTable
+        data={dashboardData}
+        runId={run.runId}
+        onSelect={goToScenario}
+      />
       <AveragesTable
         averages={dashboardData.averages}
-        onSelectRun={setSelectedOrdinal}
+        onSelectRun={goToScenario}
       />
-      {selectedDetail && (
-        <DetailPanel
-          detail={selectedDetail}
-          onClose={() => setSelectedOrdinal(null)}
-        />
-      )}
     </>
   );
 }
@@ -882,12 +869,18 @@ function ScenarioDetailView({
         eyebrow={
           <a
             href={`/runs/${encodeURIComponent(data.run.runId)}`}
-            className="text-primary hover:underline font-mono"
+            className="text-primary hover:underline"
           >
-            ← {data.run.runId.slice(0, 12)}…
+            ← Back to run{" "}
+            <span className="font-mono">{data.run.runId.slice(0, 12)}…</span>
           </a>
         }
         title={detail.scenario_name}
+        meta={
+          <span>
+            Scenario #{ordinal} · {detail.scenario_id}
+          </span>
+        }
         actions={
           <StatusPill
             run={{

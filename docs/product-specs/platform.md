@@ -110,8 +110,9 @@ history across commands
 
 **Given** the repository's standard pre-PR workflow
 **When** the user runs the fast-feedback command
-**Then** the CLI runs repo validation, Biome linting, strict `tsc --noEmit`,
-and Bun tests, failing fast when any quality gate is broken
+**Then** the CLI refreshes docs indexes, workspace inventory, and the quality
+score before running repo validation, Biome linting, strict `tsc --noEmit`, and
+Bun tests, failing fast when any quality gate is broken
 
 ### HTML report renders from recorded run history
 

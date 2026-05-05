@@ -53,8 +53,9 @@ Last validated against `platform.md`: 2026-04-17
   Responses path.
 - The OpenClaw CLI surface is implemented behind websocket endpoint presets and
   can create sessions, send chat turns, and read session history.
-- `bun run fast-feedback` now enforces Biome linting, strict TypeScript checks,
-  and Bun tests alongside repo validation.
+- `bun run fast-feedback` now refreshes generated docs and quality score before
+  enforcing repo validation, Biome linting, strict TypeScript checks, and Bun
+  tests.
 - `agentprobe start-server` now supports token-protected write routes for
   ad-hoc dry-runs, cooperative cancellation, preset CRUD, preset launch, SSE
   replay, and Docker packaging with SQLite-on-volume persistence.

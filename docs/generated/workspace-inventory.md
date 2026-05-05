@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-05-04T11:14:08.973Z
+Generated: 2026-05-05T09:57:24.886Z
 
 ```text
   AGENTS.md
@@ -32,6 +32,7 @@ dashboard/src/components/
   dashboard/src/components/RubricView.tsx
   dashboard/src/components/ScenarioTable.tsx
   dashboard/src/components/StatsBar.tsx
+dashboard/src/components/copilot/
   dashboard/src/components/theme-toggle.tsx
 dashboard/src/components/ui/
   dashboard/src/helpers.ts
@@ -417,6 +418,7 @@ src/runtime/server/
   src/runtime/server/config.ts
 src/runtime/server/controllers/
 src/runtime/server/dashboard/
+  src/runtime/server/default-presets.ts
   src/runtime/server/http-helpers.ts
 src/runtime/server/routes/
 src/runtime/server/streams/
@@ -437,6 +439,7 @@ tests/e2e/
 tests/e2e/fixtures/
 tests/e2e/fixtures/suite/
   tests/e2e/judge-transcript-order.e2e.test.ts
+  tests/e2e/server-flow.e2e.test.ts
   tests/e2e/start-server.e2e.test.ts
   tests/e2e/support.ts
 tests/integration/
@@ -471,6 +474,7 @@ tests/unit/persistence/
 tests/unit/server/
   tests/unit/server/comparison.test.ts
   tests/unit/server/config.test.ts
+  tests/unit/server/default-presets.test.ts
   tests/unit/server/inline-dashboard.test.ts
   tests/unit/server/preset-fake-repository.test.ts
   tests/unit/server/selection.test.ts
