@@ -23,6 +23,7 @@ import {
   upsertPresetByName as sqliteUpsertPresetByName,
 } from "./sqlite-run-history.ts";
 import type {
+  GetRunOptions,
   ListRunsOptions,
   PresetWriteInput,
   RecordingRepository,
@@ -31,6 +32,10 @@ import type {
   StoredEndpointOverride,
   StoredSecretEnvelope,
 } from "./types.ts";
+import type {
+  RunRecord,
+  ScenarioRecord,
+} from "../../shared/types/contracts.ts";
 
 /** SQLite-backed repository; wraps the existing synchronous free-function API. */
 export class SqliteRepository implements RecordingRepository {
@@ -94,8 +99,9 @@ export class SqliteRepository implements RecordingRepository {
     return sqliteListRunsForPreset(presetId, { dbUrl: this.dbUrl });
   }
 
-  async getRun(runId: string) {
-    return sqliteGetRun(runId, { dbUrl: this.dbUrl });
+  async getRun(runId: string, options: GetRunOptions = {}) {
+    const record = sqliteGetRun(runId, { dbUrl: this.dbUrl });
+    return projectRunRecord(record, options);
   }
 
   async latestRunForSuite(
@@ -163,4 +169,35 @@ export class SqliteRepository implements RecordingRepository {
   async deleteEndpointOverride(endpointPath: string): Promise<boolean> {
     return sqliteDeleteEndpointOverride(endpointPath, { dbUrl: this.dbUrl });
   }
+}
+
+function projectRunRecord(
+  record: RunRecord | undefined,
+  options: GetRunOptions,
+): RunRecord | undefined {
+  if (!record) {
+    return record;
+  }
+  const ordinalFilter = options.ordinal;
+  const trimChildren = options.summary === true;
+  if (ordinalFilter === undefined && !trimChildren) {
+    return record;
+  }
+  const scenarios = (
+    ordinalFilter === undefined
+      ? record.scenarios
+      : record.scenarios.filter((s) => s.ordinal === ordinalFilter)
+  ).map((scenario): ScenarioRecord =>
+    trimChildren
+      ? {
+          ...scenario,
+          turns: [],
+          targetEvents: [],
+          toolCalls: [],
+          checkpoints: [],
+          judgeDimensionScores: [],
+        }
+      : scenario,
+  );
+  return { ...record, scenarios };
 }

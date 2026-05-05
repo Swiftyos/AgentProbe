@@ -18,6 +18,7 @@ import {
 import { createPostgresClient, type SqlTag } from "./postgres-client.ts";
 import { PostgresRunRecorder } from "./postgres-run-recorder.ts";
 import type {
+  GetRunOptions,
   ListRunsOptions,
   PresetWriteInput,
   RecordingRepository,
@@ -256,17 +257,36 @@ function mapScenarioRow(
 async function loadScenarioRecords(
   sql: SqlTag,
   runId: string,
+  options: GetRunOptions = {},
 ): Promise<ScenarioRecord[]> {
-  const scenarioRows = await span(
-    "pg.scenario_runs",
-    () => sql<UnknownRecord>`
-      select * from scenario_runs where run_id = ${runId} order by ordinal asc
-    `,
-  );
+  const ordinalFilter = options.ordinal;
+  const scenarioRows =
+    ordinalFilter === undefined
+      ? await span(
+          "pg.scenario_runs",
+          () => sql<UnknownRecord>`
+            select * from scenario_runs where run_id = ${runId} order by ordinal asc
+          `,
+        )
+      : await span(
+          "pg.scenario_runs",
+          () => sql<UnknownRecord>`
+            select * from scenario_runs
+            where run_id = ${runId} and ordinal = ${ordinalFilter}
+            limit 1
+          `,
+        );
   const ids = scenarioRows.map((row) => Number(row.id));
   if (ids.length === 0) {
     return [];
   }
+
+  if (options.summary) {
+    return scenarioRows.map((row) =>
+      mapScenarioRow(row, [], [], [], [], []),
+    );
+  }
+
   const [turns, events, toolCalls, checkpoints, dimensionScores] =
     await span("pg.scenario_children", () =>
       Promise.all([
@@ -750,7 +770,10 @@ export class PostgresRepository implements RecordingRepository {
     });
   }
 
-  async getRun(runId: string): Promise<RunRecord | undefined> {
+  async getRun(
+    runId: string,
+    options: GetRunOptions = {},
+  ): Promise<RunRecord | undefined> {
     return this.withSql(async (sql) => {
       const rows = await span(
         "pg.runs",
@@ -763,7 +786,7 @@ export class PostgresRepository implements RecordingRepository {
         return undefined;
       }
       const summary = mapRunSummaryRow(row);
-      const scenarios = await loadScenarioRecords(sql, runId);
+      const scenarios = await loadScenarioRecords(sql, runId, options);
       return await span("getRun.assemble", () => ({
         ...summary,
         sourcePaths:

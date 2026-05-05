@@ -164,11 +164,27 @@ export interface RepositoryLifecycle {
   close?(): Promise<void>;
 }
 
+/**
+ * Optional shape narrowing for `getRun`. When `summary` is true the per-scenario
+ * child arrays (turns, target events, tool calls, checkpoints, judge dimension
+ * scores) are returned empty so the caller pays for the run+scenarios head only.
+ * When `ordinal` is set the result is restricted to that single scenario, with
+ * its children fully populated. Defaults remain a full payload for every caller
+ * that does not pass options.
+ */
+export interface GetRunOptions {
+  summary?: boolean;
+  ordinal?: number;
+}
+
 export interface RunHistoryReader extends RepositoryLifecycle {
   listRuns(options?: ListRunsOptions): Promise<RunSummary[]>;
   countRuns(filters?: RunFilters): Promise<number>;
   listRunsForPreset(presetId: string): Promise<RunSummary[]>;
-  getRun(runId: string): Promise<RunRecord | undefined>;
+  getRun(
+    runId: string,
+    options?: GetRunOptions,
+  ): Promise<RunRecord | undefined>;
   latestRunForSuite(
     suiteFingerprint: string,
     options?: { beforeStartedAt?: string },

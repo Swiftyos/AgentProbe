@@ -23,6 +23,11 @@ const MAX_PAGE_SIZE = 200;
  * Run-level snapshot fields (`presetSnapshot`, `endpointSnapshot`,
  * `selectedScenarioIds`, `sourcePaths`) stay on the wire — they're a single
  * object per run and remain part of the public API contract.
+ *
+ * The run-detail HTTP route also passes `{ summary: true }` to the repository
+ * so the per-scenario child arrays (turns, target events, tool calls,
+ * checkpoints, judge dimension scores) are not loaded for the run-overview
+ * page; the per-scenario route loads only the requested ordinal's children.
  */
 function stripScenarioSnapshots(scenario: ScenarioRecord): ScenarioRecord {
   return {
@@ -187,7 +192,7 @@ export async function handleGetRun(
   let run: RunRecord | undefined;
   try {
     run = await span("repo.getRun", () =>
-      context.repository.getRun(params.runId),
+      context.repository.getRun(params.runId, { summary: true }),
     );
   } catch (error) {
     return errorResponse({
@@ -356,7 +361,7 @@ export async function handleGetScenarioRun(
 
   let run: RunRecord | undefined;
   try {
-    run = await context.repository.getRun(params.runId);
+    run = await context.repository.getRun(params.runId, { ordinal });
   } catch (error) {
     return errorResponse({
       status: 500,
