@@ -384,12 +384,11 @@ async function latestRunsForPresets(
     return latestRuns;
   }
 
-  const rows = await sql.unsafe<UnknownRecord>(
-    `select distinct on (preset_id) ${RUN_SUMMARY_COLUMNS} from runs
-       where preset_id = any($1::text[])
-       order by preset_id asc, started_at desc`,
-    [presetIds],
-  );
+  const rows = await sql<UnknownRecord>`
+    select distinct on (preset_id) ${sql.unsafe(RUN_SUMMARY_COLUMNS)} from runs
+    where preset_id in ${sql(presetIds)}
+    order by preset_id asc, started_at desc
+  `;
   for (const row of rows) {
     const presetId = asStringOrNull(row.preset_id);
     if (!presetId) {
