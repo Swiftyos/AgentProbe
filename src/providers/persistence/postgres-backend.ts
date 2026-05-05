@@ -42,6 +42,24 @@ const RUN_SUMMARY_COLUMNS = `
   scenario_harness_failed_count, scenario_errored_count
 `;
 
+/**
+ * Columns required by `mapScenarioRow` minus the wide JSONB blobs that the
+ * HTTP run-detail and per-scenario routes strip from the response anyway
+ * (`tags_json`, `expectations_json`, `scenario_snapshot_json`,
+ * `persona_snapshot_json`, `rubric_snapshot_json`). Used when `getRun` is
+ * called with `summary` or a specific `ordinal`; internal callers (report
+ * rendering, preset rebase, comparison) still get every column.
+ */
+const SCENARIO_RUN_HTTP_COLUMNS = `
+  id, run_id, ordinal, scenario_id, scenario_name, persona_id, rubric_id,
+  user_id, priority, status, passed, failure_kind,
+  overall_score, pass_threshold,
+  judge_provider, judge_model, judge_temperature, judge_max_tokens,
+  overall_notes, judge_output_json,
+  turn_count, assistant_turn_count, tool_call_count, checkpoint_count,
+  error_json, started_at, updated_at, completed_at
+`;
+
 const MAX_LIST_RUNS_LIMIT = 1000;
 
 function buildRunFilterClause(filters: RunFilters): {
@@ -260,18 +278,23 @@ async function loadScenarioRecords(
   options: GetRunOptions = {},
 ): Promise<ScenarioRecord[]> {
   const ordinalFilter = options.ordinal;
+  const isHttpScope = options.summary === true || ordinalFilter !== undefined;
+  const columnList = isHttpScope
+    ? sql.unsafe(SCENARIO_RUN_HTTP_COLUMNS)
+    : sql.unsafe("*");
   const scenarioRows =
     ordinalFilter === undefined
       ? await span(
           "pg.scenario_runs",
           () => sql<UnknownRecord>`
-            select * from scenario_runs where run_id = ${runId} order by ordinal asc
+            select ${columnList} from scenario_runs
+            where run_id = ${runId} order by ordinal asc
           `,
         )
       : await span(
           "pg.scenario_runs",
           () => sql<UnknownRecord>`
-            select * from scenario_runs
+            select ${columnList} from scenario_runs
             where run_id = ${runId} and ordinal = ${ordinalFilter}
             limit 1
           `,
