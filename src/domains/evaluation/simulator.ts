@@ -8,7 +8,7 @@ import type {
 import { AgentProbeRuntimeError } from "../../shared/utils/errors.ts";
 import type { LlmResponsesClient } from "./ports.ts";
 
-const DEFAULT_PERSONA_MODEL = "moonshotai/kimi-k2.5";
+const DEFAULT_PERSONA_MODEL = "moonshotai/kimi-k2.6";
 
 type ConversationHistory =
   | string
