@@ -11,7 +11,7 @@ scenarios:
       - founder-operations-multi-function-ai-assistant
     category: "Founder Ops"
     persona: founder-operator
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -44,7 +44,7 @@ scenarios:
       - founder-operations-multi-function-ai-assistant
     category: "Founder Ops"
     persona: founder-operator
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -74,7 +74,7 @@ scenarios:
       - founder-operations-multi-function-ai-assistant
     category: "Founder Ops"
     persona: founder-operator
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -105,7 +105,7 @@ scenarios:
       - founder-operations-multi-function-ai-assistant
     category: "Founder Ops"
     persona: founder-operator
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         content: |-
@@ -148,7 +148,7 @@ scenarios:
       - founder-operations-multi-function-ai-assistant
     category: "Founder Ops"
     persona: founder-operator
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -179,7 +179,7 @@ scenarios:
       - founder-operations-multi-function-ai-assistant
     category: "Founder Ops"
     persona: founder-operator
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -210,7 +210,7 @@ scenarios:
       - founder-operations-multi-function-ai-assistant
     category: "Founder Ops"
     persona: founder-operator
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -240,7 +240,7 @@ scenarios:
       - founder-operations-multi-function-ai-assistant
     category: "Founder Ops"
     persona: founder-operator
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -269,7 +269,7 @@ scenarios:
       - founder-operations-multi-function-ai-assistant
     category: "Founder Ops"
     persona: founder-operator
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -310,7 +310,7 @@ scenarios:
       - founder-operations-multi-function-ai-assistant
     category: "Founder Ops"
     persona: founder-operator
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -342,7 +342,7 @@ scenarios:
       - founder-operations-multi-function-ai-assistant
     category: "Founder Ops"
     persona: founder-operator
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -372,7 +372,7 @@ scenarios:
       - data-pipeline-document-processing
     category: "Data Pipeline"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -404,7 +404,7 @@ scenarios:
       - data-pipeline-document-processing
     category: "Data Pipeline"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         content: |-
@@ -435,7 +435,7 @@ scenarios:
       - data-pipeline-document-processing
     category: "Data Pipeline"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -465,7 +465,7 @@ scenarios:
       - data-pipeline-document-processing
     category: "Data Pipeline"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -496,7 +496,7 @@ scenarios:
       - data-pipeline-document-processing
     category: "Data Pipeline"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -526,7 +526,7 @@ scenarios:
       - data-pipeline-document-processing
     category: "Data Pipeline"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -562,7 +562,7 @@ scenarios:
       - data-pipeline-document-processing
     category: "Data Pipeline"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -595,7 +595,7 @@ scenarios:
       - data-pipeline-document-processing
     category: "Data Pipeline"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -633,7 +633,7 @@ scenarios:
       - data-pipeline-document-processing
     category: "Data Pipeline"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         content: |-
@@ -660,7 +660,7 @@ scenarios:
       - repetitive-business-process-offloading
     category: "Process Automation"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -695,7 +695,7 @@ scenarios:
       - repetitive-business-process-offloading
     category: "Process Automation"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -726,7 +726,7 @@ scenarios:
       - repetitive-business-process-offloading
     category: "Process Automation"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -756,7 +756,7 @@ scenarios:
       - repetitive-business-process-offloading
     category: "Process Automation"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -787,7 +787,7 @@ scenarios:
       - repetitive-business-process-offloading
     category: "Process Automation"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -816,7 +816,7 @@ scenarios:
       - repetitive-business-process-offloading
     category: "Process Automation"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -850,7 +850,7 @@ scenarios:
       - repetitive-business-process-offloading
     category: "Process Automation"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -880,7 +880,7 @@ scenarios:
       - repetitive-business-process-offloading
     category: "Process Automation"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -919,7 +919,7 @@ scenarios:
       - full-stack-app-software-building
     category: "Software Build"
     persona: developer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -945,7 +945,7 @@ scenarios:
       - full-stack-app-software-building
     category: "Software Build"
     persona: developer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -971,7 +971,7 @@ scenarios:
       - full-stack-app-software-building
     category: "Software Build"
     persona: developer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -997,7 +997,7 @@ scenarios:
       - full-stack-app-software-building
     category: "Software Build"
     persona: developer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1023,7 +1023,7 @@ scenarios:
       - full-stack-app-software-building
     category: "Software Build"
     persona: developer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         content: |-
@@ -1047,7 +1047,7 @@ scenarios:
       - full-stack-app-software-building
     category: "Software Build"
     persona: developer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         content: |-
@@ -1072,7 +1072,7 @@ scenarios:
       - full-stack-app-software-building
     category: "Software Build"
     persona: developer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1099,7 +1099,7 @@ scenarios:
       - full-stack-app-software-building
     category: "Software Build"
     persona: developer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1125,7 +1125,7 @@ scenarios:
       - founder-led-business-operations-automation
     category: "Business Automation"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1167,7 +1167,7 @@ scenarios:
       - founder-led-business-operations-automation
     category: "Business Automation"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1196,7 +1196,7 @@ scenarios:
       - founder-led-business-operations-automation
     category: "Business Automation"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1233,7 +1233,7 @@ scenarios:
       - founder-led-business-operations-automation
     category: "Business Automation"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1269,7 +1269,7 @@ scenarios:
       - founder-led-business-operations-automation
     category: "Business Automation"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1307,7 +1307,7 @@ scenarios:
       - founder-led-business-operations-automation
     category: "Business Automation"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1339,7 +1339,7 @@ scenarios:
       - founder-led-business-operations-automation
     category: "Business Automation"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1374,7 +1374,7 @@ scenarios:
       - founder-led-business-operations-automation
     category: "Business Automation"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1411,7 +1411,7 @@ scenarios:
       - sales-marketing-pipeline-automation
     category: "Sales Pipeline"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1446,7 +1446,7 @@ scenarios:
       - sales-marketing-pipeline-automation
     category: "Sales Pipeline"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1476,7 +1476,7 @@ scenarios:
       - sales-marketing-pipeline-automation
     category: "Sales Pipeline"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1511,7 +1511,7 @@ scenarios:
       - sales-marketing-pipeline-automation
     category: "Sales Pipeline"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1543,7 +1543,7 @@ scenarios:
       - sales-marketing-pipeline-automation
     category: "Sales Pipeline"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1578,7 +1578,7 @@ scenarios:
       - sales-marketing-pipeline-automation
     category: "Sales Pipeline"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1609,7 +1609,7 @@ scenarios:
       - sales-marketing-pipeline-automation
     category: "Sales Pipeline"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1642,7 +1642,7 @@ scenarios:
       - small-business-growth-strategy
     category: "Growth Strategy"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1677,7 +1677,7 @@ scenarios:
       - small-business-growth-strategy
     category: "Growth Strategy"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1716,7 +1716,7 @@ scenarios:
       - small-business-growth-strategy
     category: "Growth Strategy"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1750,7 +1750,7 @@ scenarios:
       - small-business-growth-strategy
     category: "Growth Strategy"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1779,7 +1779,7 @@ scenarios:
       - small-business-growth-strategy
     category: "Growth Strategy"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1814,7 +1814,7 @@ scenarios:
       - small-business-growth-strategy
     category: "Growth Strategy"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1846,7 +1846,7 @@ scenarios:
       - small-business-growth-strategy
     category: "Growth Strategy"
     persona: smb-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1880,7 +1880,7 @@ scenarios:
       - automated-data-analysis-reporting
     category: "Data Analysis"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1911,7 +1911,7 @@ scenarios:
       - automated-data-analysis-reporting
     category: "Data Analysis"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1943,7 +1943,7 @@ scenarios:
       - automated-data-analysis-reporting
     category: "Data Analysis"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -1976,7 +1976,7 @@ scenarios:
       - automated-data-analysis-reporting
     category: "Data Analysis"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2008,7 +2008,7 @@ scenarios:
       - automated-data-analysis-reporting
     category: "Data Analysis"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2040,7 +2040,7 @@ scenarios:
       - automated-data-analysis-reporting
     category: "Data Analysis"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2072,7 +2072,7 @@ scenarios:
       - automated-data-analysis-reporting
     category: "Data Analysis"
     persona: data-analyst
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2105,7 +2105,7 @@ scenarios:
       - marketing-outreach-lead-generation-pipeline
     category: "Lead Generation"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2140,7 +2140,7 @@ scenarios:
       - marketing-outreach-lead-generation-pipeline
     category: "Lead Generation"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2172,7 +2172,7 @@ scenarios:
       - marketing-outreach-lead-generation-pipeline
     category: "Lead Generation"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2214,7 +2214,7 @@ scenarios:
       - marketing-outreach-lead-generation-pipeline
     category: "Lead Generation"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2245,7 +2245,7 @@ scenarios:
       - marketing-outreach-lead-generation-pipeline
     category: "Lead Generation"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2276,7 +2276,7 @@ scenarios:
       - marketing-outreach-lead-generation-pipeline
     category: "Lead Generation"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2309,7 +2309,7 @@ scenarios:
       - marketing-outreach-lead-generation-pipeline
     category: "Lead Generation"
     persona: data-driven-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2342,7 +2342,7 @@ scenarios:
       - founder-personal-productivity-research
     category: "Personal Productivity"
     persona: power-user-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2373,7 +2373,7 @@ scenarios:
       - founder-personal-productivity-research
     category: "Personal Productivity"
     persona: power-user-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2403,7 +2403,7 @@ scenarios:
       - founder-personal-productivity-research
     category: "Personal Productivity"
     persona: power-user-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2436,7 +2436,7 @@ scenarios:
       - founder-personal-productivity-research
     category: "Personal Productivity"
     persona: power-user-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2481,7 +2481,7 @@ scenarios:
       - founder-personal-productivity-research
     category: "Personal Productivity"
     persona: power-user-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2513,7 +2513,7 @@ scenarios:
       - founder-personal-productivity-research
     category: "Personal Productivity"
     persona: power-user-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2544,7 +2544,7 @@ scenarios:
       - founder-personal-productivity-research
     category: "Personal Productivity"
     persona: power-user-founder
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2591,7 +2591,7 @@ scenarios:
       - custom-ai-agent-builder-for-business
     category: "Agent Builder"
     persona: agent-architect
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2624,7 +2624,7 @@ scenarios:
       - custom-ai-agent-builder-for-business
     category: "Agent Builder"
     persona: agent-architect
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2655,7 +2655,7 @@ scenarios:
       - custom-ai-agent-builder-for-business
     category: "Agent Builder"
     persona: agent-architect
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2689,7 +2689,7 @@ scenarios:
       - custom-ai-agent-builder-for-business
     category: "Agent Builder"
     persona: agent-architect
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2724,7 +2724,7 @@ scenarios:
       - custom-ai-agent-builder-for-business
     category: "Agent Builder"
     persona: agent-architect
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2756,7 +2756,7 @@ scenarios:
       - custom-ai-agent-builder-for-business
     category: "Agent Builder"
     persona: agent-architect
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2814,7 +2814,7 @@ scenarios:
       - founder-personal-productivity-agent
     category: "Personal Productivity"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2849,7 +2849,7 @@ scenarios:
       - founder-personal-productivity-agent
     category: "Personal Productivity"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2881,7 +2881,7 @@ scenarios:
       - founder-personal-productivity-agent
     category: "Personal Productivity"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2919,7 +2919,7 @@ scenarios:
       - founder-personal-productivity-agent
     category: "Personal Productivity"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2952,7 +2952,7 @@ scenarios:
       - founder-personal-productivity-agent
     category: "Personal Productivity"
     persona: busy-professional
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -2987,7 +2987,7 @@ scenarios:
       - ai-agent-building-deployment
     category: "Agent Deployment"
     persona: agent-deployer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -3019,7 +3019,7 @@ scenarios:
       - ai-agent-building-deployment
     category: "Agent Deployment"
     persona: agent-deployer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         content: |-
@@ -3047,7 +3047,7 @@ scenarios:
       - ai-agent-building-deployment
     category: "Agent Deployment"
     persona: agent-deployer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -3079,7 +3079,7 @@ scenarios:
       - ai-agent-building-deployment
     category: "Agent Deployment"
     persona: agent-deployer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -3111,7 +3111,7 @@ scenarios:
       - ai-agent-building-deployment
     category: "Agent Deployment"
     persona: agent-deployer
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -3141,7 +3141,7 @@ scenarios:
       - academic-scientific-research-assistant
     category: "Research"
     persona: academic-researcher
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         content: |-
@@ -3174,7 +3174,7 @@ scenarios:
       - academic-scientific-research-assistant
     category: "Research"
     persona: academic-researcher
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         content: |-
@@ -3202,7 +3202,7 @@ scenarios:
       - academic-scientific-research-assistant
     category: "Research"
     persona: academic-researcher
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -3233,7 +3233,7 @@ scenarios:
       - academic-scientific-research-assistant
     category: "Research"
     persona: academic-researcher
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:
@@ -3267,7 +3267,7 @@ scenarios:
       - academic-scientific-research-assistant
     category: "Research"
     persona: academic-researcher
-    rubric: operations-automation
+    rubric: product
     turns:
       - role: user
         attachments:

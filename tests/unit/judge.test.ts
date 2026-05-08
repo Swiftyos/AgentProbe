@@ -294,15 +294,20 @@ describe("judge", () => {
 
   test("parses alias-based rubrics from the repo data file", () => {
     const parsed = parseRubricsYaml(join(DATA_DIR, "rubric.yaml"));
-    const inherited = parsed.rubrics.find(
-      (rubric) => rubric.id === "sales-automation",
-    );
+    const product = parsed.rubrics.find((rubric) => rubric.id === "product");
     const rubricIds = new Set(parsed.rubrics.map((rubric) => rubric.id));
 
-    expect(parsed.rubrics).toHaveLength(21);
-    expect(inherited?.metaPrompt).toContain("task-oriented scenario");
-    expect(inherited?.dimensions).toHaveLength(5);
-    expect(inherited?.judge?.model).toBe("anthropic/claude-opus-4.6");
+    expect(parsed.rubrics).toHaveLength(8);
+    expect(product?.metaPrompt).toContain("product-intelligence");
+    expect(product?.dimensions.map((dimension) => dimension.id)).toEqual([
+      "quality",
+      "friction",
+      "sentiment",
+      "goal_completion",
+      "tool_use",
+      "groundedness",
+    ]);
+    expect(product?.judge?.model).toBe("anthropic/claude-opus-4.6");
     for (const rubricId of [
       "memory-temporal",
       "memory-abstention",
