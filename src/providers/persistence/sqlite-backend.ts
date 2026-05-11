@@ -1,3 +1,7 @@
+import type {
+  RunRecord,
+  ScenarioRecord,
+} from "../../shared/types/contracts.ts";
 import {
   initDb,
   SqliteRunRecorder,
@@ -32,10 +36,6 @@ import type {
   StoredEndpointOverride,
   StoredSecretEnvelope,
 } from "./types.ts";
-import type {
-  RunRecord,
-  ScenarioRecord,
-} from "../../shared/types/contracts.ts";
 
 /** SQLite-backed repository; wraps the existing synchronous free-function API. */
 export class SqliteRepository implements RecordingRepository {
@@ -187,17 +187,18 @@ function projectRunRecord(
     ordinalFilter === undefined
       ? record.scenarios
       : record.scenarios.filter((s) => s.ordinal === ordinalFilter)
-  ).map((scenario): ScenarioRecord =>
-    trimChildren
-      ? {
-          ...scenario,
-          turns: [],
-          targetEvents: [],
-          toolCalls: [],
-          checkpoints: [],
-          judgeDimensionScores: [],
-        }
-      : scenario,
+  ).map(
+    (scenario): ScenarioRecord =>
+      trimChildren
+        ? {
+            ...scenario,
+            turns: [],
+            targetEvents: [],
+            toolCalls: [],
+            checkpoints: [],
+            judgeDimensionScores: [],
+          }
+        : scenario,
   );
   return { ...record, scenarios };
 }

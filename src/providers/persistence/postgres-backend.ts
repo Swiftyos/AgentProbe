@@ -305,13 +305,12 @@ async function loadScenarioRecords(
   }
 
   if (options.summary) {
-    return scenarioRows.map((row) =>
-      mapScenarioRow(row, [], [], [], [], []),
-    );
+    return scenarioRows.map((row) => mapScenarioRow(row, [], [], [], [], []));
   }
 
-  const [turns, events, toolCalls, checkpoints, dimensionScores] =
-    await span("pg.scenario_children", () =>
+  const [turns, events, toolCalls, checkpoints, dimensionScores] = await span(
+    "pg.scenario_children",
+    () =>
       Promise.all([
         span(
           "pg.turns",
@@ -349,7 +348,7 @@ async function loadScenarioRecords(
           `,
         ),
       ]),
-    );
+  );
 
   const groupBy = <T extends UnknownRecord>(
     rows: T[],

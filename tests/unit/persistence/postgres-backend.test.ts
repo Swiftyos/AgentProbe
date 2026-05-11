@@ -98,16 +98,20 @@ function makeCountingSql(presetCount: number): {
     throw new Error(`Unexpected query: ${text}; values=${values.length}`);
   }) as SqlTag;
   sql.begin = async (fn) => fn(sql);
-  sql.unsafe = (async (text: string) => {
+  sql.unsafe = ((text: string) => {
+    if (!/\bfrom\b/i.test(text)) {
+      return text;
+    }
+
     queries.push(text.replace(/\s+/g, " ").trim());
     if (text.includes("from preset_scenarios")) {
-      return selections;
+      return Promise.resolve(selections);
     }
     if (text.includes("from runs")) {
-      return runs;
+      return Promise.resolve(runs);
     }
     if (text.includes("from presets")) {
-      return presetRows;
+      return Promise.resolve(presetRows);
     }
     throw new Error(`Unexpected query: ${text}`);
   }) as SqlTag["unsafe"];
