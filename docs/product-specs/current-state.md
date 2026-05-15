@@ -55,7 +55,9 @@ Last validated against `platform.md`: 2026-05-15
   Responses path.
 - Persona simulator requests default to `deepseek/deepseek-v4-flash` unless a
   persona-level `model` or `AGENTPROBE_PERSONA_MODEL` override is present, and
-  they use medium reasoning effort while excluding reasoning from responses.
+  they use medium reasoning effort while excluding reasoning from responses,
+  low-temperature decoding, bounded output, and a retry guard for degenerate
+  token-soup messages.
 - The OpenClaw CLI surface is implemented behind websocket endpoint presets and
   can create sessions, send chat turns, and read session history.
 - `bun run fast-feedback` now refreshes generated docs and quality score before

@@ -93,6 +93,8 @@ describe("simulator", () => {
       effort: "medium",
       exclude: true,
     });
+    expect(client.calls[0]?.temperature).toBe(0.2);
+    expect(client.calls[0]?.maxOutputTokens).toBe(512);
     expect(client.calls[0]?.instructions).toContain("Frustrated Customer");
     expect(client.calls[0]?.input).toContain("Ask about refund timing.");
     expect(client.calls[0]?.input).toContain("Conversation so far:");
@@ -282,6 +284,35 @@ describe("simulator", () => {
         { requireResponse: true },
       ),
     ).rejects.toThrow(/non-empty `message`/);
+  });
+
+  test("retries degenerate persona token soup before using a message", async () => {
+    const client = new FakeResponsesClient([
+      buildPersonaStep(
+        "continue",
+        "alpha beta gamma 中文测试更多 العربيةلغة кириллица текст ไทยภาษา עבריתטקסט fragments, justify, guarantees, olympics, menu, subtree, redirect, emitted, random, malformed, token, soup, output, noise, invalid, string, fragments, scattered, nonsense, unstable, decode, payload, clutter, broken, impossible",
+      ),
+      buildPersonaStep(
+        "continue",
+        "Can you check whether Sarah is in the CRM?",
+      ),
+    ]);
+
+    await expect(
+      generatePersonaStep(
+        buildPersona(),
+        [{ role: "assistant", content: "Who should I look up?" }],
+        asResponsesClient(client) as never,
+        { requireResponse: true },
+      ),
+    ).resolves.toEqual({
+      status: "continue",
+      message: "Can you check whether Sarah is in the CRM?",
+    });
+    expect(client.calls).toHaveLength(2);
+    expect(client.calls[1]?.input).toContain(
+      "corrupted or degenerate token soup",
+    );
   });
 
   test("generateNextStep returns a plain message", async () => {
