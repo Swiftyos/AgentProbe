@@ -43,6 +43,11 @@ import {
 } from "./routes/endpoint-overrides.ts";
 import { handleHealthz, handleReadyz, handleSession } from "./routes/health.ts";
 import {
+  handleGetNextHumanScoringItem,
+  handleListHumanScoringRubrics,
+  handlePostHumanScore,
+} from "./routes/human-scoring.ts";
+import {
   handleCreatePreset,
   handleCreatePresetFromRun,
   handleDeletePreset,
@@ -310,6 +315,16 @@ function createServerApp(
 
   app.get("/api/comparisons", (c) =>
     handleCompareRuns(c.req.raw, serverContext(c)),
+  );
+
+  app.get("/api/human-scoring/rubrics", (c) =>
+    handleListHumanScoringRubrics(c.req.raw, serverContext(c)),
+  );
+  app.get("/api/human-scoring/next", (c) =>
+    handleGetNextHumanScoringItem(c.req.raw, serverContext(c)),
+  );
+  app.post("/api/human-scoring/scores", (c) =>
+    handlePostHumanScore(c.req.raw, serverContext(c)),
   );
 
   app.get("/api/presets", (c) =>

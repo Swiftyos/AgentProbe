@@ -166,6 +166,9 @@ function normalizedDimensionScore(
 ): number {
   const dimension = rubric.dimensions.find((item) => item.id === dimensionId);
   const scalePoints = dimension?.scale.points ?? 1;
+  if (dimension?.scoreDirection === "lower_is_better") {
+    return (scalePoints + 1 - rawScore) / scalePoints;
+  }
   return rawScore / scalePoints;
 }
 

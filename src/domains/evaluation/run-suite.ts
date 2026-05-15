@@ -408,7 +408,11 @@ function overallScore(rubric: Rubric, score: RubricScore): number {
   const dimensionScores = new Map<string, number>();
   for (const dimension of rubric.dimensions) {
     const rawScore = score.dimensions[dimension.id]?.score ?? 0;
-    const normalized = rawScore / (dimension.scale.points ?? 1);
+    const scalePoints = dimension.scale.points ?? 1;
+    const normalized =
+      dimension.scoreDirection === "lower_is_better"
+        ? (scalePoints + 1 - rawScore) / scalePoints
+        : rawScore / scalePoints;
     weightedTotal += normalized * dimension.weight;
     dimensionScores.set(dimension.id, rawScore);
   }
