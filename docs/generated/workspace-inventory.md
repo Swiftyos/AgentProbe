@@ -1,6 +1,6 @@
 # Workspace Inventory
 
-Generated: 2026-05-15T07:43:59.795Z
+Generated: 2026-05-15T12:20:13.570Z
 
 ```text
   AGENTS.md
@@ -446,6 +446,7 @@ src/shared/utils/
   src/shared/utils/json.ts
   src/shared/utils/logging.ts
   src/shared/utils/safe-static-path.ts
+  src/shared/utils/scoring.ts
   src/shared/utils/secret-cipher.ts
   src/shared/utils/template.ts
 tests/

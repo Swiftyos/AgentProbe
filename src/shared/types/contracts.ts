@@ -633,6 +633,12 @@ export type OpenAiResponsesRequest = {
   model: string;
   instructions: string;
   input: string | OpenAiResponsesInputMessage[];
+  reasoning?: {
+    effort?: "xhigh" | "high" | "medium" | "low" | "minimal" | "none";
+    maxTokens?: number;
+    exclude?: boolean;
+    enabled?: boolean;
+  };
   text: {
     format: {
       type: "json_schema";

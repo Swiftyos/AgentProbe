@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import {
   generateNextStep,
   generatePersonaStep,
+  resolvePersonaModel,
 } from "../../src/domains/evaluation/simulator.ts";
 import { AgentProbeRuntimeError } from "../../src/shared/utils/errors.ts";
 import {
@@ -21,6 +22,14 @@ describe("simulator", () => {
     } else {
       process.env.AGENTPROBE_PERSONA_MODEL = originalModel;
     }
+  });
+
+  test("uses DeepSeek Flash as the default persona model", () => {
+    delete process.env.AGENTPROBE_PERSONA_MODEL;
+
+    expect(resolvePersonaModel(buildPersona())).toBe(
+      "deepseek/deepseek-v4-flash",
+    );
   });
 
   test("uses env default model and guidance for required turns", async () => {
@@ -80,6 +89,10 @@ describe("simulator", () => {
     });
     expect(client.calls).toHaveLength(1);
     expect(client.calls[0]?.model).toBe("env-persona-model");
+    expect(client.calls[0]?.reasoning).toEqual({
+      effort: "medium",
+      exclude: true,
+    });
     expect(client.calls[0]?.instructions).toContain("Frustrated Customer");
     expect(client.calls[0]?.input).toContain("Ask about refund timing.");
     expect(client.calls[0]?.input).toContain("Conversation so far:");

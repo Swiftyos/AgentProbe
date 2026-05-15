@@ -8,7 +8,7 @@ import type {
 import { AgentProbeRuntimeError } from "../../shared/utils/errors.ts";
 import type { LlmResponsesClient } from "./ports.ts";
 
-const DEFAULT_PERSONA_MODEL = "moonshotai/kimi-k2.6";
+const DEFAULT_PERSONA_MODEL = "deepseek/deepseek-v4-flash";
 
 type ConversationHistory =
   | string
@@ -582,6 +582,10 @@ export async function generatePersonaStep(
     model: resolvePersonaModel(persona),
     instructions: simulatorInstructions(persona, requireResponse),
     input: baseInput,
+    reasoning: {
+      effort: "medium",
+      exclude: true,
+    },
     text: {
       format: {
         type: "json_schema",
