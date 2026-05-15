@@ -318,6 +318,34 @@ describe("runner", () => {
     expect(result.passed).toBe(true);
   });
 
+  test("runScenario dry run uses the best raw score for lower-is-better dimensions", async () => {
+    const result = await runScenario(
+      new FakeAdapter([]),
+      buildScenario(),
+      buildPersona(),
+      buildRubric({
+        passThreshold: 0.9,
+        dimensions: [
+          {
+            ...buildRubric().dimensions[0],
+            id: "friction",
+            name: "Friction",
+            scoreDirection: "lower_is_better",
+          },
+        ],
+      }),
+      {
+        defaults: { maxTurns: 1 },
+        client: asResponsesClient(new FakeResponsesClient([])) as never,
+        dryRun: true,
+      },
+    );
+
+    expect(result.judgeScore?.dimensions.friction?.score).toBe(1);
+    expect(result.overallScore).toBeCloseTo(1);
+    expect(result.passed).toBe(true);
+  });
+
   test("runScenario handles multi-session resets", async () => {
     const adapter = new FakeAdapter(
       [

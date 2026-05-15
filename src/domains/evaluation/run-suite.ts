@@ -30,6 +30,10 @@ import {
   AgentProbeRuntimeError,
 } from "../../shared/utils/errors.ts";
 import { logDebug, logInfo, logWarn } from "../../shared/utils/logging.ts";
+import {
+  bestRawScoreForDimension,
+  normalizeDimensionScore,
+} from "../../shared/utils/scoring.ts";
 import { renderTemplate } from "../../shared/utils/template.ts";
 import {
   parseEndpointsYaml,
@@ -408,12 +412,8 @@ function overallScore(rubric: Rubric, score: RubricScore): number {
   const dimensionScores = new Map<string, number>();
   for (const dimension of rubric.dimensions) {
     const rawScore = score.dimensions[dimension.id]?.score ?? 0;
-    const scalePoints = dimension.scale.points ?? 1;
-    const normalized =
-      dimension.scoreDirection === "lower_is_better"
-        ? (scalePoints + 1 - rawScore) / scalePoints
-        : rawScore / scalePoints;
-    weightedTotal += normalized * dimension.weight;
+    weightedTotal +=
+      normalizeDimensionScore(dimension, rawScore) * dimension.weight;
     dimensionScores.set(dimension.id, rawScore);
   }
   const computedScore = weightedTotal / totalWeight;
@@ -511,7 +511,7 @@ async function runScenarioDryRun(
       reasoning:
         "Dry run: scenario was not executed; static placeholder score.",
       evidence: [],
-      score: dimension.scale.points ?? 1,
+      score: bestRawScoreForDimension(dimension),
     };
   }
   const judgeScore: RubricScore = {
